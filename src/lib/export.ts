@@ -6,40 +6,33 @@ import * as api from './api';
 import type { Keys } from './crypto';
 import { zip } from './zip';
 
-/** Sealed text an export takes at most; a full root could be 2.5 GiB. */
-export const MAX_EXPORT = 64 * 1024 * 1024;
 /** Pads fetched at once: enough to hide the round trips, few enough for the server. */
 const PARALLEL = 4;
 
-const MiB = (n: number) => `${Math.ceil(n / 1024 / 1024)} MiB`;
 const utf8 = new TextEncoder();
 
 export type Pad = { path: string; text: string };
 
-/** The pad and every pad under it, by path; refused past MAX_EXPORT before fetching any. */
+/**
+ * The pad and every pad under it, by path. No cap of its own: a root holds
+ * at most 16 MiB (ROOT_BYTES), which a browser zips in memory.
+ */
 export async function collect(
   root: string,
   keys: Keys,
   path: string,
   progress: (done: number, total: number) => void
 ) {
-  const pads = (await api.sizes(root, keys)).filter(
-    (p) => p.path === path || p.path.startsWith(path + '/')
-  );
-  const total = pads.reduce((n, p) => n + p.size, 0);
-  if (total > MAX_EXPORT)
-    throw new Error(
-      `/${path} and its pads come to ${MiB(total)}, over the ${MiB(MAX_EXPORT)} an export takes`
-    );
+  const paths = (await api.list(root, keys)).filter((p) => p === path || p.startsWith(path + '/'));
 
   const out: Pad[] = [];
   let next = 0;
-  progress(0, pads.length);
+  progress(0, paths.length);
   async function worker() {
-    while (next < pads.length) {
-      const pad = pads[next++];
-      out.push({ path: pad.path, text: await api.load(root, keys, pad.path) });
-      progress(out.length, pads.length);
+    while (next < paths.length) {
+      const p = paths[next++];
+      out.push({ path: p, text: await api.load(root, keys, p) });
+      progress(out.length, paths.length);
     }
   }
   await Promise.all(Array.from({ length: PARALLEL }, worker));

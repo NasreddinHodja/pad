@@ -42,9 +42,8 @@ const putStmt = db.query(
   `INSERT INTO sealed (root, id, name, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
    ON CONFLICT(root, id) DO UPDATE SET name = ?3, data = ?4, updated_at = ?5, deleted_at = NULL`
 );
-// `size`, the sealed text's, for an export to know what it's in for.
-const listStmt = db.query<{ id: string; name: string; size: number }, [string]>(
-  `SELECT id, name, length(data) AS size FROM sealed WHERE root = ? AND deleted_at IS NULL ORDER BY id LIMIT ${ROOT_PADS}`
+const listStmt = db.query<{ id: string; name: string }, [string]>(
+  `SELECT id, name FROM sealed WHERE root = ? AND deleted_at IS NULL ORDER BY id LIMIT ${ROOT_PADS}`
 );
 // What counts toward a root's quota, kept by triggers (schema.ts, step 3).
 const usageStmt = db.query<{ bytes: number; pads: number }, [string]>(

@@ -106,16 +106,6 @@ export async function list(root: string, keys: Keys) {
   return Promise.all(pads.map((p) => openName(keys, p.id, p.name)));
 }
 
-/** Every pad path in the root, with the size of its sealed text. */
-export async function sizes(root: string, keys: Keys) {
-  const { pads } = (await (await call(`${base(root)}/pads`)).json()) as {
-    pads: { id: string; name: string; size: number }[];
-  };
-  return Promise.all(
-    pads.map(async (p) => ({ path: await openName(keys, p.id, p.name), size: p.size }))
-  );
-}
-
 export async function load(root: string, keys: Keys, path: string) {
   const id = await padId(keys, path);
   const res = await call(`${base(root)}/pads/${id}`);
