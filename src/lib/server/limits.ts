@@ -106,9 +106,18 @@ export const OPEN: Bucket = { burst: 16 * MiB, perSecond: 1 * MiB, floor: 16 * K
  */
 export const GROWTH: Bucket = { burst: 64 * MiB, perSecond: GiB / (DAY / 1000), floor: 0 };
 
+/**
+ * Every request an address sends, counted not weighed. A tab polls 0.2 a
+ * second and saves at most 1.7, so 200 is a thousand people's; the VPS takes
+ * about 1,900 a second, so one address can't take it alone. 5000 at once
+ * lets an export read a full root.
+ */
+export const REQUESTS: Bucket = { burst: 5000, perSecond: 200, floor: 1 };
+
 const writes = meter(WRITES);
 const open = meter(OPEN);
 const growth = meter(GROWTH);
+const requests = meter(REQUESTS);
 
 /** 429 with a Retry-After, if `wait` ms is owed. */
 function refuse(event: RequestEvent, wait: number, message: string) {
@@ -117,6 +126,11 @@ function refuse(event: RequestEvent, wait: number, message: string) {
   const seconds = Math.ceil(wait / 1000);
   event.setHeaders({ 'retry-after': String(seconds) });
   error(429, `${message}, wait ${seconds}s`);
+}
+
+/** Seconds the request's address must wait before another request, or 0. */
+export function requestWait(address: string) {
+  return Math.ceil(requests.take(limitKey(address), 1) / 1000);
 }
 
 /** Meters a write to `root`. */

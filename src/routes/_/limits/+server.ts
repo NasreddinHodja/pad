@@ -21,5 +21,6 @@ export const GET: RequestHandler = () =>
     writes: limits.WRITES,
     open: limits.OPEN,
     growth: limits.GROWTH,
+    requests: limits.REQUESTS,
     backoff: { free: limits.BACKOFF_FREE, maxWait: limits.BACKOFF_MAX }
   });

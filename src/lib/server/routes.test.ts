@@ -2,12 +2,21 @@
 import { isHttpError, type Cookies, type RequestEvent } from '@sveltejs/kit';
 import { afterEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { randomBytes } from 'node:crypto';
+import { handle } from '../../hooks.server.ts';
 import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as usage from '../../routes/_/[root]/usage/+server.ts';
 import { db, setCeiling } from './db.ts';
-import { MAX_SEALED, ROOT_BYTES, ROOT_PADS, SERVER_BYTES, SERVER_SLACK, WRITES } from './limits.ts';
+import {
+  REQUESTS,
+  MAX_SEALED,
+  ROOT_BYTES,
+  ROOT_PADS,
+  SERVER_BYTES,
+  SERVER_SLACK,
+  WRITES
+} from './limits.ts';
 
 const b64 = (n: number) => randomBytes(n).toString('base64url');
 
@@ -120,6 +129,22 @@ describe('requests', () => {
 });
 
 describe('meters', () => {
+  test('every request counts toward its address, and a refusal says when to come back', async () => {
+    const ok = new Response('');
+    const send = async (address: string) =>
+      await handle({
+        event: { getClientAddress: () => address } as RequestEvent,
+        resolve: async () => ok
+      });
+    for (let i = 0; i < REQUESTS.burst; i++) expect(await send('198.51.100.200')).toBe(ok);
+    const refused = await send('198.51.100.200');
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get('retry-after')).toBe('1');
+    expect(await send('198.51.100.201')).toBe(ok);
+    later(1000);
+    expect(await send('198.51.100.200')).toBe(ok);
+  });
+
   test('a root writing past its burst is 429, with Retry-After', async () => {
     const cookies = await claimed('fast');
     const id = b64(32);
