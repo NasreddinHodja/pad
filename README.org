@@ -11,23 +11,11 @@ A notepad at every URL, like dontpad: open =pad.nassu.online/anything= and type,
 
 * Security
 
-Pads are encrypted in the browser with keys from their root's password: the server never sees a password, a pad's text or a subpad's name. How: [[file:docs/architecture/encryption.org][Encryption and access]]. Lose a root's password and its pads are gone.
+Pads are encrypted in the browser with keys from their root's password: the server never sees a password, a pad's text or a subpad's name. How: [[file:docs/architecture/encryption.org][Encryption and access]]. Lose a root's password and its pads are gone. What the server protects, its known limits and how to report a vulnerability: [[file:SECURITY.md][Security]].
 
 * Develop
 
-SvelteKit, Svelte 5, Tailwind 4 and SQLite (=bun:sqlite=), on Bun.
-
-#+begin_src sh
-bun install
-bun run dev      # http://localhost:5173, database in data/pad.db
-bun test
-bun run check    # types
-bun run lint
-#+end_src
-
-=static/og.png=, the link preview, is drawn by =python3 scripts/og.py= (Pillow).
-
-The browser's crypto only runs on =localhost= or HTTPS: from a phone on the LAN, =adb reverse tcp:5173 tcp:5173= and open =localhost:5173= on it.
+SvelteKit, Svelte 5, Tailwind 4 and SQLite (=bun:sqlite=), on Bun. Setup, scripts and what to run before a pull request: [[file:CONTRIBUTING.org][Contributing]].
 
 * Deploy
 
@@ -43,4 +31,4 @@ A pad holds 512 KiB, a path 255 characters over at most 10 segments of 64, a roo
 
 * Credits
 
-The font is WebPlus IBM VGA 9x16 from VileR's [[https://int10h.org/oldschool-pc-fonts/][Ultimate Oldschool PC Font Pack]], CC BY-SA 4.0. The background is Anthony Thyssen's =marble.xbm=.
+The font is WebPlus IBM VGA 9x16 from VileR's [[https://int10h.org/oldschool-pc-fonts/][Ultimate Oldschool PC Font Pack]], CC BY-SA 4.0.

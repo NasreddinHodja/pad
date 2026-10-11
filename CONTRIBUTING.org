@@ -1,0 +1,57 @@
+#+TITLE: Contributing
+#+OPTIONS: ^:{}
+
+* Prerequisites
+
++ [[https://bun.sh/][Bun]], the version in =package.json='s =packageManager=
++ Info-ZIP's =unzip=, for =src/lib/zip.test.ts=, which reads the zips it makes back with it
++ Python 3 and [[https://python-pillow.org/][Pillow]], only to redraw =static/og.png= (=scripts/og.py=)
+
+* Setup
+
+#+begin_src sh
+git clone https://github.com/NasreddinHodja/pad.nassu.online.git
+cd pad.nassu.online
+bun install
+bun run dev      # http://localhost:5173, database in data/pad.db
+#+end_src
+
+=PAD_DB= names the database file; it's =data/pad.db= when unset.
+
+The browser's crypto only runs on =localhost= or HTTPS: from a phone on the LAN, =adb reverse tcp:5173 tcp:5173= and open =localhost:5173= on it.
+
+* Scripts
+
+| Command                 | Description                                   |
+|-------------------------+-----------------------------------------------|
+| =bun run dev=           | Dev server                                    |
+| =bun run build=         | Production build (adapter-bun), into =build/= |
+| =bun run check=         | Svelte and TypeScript type checking           |
+| =bun run check:watch=   | The same, on every change                     |
+| =bun run lint=          | Prettier and ESLint check                     |
+| =bun run format=        | Auto-format with Prettier                     |
+| =bun test=              | Tests, with =bun:test=                        |
+| =python3 scripts/og.py= | Redraw =static/og.png=, the link preview      |
+
+Building loads the server code, which opens a database: give it a throwaway one, as CI and =deploy.sh= do (=PAD_DB=$(mktemp -d)/pad.db bun run build=). The build runs with =bun build/index.js=; =deploy/pad.service= shows the environment it takes behind a proxy.
+
+=scripts/bench/= measures what a server carries; each script's header says how to run it, and the results are in [[file:docs/architecture/capacity.org][Capacity and limits]].
+
+* Before a pull request
+
+#+begin_src sh
+bun run format
+bun run lint
+bun run check
+bun test
+#+end_src
+
+CI ([[file:.github/workflows/ci.yml][ci.yml]]) runs lint, type checking, the tests and a build on every push to =main= and every PR against it.
+
+A change to the database's tables is a new step at the end of =MIGRATIONS= in =src/lib/server/schema.ts=; a released step is never edited.
+
+Commit messages follow [[https://www.conventionalcommits.org][Conventional Commits]].
+
+* Tests
+
+=bun test= runs every =*.test.ts= under =src/=. =src/test-setup.ts= (preloaded by =bunfig.toml=) gives them an in-memory database and stands in for =$app/env=, since they run outside SvelteKit.

@@ -30,3 +30,7 @@ deploy.env
 
 # audit
 AUDIT.org
+
+# claude
+.claude/
+CLAUDE.md
