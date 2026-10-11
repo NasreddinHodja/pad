@@ -90,7 +90,8 @@
       if (content !== saved) schedule();
     } catch (e) {
       status = '► ' + message(e, 'save failed') + ', retrying';
-      schedule(RETRY);
+      // When the server says, or every RETRY.
+      schedule((e instanceof api.Refused && e.retryAfter) || RETRY);
     } finally {
       saving = false;
     }

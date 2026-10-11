@@ -37,11 +37,26 @@ export type Shared = { path: string; pads: Pad[]; theme: Theme };
 
 const base = (root: string) => '/_/' + encodeURIComponent(root);
 
+/** A refused request: the server's message, and how long it asked us to wait, if it did. */
+export class Refused extends Error {
+  constructor(
+    message: string,
+    /** Milliseconds, from Retry-After. */
+    readonly retryAfter?: number
+  ) {
+    super(message);
+  }
+}
+
 async function call(url: string, init: RequestInit = {}) {
   const res = await fetch(url, init);
   if (!res.ok) {
     const message = (await res.json().catch(() => null))?.message;
-    throw new Error(message ?? `request failed (${res.status})`);
+    const wait = Number(res.headers.get('retry-after'));
+    throw new Refused(
+      message ?? `request failed (${res.status})`,
+      wait > 0 ? wait * 1000 : undefined
+    );
   }
   return res;
 }
