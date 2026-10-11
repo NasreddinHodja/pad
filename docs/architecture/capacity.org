@@ -57,6 +57,7 @@ Disk is capped by quotas, not rates: a rate only slows growth (60 saves of 512 K
 | New bytes per address     | 1 GiB a day, at most 64 MiB at once             | One address needs 5 days to fill 5 GiB; 100 people behind one NAT writing 1 MiB each use a tenth of a day's. With all of it at once, one address wrote 1 GiB in 20 s (below): 64 MiB, four full roots, makes filling the server take 80 fresh addresses at once. Overwrites count only what they add. |
 | Writes per root           | each costs its bytes, at least 16 KiB; 16 MiB at once, 1 MiB a second after | Counts what the writer spends. 16 MiB at once lets 1000 small pads in at once. The 16 KiB floor caps a root at 64 requests a second: about 3% of the VPS's 1,900 a second, so about 30 roots writing flat out fill it. Claims are free, so one address can do that; see Out of scope. |
 | Anyone, per address       | the same, for claim, unlock, lock and reading links | A link costs its size.                                                                          |
+| Every request, per address | 200 a second, 5000 at once                    | A tab polls 0.2 a second and saves at most 1.7, so 200 is about a thousand people's; the VPS takes about 1,900, so one address can't take it alone. 5000 at once lets an export read a full root. Checked first, so a refusal costs little. |
 | Wrong passwords           | 4 free, then 1 s doubling to 15 min, per device or address | About 100 guesses a day per address after the first 17 minutes. Nothing per root, which would let anyone lock its owner out. |
 | Meters' memory            | 20,000 keys each, least recently used forgotten | About 8 MB a meter at 400 bytes a key.                                                                  |
 
@@ -75,11 +76,21 @@ Not limited by the app: page loads, the unlocked =GET=s (the editor polls them, 
 | One address filling the disk, 20 s                             | 26 MiB, and 30 MiB a minute after: 43 GiB a day | 64 MiB, then 1 GiB a day         |
 | A guesser at a 16 s wait, then 15,000 wrong guesses from other addresses in 2 s | the flood cleared every count: the guesser's next try was let through (=401=) | still waiting (=429=) |
 
+On the VPS, the build before the per-address request meter and the one after, the same day:
+
+| Scenario                                                            | Before                                | After                                  |
+|---------------------------------------------------------------------+---------------------------------------+----------------------------------------|
+| One address loading pages flat out, 8 connections, 10 s             | 3,143 pages a second, the whole server | 700 a second (the 5000 at once, then 200) |
+| Someone's saves every 100 ms while one address floods, 64 connections | p50 20.9 ms, p99 43.7 ms              | p50 6.1 ms, p99 38.1 ms                |
+| The same, 256 connections                                           | p50 80.1 ms, 56 saves in 10 s         | p50 18.9 ms, 84 saves                  |
+
+No save failed in either. The flood ran on the VPS itself, so it also took CPU from the server; the other scenarios didn't change.
+
 The disk-filling row is the first run's correction: with the day's 1 GiB available at once, the same run took 1 GiB in 20 s, which the 64 MiB burst replaced.
 
 * Out of scope
 
-+ Request floods that fill the CPU. The VPS takes about 1,900 small requests a second; unmetered page loads, or about 30 freshly claimed roots each writing at its full rate, reach that from one address. The meters keep the writer fair and the disk bounded, not the CPU busy: a per-address request rate at the proxy does that (install guide), and on a public server it isn't optional.
++ Request floods from many addresses. The VPS takes about 1,900 small requests a second; one address now gets 200 of them, so about 10 addresses flat out fill it. Past that it's the proxy's and the provider's (install guide).
 
 + Several instances, or one database shared between machines.
 + Volumetric floods: no software on the machine helps once its link is full.
