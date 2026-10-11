@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ours, padIdParam, rootParam, unlocked } from '#lib/server/api.ts';
+import { meterWrite } from '#lib/server/limits.ts';
 import { listShares, removeShares } from '#lib/server/shares.ts';
 import type { RequestHandler } from './$types';
 
@@ -20,6 +21,7 @@ export const DELETE: RequestHandler = (event) => {
   ours(event);
   const root = rootParam(event.params.root);
   unlocked(event, root);
+  meterWrite(event, root);
   removeShares(root, padIdParam(event.params.id));
   return new Response(null, { status: 204 });
 };

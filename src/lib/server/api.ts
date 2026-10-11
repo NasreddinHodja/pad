@@ -1,6 +1,7 @@
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { access, sameOrigin } from './auth.ts';
-import { normalizePath } from './limits.ts';
+import { full, usage } from './db.ts';
+import { meterGrowth, normalizePath, ROOT_BYTES, ROOT_PADS } from './limits.ts';
 
 /** The `[root]` param, if it names a root. */
 export function rootParam(raw: string) {
@@ -36,7 +37,7 @@ export async function body(request: Request) {
 export async function readCapped(request: Request, cap: number, tooBigMessage: string) {
   const tooBig = () => error(413, tooBigMessage);
   if (Number(request.headers.get('content-length') ?? 0) > cap) tooBig();
-  if (!request.body) error(400, 'empty pad');
+  if (!request.body) error(400, 'empty body');
   const chunks: Uint8Array[] = [];
   let size = 0;
   for await (const chunk of request.body) {
@@ -45,6 +46,28 @@ export async function readCapped(request: Request, cap: number, tooBigMessage: s
     chunks.push(chunk);
   }
   return new Uint8Array(Buffer.concat(chunks));
+}
+
+/**
+ * Refuses a write adding `bytes` and `pads` to `root` if the server is full,
+ * the root would pass its quota, or the address has written its day's worth.
+ * A write that adds nothing always passes, so a full root can still be edited
+ * down.
+ */
+export function allowGrowth(event: RequestEvent, root: string, bytes: number, pads = 0) {
+  if (bytes <= 0 && pads <= 0) return;
+  if (full()) error(507, 'this server is full');
+  const used = usage(root);
+  // Emptied pads count until they're purged, or emptying and refilling would
+  // get around the quota.
+  if (used.pads + pads > ROOT_PADS)
+    error(413, `/${root} has ${ROOT_PADS} pads, emptied ones included until they're purged`);
+  if (used.bytes + bytes > ROOT_BYTES)
+    error(
+      413,
+      `/${root} is at its ${ROOT_BYTES / 1024 / 1024} MiB, emptied pads included until they're purged`
+    );
+  meterGrowth(event, bytes);
 }
 
 /** A pad's id is the base64url of its 32-byte HMAC. */

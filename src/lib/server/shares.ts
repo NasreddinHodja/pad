@@ -4,10 +4,7 @@
 // id, the HMAC of its path.
 
 import { db } from './db.ts';
-
-/** Links a root can have at once, and the disk their copies take. */
-export const MAX_SHARES = 1000;
-export const MAX_SHARE_BYTES = 64 * 1024 * 1024;
+import { MAX_SHARES } from './limits.ts';
 
 // A link to an emptied pad is quiet until the pad is saved again or purged.
 const getStmt = db.query<{ data: Uint8Array; created_at: number }, [string, string]>(
@@ -18,8 +15,8 @@ const listStmt = db.query<
   { id: string; sealed_key: Uint8Array; created_at: number },
   [string, string]
 >('SELECT id, sealed_key, created_at FROM shares WHERE root = ? AND pad = ? ORDER BY created_at');
-const countStmt = db.query<{ n: number; bytes: number }, [string]>(
-  'SELECT count(*) AS n, coalesce(sum(length(data)), 0) AS bytes FROM shares WHERE root = ?'
+const countStmt = db.query<{ n: number }, [string]>(
+  'SELECT count(*) AS n FROM shares WHERE root = ?'
 );
 const addStmt = db.query(
   `INSERT OR IGNORE INTO shares (id, root, pad, sealed_key, data, created_at)
@@ -36,11 +33,10 @@ export function listShares(root: string, pad: string) {
   return listStmt.all(root, pad);
 }
 
-/** The time it was made; or why it wasn't: the root has too many, or the id is taken. */
+/** The time it was made; or why it wasn't: the root has MAX_SHARES, or the id is taken. */
 export const addShare = db.transaction(
   (root: string, id: string, pad: string, sealedKey: Uint8Array, data: Uint8Array) => {
-    const { n, bytes } = countStmt.get(root)!;
-    if (n >= MAX_SHARES || bytes + data.length > MAX_SHARE_BYTES) return 'full';
+    if (countStmt.get(root)!.n >= MAX_SHARES) return 'full';
     const now = Date.now();
     return addStmt.run(id, root, pad, sealedKey, data, now).changes === 1 ? now : 'taken';
   }

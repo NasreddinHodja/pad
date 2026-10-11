@@ -4,18 +4,15 @@ import {
   attemptKeys,
   AUTH_BYTES,
   claim,
-  failed,
   lock,
-  owedWait,
   rememberDevice,
   SALT_BYTES,
   SEALED_KEY_BYTES,
   setPassword,
-  succeeded,
   unlock,
   verify
 } from '#lib/server/auth.ts';
-import { checkRate } from '#lib/server/limits.ts';
+import { failed, meterOpen, meterWrite, owedWait, succeeded } from '#lib/server/limits.ts';
 import { deleteRoot, reclaimRoot } from '#lib/server/trash.ts';
 import type { RequestEvent, RequestHandler } from './$types';
 
@@ -49,8 +46,10 @@ function newPassword(data: Record<string, unknown>) {
 export const POST: RequestHandler = async (event) => {
   ours(event);
   const root = rootParam(event.params.root);
-  checkRate(event.getClientAddress());
   const { cookies } = event;
+  // Claiming, unlocking and locking are anyone's, metered by address; the
+  // rest are metered on the root once unlocked, or a stranger could drain it.
+  if (!['password', 'delete'].includes(event.params.action)) meterOpen(event);
 
   switch (event.params.action) {
     case 'claim': {
@@ -73,6 +72,7 @@ export const POST: RequestHandler = async (event) => {
     // Signs every other browser out of the root.
     case 'password': {
       unlocked(event, root);
+      meterWrite(event, root);
       const data = await body(event.request);
       const next = newPassword(data);
       attempt(event, root, bytes(data.current, AUTH_BYTES));
@@ -83,6 +83,7 @@ export const POST: RequestHandler = async (event) => {
     // Marks the root and its pads, and signs every browser out of it.
     case 'delete':
       unlocked(event, root);
+      meterWrite(event, root);
       deleteRoot(root);
       return new Response(null, { status: 204 });
 

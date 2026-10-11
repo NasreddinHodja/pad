@@ -19,11 +19,13 @@
 // that has unlocked the root before on its own failures, by a device token
 // that outlives locking (konigslibrary's), any other on its address's. There
 // is no count per root, which anyone could run up to keep everyone else out.
+// The counting is limits.ts's.
 
 import { dev } from '$app/env';
 import type { Cookies, RequestEvent } from '@sveltejs/kit';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { db } from './db.ts';
+import { limitKey } from './limits.ts';
 import { purgeRoot } from './trash.ts';
 
 export const SALT_BYTES = 16;
@@ -167,30 +169,6 @@ export function attemptKeys(cookies: Cookies, root: string, address: string) {
   return ['ip:' + limitKey(address)];
 }
 
-/**
- * The address, or for IPv6 its /64, which one host can have all of; an
- * IPv4-mapped one as the IPv4 address. (konigslibrary's `limit_key`.)
- */
-export function limitKey(address: string) {
-  const ip = address.replace(/%.*$/, '');
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
-  if (mapped) return mapped[1];
-  if (!ip.includes(':')) return ip;
-  const [head, tail] = ip.split('::');
-  const groups = (part?: string) => (part ? part.split(':') : []);
-  // A trailing IPv4 part fills two groups.
-  const count = (part: string[]) => part.length + (part.at(-1)?.includes('.') ? 1 : 0);
-  const h = groups(head);
-  const t = groups(tail);
-  const all = tail === undefined ? h : [...h, ...Array(8 - count(h) - count(t)).fill('0'), ...t];
-  return (
-    all
-      .slice(0, 4)
-      .map((g) => parseInt(g, 16).toString(16))
-      .join(':') + '::/64'
-  );
-}
-
 /** Marks this browser as one that has unlocked `root`. */
 export function rememberDevice(cookies: Cookies, root: string) {
   const now = Date.now();
@@ -222,43 +200,4 @@ export function sameOrigin({ request, url }: RequestEvent) {
   const site = request.headers.get('sec-fetch-site');
   if (site) return site === 'same-origin';
   return request.headers.get('origin') === url.origin;
-}
-
-// Failed unlocks back off, per device or per address, as konigslibrary's do: a
-// few free, then a wait that doubles up to 15 minutes. In memory: a restart
-// forgets the counts, which costs an attacker a restart they can't cause.
-const FREE = 5;
-const MAX_WAIT = 15 * 60 * 1000;
-const MAX_ENTRIES = 10_000;
-const FORGET_AFTER = 60 * 60 * 1000;
-const failures = new Map<string, { count: number; until: number; last: number }>();
-
-/** Milliseconds `keys` must still wait before another try, if any. */
-export function owedWait(keys: string[]) {
-  const now = Date.now();
-  const until = Math.max(0, ...keys.map((k) => failures.get(k)?.until ?? 0));
-  return until > now ? until - now : 0;
-}
-
-export function failed(keys: string[]) {
-  const now = Date.now();
-  for (const key of keys) {
-    if (failures.size >= MAX_ENTRIES && !failures.has(key)) {
-      for (const [k, e] of failures) if (now - e.last > FORGET_AFTER) failures.delete(k);
-      // A flood of fresh keys: dropping them all only frees their own counts.
-      if (failures.size >= MAX_ENTRIES) failures.clear();
-    }
-    const entry = failures.get(key) ?? { count: 0, until: now, last: now };
-    entry.count++;
-    entry.until =
-      entry.count < FREE
-        ? now
-        : now + Math.min(1000 * 2 ** Math.min(entry.count - FREE, 20), MAX_WAIT);
-    entry.last = now;
-    failures.set(key, entry);
-  }
-}
-
-export function succeeded(keys: string[]) {
-  for (const key of keys) failures.delete(key);
 }

@@ -4,9 +4,6 @@
 
 import { db } from './db.ts';
 
-/** `{"bg":"#rrggbb","fg":"#rrggbb","ink":"#rrggbb"}` is 45 bytes; sealed, 73. */
-export const MAX_THEME = 256;
-
 const getStmt = db.query<{ theme: Uint8Array | null }, [string]>(
   'SELECT theme FROM roots WHERE name = ?'
 );

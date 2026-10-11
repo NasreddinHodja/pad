@@ -1,6 +1,6 @@
 import { ours, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
-import { checkRate } from '#lib/server/limits.ts';
-import { getTheme, MAX_THEME, setTheme } from '#lib/server/theme.ts';
+import { MAX_THEME, meterWrite } from '#lib/server/limits.ts';
+import { getTheme, setTheme } from '#lib/server/theme.ts';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = (event) => {
@@ -17,7 +17,9 @@ export const PUT: RequestHandler = async (event) => {
   ours(event);
   const root = rootParam(event.params.root);
   unlocked(event, root);
-  checkRate(event.getClientAddress());
-  setTheme(root, await readCapped(event.request, MAX_THEME, 'theme is too big'));
+  // At most 256 bytes on the root's row: metered, not counted in its quota.
+  const theme = await readCapped(event.request, MAX_THEME, 'theme is too big');
+  meterWrite(event, root, theme.length);
+  setTheme(root, theme);
   return new Response(null, { status: 204 });
 };

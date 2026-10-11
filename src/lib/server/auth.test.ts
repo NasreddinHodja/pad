@@ -5,16 +5,13 @@ import {
   access,
   attemptKeys,
   claim,
-  failed,
-  limitKey,
   lock,
-  owedWait,
   rememberDevice,
   setPassword,
-  succeeded,
   unlock,
   verify
 } from './auth.ts';
+import { failed, owedWait } from './limits.ts';
 
 /** A browser's cookie jar, as much of it as auth.ts uses. */
 function jar() {
@@ -80,16 +77,6 @@ test('a password change signs out every other browser', () => {
   expect(access(theirs, 'change')).toBe('locked');
 });
 
-test('wrong passwords are free a few times, then cost a wait', () => {
-  const keys = ['ip:test'];
-  for (let i = 0; i < 4; i++) failed(keys);
-  expect(owedWait(keys)).toBe(0);
-  failed(keys);
-  expect(owedWait(keys)).toBeGreaterThan(0);
-  succeeded(keys);
-  expect(owedWait(keys)).toBe(0);
-});
-
 test("strangers failing a root's password hold up no one but themselves", () => {
   claimed('device');
   const owner = jar();
@@ -112,15 +99,4 @@ test('a device is known only at the roots it unlocked', () => {
   rememberDevice(browser, 'mine');
   expect(attemptKeys(browser, 'mine', '203.0.113.1')).toHaveLength(1);
   expect(attemptKeys(browser, 'other', '203.0.113.1')).toEqual(['ip:203.0.113.1']);
-});
-
-test('IPv6 addresses are counted per /64', () => {
-  expect(limitKey('2001:db8:1:2:aaaa::1')).toBe('2001:db8:1:2::/64');
-  expect(limitKey('2001:db8:1:2:bbbb:cccc:dddd:eeee')).toBe('2001:db8:1:2::/64');
-  expect(limitKey('2001:db8::1')).toBe('2001:db8:0:0::/64');
-  expect(limitKey('::1')).toBe('0:0:0:0::/64');
-  expect(limitKey('fe80::1%eth0')).toBe('fe80:0:0:0::/64');
-  expect(limitKey('64:ff9b::192.0.2.1')).toBe('64:ff9b:0:0::/64');
-  expect(limitKey('::ffff:192.0.2.1')).toBe('192.0.2.1');
-  expect(limitKey('192.0.2.1')).toBe('192.0.2.1');
 });
