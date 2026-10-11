@@ -18,7 +18,7 @@ const POLL = 5000;
 const RETRY = 5000;
 
 /** The failures these tests have the server answer, which Chromium logs. */
-const REFUSED = /Failed to load resource: the server responded with a status of (500|429)/;
+const REFUSED = /Failed to load resource: the server responded with a status of (500|429|413)/;
 
 /** Answers a save with `status` and a message, as the server words its errors. */
 const refuse = (route: Route, status: number, message: string, headers = {}) =>
@@ -112,6 +112,32 @@ test.describe('refused saves', () => {
     expect(at[1] - at[0]).toBeGreaterThanOrEqual(2000 - 100);
     expect(at[1] - at[0]).toBeLessThan(RETRY - 500);
     expect(await stored(context, root)).toBe('after a wait');
+  });
+
+  test('a 413 is not retried; the next edit saves again', async ({ page, context }) => {
+    const root = await claimNew(page);
+    await onSave(page, (route, n) => (n === 0 ? refuse(route, 413, 'too big') : route.continue()));
+    const at = saves(page);
+
+    await editor(page).fill('too much');
+    await expect(status(page)).toHaveText('► too big, not saved');
+    // No retry: the same text can't fit.
+    await page.waitForTimeout(RETRY + 1000);
+    expect(at).toHaveLength(1);
+
+    // A change saves again.
+    await editor(page).press('End');
+    await editor(page).press('Backspace');
+    await expect(status(page)).toHaveText('saved');
+    expect(at).toHaveLength(2);
+    expect(await stored(context, root)).toBe('too muc');
+  });
+
+  test('a 413 without a message says what happened', async ({ page }) => {
+    await claimNew(page);
+    await onSave(page, (route) => route.fulfill({ status: 413, body: 'Payload Too Large' }));
+    await editor(page).fill('too much');
+    await expect(status(page)).toHaveText('► too big to save, not saved');
   });
 });
 

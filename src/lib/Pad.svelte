@@ -91,6 +91,15 @@
       status = content === saved ? 'saved' : 'unsaved';
       if (content !== saved) schedule();
     } catch (e) {
+      // Too big: the pad, or its root past its quota. Sending the same text
+      // again can't help; the next edit saves again, and may fit.
+      if (e instanceof api.Refused && e.status === 413) {
+        status =
+          '► ' +
+          (e.message.startsWith('request failed') ? 'too big to save' : e.message) +
+          ', not saved';
+        return;
+      }
       status = '► ' + message(e, 'save failed') + ', retrying';
       // When the server says, or every RETRY.
       schedule((e instanceof api.Refused && e.retryAfter) || RETRY);
