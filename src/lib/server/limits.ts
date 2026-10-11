@@ -99,8 +99,12 @@ export function meter({ burst, perSecond, floor }: Bucket, max = MAX_KEYS) {
 export const WRITES: Bucket = { burst: 16 * MiB, perSecond: 1 * MiB, floor: 16 * KiB };
 /** What anyone may do without a password: claim, unlock, lock, read a link. */
 export const OPEN: Bucket = { burst: 16 * MiB, perSecond: 1 * MiB, floor: 16 * KiB };
-/** New bytes an address adds to pads and links, across every root. */
-export const GROWTH: Bucket = { burst: 1 * GiB, perSecond: GiB / (DAY / 1000), floor: 0 };
+/**
+ * New bytes an address adds to pads and links, across every root: 1 GiB a
+ * day, but at most 64 MiB at once, or a few fresh addresses could fill the
+ * server in seconds.
+ */
+export const GROWTH: Bucket = { burst: 64 * MiB, perSecond: GiB / (DAY / 1000), floor: 0 };
 
 const writes = meter(WRITES);
 const open = meter(OPEN);
@@ -129,7 +133,7 @@ export function meterOpen(event: RequestEvent, bytes = 0) {
 export function meterGrowth(event: RequestEvent, bytes: number) {
   if (bytes <= 0) return;
   const key = limitKey(event.getClientAddress());
-  refuse(event, growth.take(key, bytes), 'this address has written its 1 GiB for today');
+  refuse(event, growth.take(key, bytes), 'this address has written too much today');
 }
 
 // Failed password attempts back off, per device or per address (auth.ts's
