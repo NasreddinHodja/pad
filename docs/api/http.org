@@ -10,12 +10,14 @@ The routes under =/_/= that the page calls (=src/lib/api.ts=). Everything sent i
 + Errors are JSON, ={"status": 401, "message": "/x is locked"}=.
 + Every route but =GET=s needs =Sec-Fetch-Site: same-origin=, or an =Origin= matching the page's when the browser doesn't send that. Otherwise: =403=.
 + Routes marked /unlocked/ need the unlock cookie for =<root>=. Otherwise, or if the root is unclaimed: =401=.
-+ Routes marked /rate-limited/ count toward 60 writes a minute per address. Over that: =429=.
++ Routes marked /metered/ draw on a bucket per root; those marked /open/, on one per address (IPv6 per /64). Each request costs its body's bytes, at least 16 KiB. Out of it: =429= with =Retry-After= in seconds.
++ Routes marked /quota/ add to the root's bytes and pads and the address's new bytes for the day. Past the root's: =413=; past the address's: =429=; the server past its ceiling: =507=. A write that adds nothing always passes.
++ The numbers, and why: [[file:../architecture/capacity.org][Capacity and limits]], and =GET /_/limits=.
 + Behind Caddy the client's address is the last =X-Forwarded-For= hop (=ADDRESS_HEADER=, =XFF_DEPTH= in =deploy/pad.service=). Bodies are capped at 1 MiB (=BODY_SIZE_LIMIT=).
 
 * Auth
 
-=src/routes/_/[root]/auth/[action]/+server.ts=. All =POST=, all rate-limited.
+=src/routes/_/[root]/auth/[action]/+server.ts=. All =POST=. Claim, unlock and lock are open; password and delete, metered.
 
 ** POST /_/<root>/auth/claim
 
@@ -57,7 +59,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 /Unlocked./ Every pad of the root.
 
-=200= ={"pads": [{"id": "…", "name": "<sealed path>", "size": <bytes of sealed text>}]}=. At most 5000 pads.
+=200= ={"pads": [{"id": "…", "name": "<sealed path>"}]}=. A root has at most 5000 pads.
 
 ** GET /_/<root>/pads/<id>
 
@@ -68,7 +70,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** PUT /_/<root>/pads/<id>
 
-/Unlocked, rate-limited./ Saves a pad; the last write wins. Saving an emptied pad brings it back.
+/Unlocked, metered, quota./ Saves a pad; the last write wins. Saving an emptied pad brings it back.
 
 + Body: the sealed text, at most 512 KiB + 28 bytes; over: =413=.
 + =X-Pad-Name=: the sealed path, base64url, at most 1400 characters.
@@ -77,7 +79,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** DELETE /_/<root>/pads/<id>
 
-/Unlocked, rate-limited./ What saving an empty pad does: marks it, so it leaves the list and its links 404, and purges it 30 days on unless it's saved again. =204=.
+/Unlocked, metered./ What saving an empty pad does: marks it, so it leaves the list and its links 404, and purges it 30 days on unless it's saved again. =204=.
 
 * Theme
 
@@ -89,7 +91,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** PUT /_/<root>/theme
 
-/Unlocked, rate-limited./ Body: the sealed theme, at most 256 bytes; over: =413=. =204=.
+/Unlocked, metered./ Body: the sealed theme, at most 256 bytes; over: =413=. =204=.
 
 * Read-only links
 
@@ -103,21 +105,35 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** PUT /_/<root>/shares/<link>
 
-/Unlocked, rate-limited./ Makes a link.
+/Unlocked, metered, quota./ Makes a link.
 
 + Body: the copy, deflated and sealed under the link's key, at most 1 MiB; over: =413=.
 + =X-Pad-Id=: the pad's id. =X-Share-Key=: the link's key sealed under the root's, 60 bytes.
 
-=200= ={"createdAt": <ms>}=. =409= if the root has 1000 links or 64 MiB of them, or the id is taken.
+=200= ={"createdAt": <ms>}=. =409= if the root has 1000 links, or the id is taken.
 
 ** GET /_/<root>/shares/<link>
 
-Needs nothing: anyone with the link may. =200=, =application/octet-stream=: the sealed copy, with =X-Created-At= in Unix milliseconds. =404= if it was revoked or never made, or its pad is emptied or its root deleted.
+/Open./ Anyone with the link may. =200=, =application/octet-stream=: the sealed copy, with =X-Created-At= in Unix milliseconds. =404= if it was revoked or never made, or its pad is emptied or its root deleted.
 
 ** DELETE /_/<root>/pads/<id>/shares
 
-/Unlocked./ Revokes every link to the pad. =204=.
+/Unlocked, metered./ Revokes every link to the pad. =204=.
 
 ** DELETE /_/<root>/shares/<link>
 
-/Unlocked./ Revokes the link. =204=, whether it existed or not.
+/Unlocked, metered./ Revokes the link. =204=, whether it existed or not.
+
+* Limits
+
+** GET /_/limits
+
+Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open= and =growth= are buckets of ={"burst", "perSecond", "floor"}=.
+
+=200= ={"padBytes": 524316, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
+
+** GET /_/<root>/usage
+
+/Unlocked./ What the root's quota counts: its pads' sealed text and paths, emptied ones included until purged, and its links.
+
+=200= ={"bytes": <n>, "pads": <n>}=.

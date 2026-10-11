@@ -13,6 +13,7 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 | =/_/<root>/pads=, =/_/<root>/pads/<id>= | list, read, write, delete sealed pads |
 | =/_/<root>/s/<link>/<path>#<key>=  | a read-only link's pages                 |
 | =/_/<root>/shares/<link>=, =/_/<root>/pads/<id>/shares= | make, read, revoke, list read-only links |
+| =/_/<root>/usage=, =/_/limits=     | what a root's quota counts; every limit  |
 
 =/<path>='s load (=+page.server.ts=) normalises the path (redirecting =a//b/= to =a/b=) and returns only the root's state: =open=, =locked= or =unlocked=, and its salt. The page then shows:
 
@@ -24,7 +25,7 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 
 =Pad.svelte= loads the pad and the root's list of paths, decrypts both, and keeps =saved=, the text the server has as far as it knows. Typing schedules a save 600ms out; blur, a hidden tab and navigating away save at once. Only one save runs at a time. A failed one retries after 5 seconds. Every 5 seconds, if nothing is unsaved, it reloads the pad and takes the server's text if it changed, keeping the selection. An empty pad is deleted rather than saved, so it drops out of its parent's list.
 
-*export* (=export.ts=) lists the root's pads with their sealed sizes, refuses past 64 MiB before fetching any, then loads the pad and those under it four at a time, and writes them into a zip in the browser (=zip.ts=: deflated by =CompressionStream=, no zip64).
+*export* (=export.ts=) lists the root's pads, then loads the pad and those under it four at a time, and writes them into a zip in the browser (=zip.ts=: deflated by =CompressionStream=, no zip64).
 
 *theme* (=theme.ts=) sets the root's three colours on =<html>=; =layout.css= mixes the rest from them, and the marble is redrawn in the background and ink2 on a canvas. =[...path]/+page.svelte= applies it on every page of the root, the gate's included, from what this browser last saw (=localStorage=, which =app.html= also reads before the first paint), then from the root's copy. Locking or deleting the root forgets it here.
 

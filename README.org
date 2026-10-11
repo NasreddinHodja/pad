@@ -39,7 +39,7 @@ A systemd service behind Caddy on a VPS: =deploy/pad.service= and =deploy/Caddyf
 
 * Limits
 
-A pad holds 512 KiB, a path 255 characters over at most 10 segments of 64. Saves are capped at 60 a minute per address, and wrong passwords back off after five, up to 15 minutes (=src/lib/server/limits.ts=, =src/lib/server/auth.ts=).
+A pad holds 512 KiB, a path 255 characters over at most 10 segments of 64, a root 16 MiB and 5000 pads, a server 5 GiB. Every limit, and the estimate behind it, is in [[file:docs/architecture/capacity.org][Capacity and limits]]; the code, =src/lib/server/limits.ts=.
 
 * Credits
 

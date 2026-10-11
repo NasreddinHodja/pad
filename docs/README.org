@@ -9,6 +9,7 @@
 
 + [[file:architecture/overview.org][Overview]]: routes, the editor's save loop, the database
 + [[file:architecture/encryption.org][Encryption and access]]: what the browser derives from a password, what the server keeps
++ [[file:architecture/capacity.org][Capacity and limits]]: what one server carries, every limit and why
 
 * API
 

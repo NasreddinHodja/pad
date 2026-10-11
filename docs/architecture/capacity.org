@@ -1,0 +1,84 @@
+#+TITLE: Capacity and limits
+#+OPTIONS: ^:{}
+
+What one pad server can carry, every limit it keeps and the estimate behind each number. The limits are in one module, =src/lib/server/limits.ts=; a running server lists the ones in effect at =GET /_/limits= ([[file:../api/http.org][HTTP]]).
+
+* Scale
+
+Pad is one process with one SQLite file, on one machine. That is in scope up to what the machine carries. Running several instances behind a load balancer, or sharing one database between machines, is out of scope: SQLite itself says that a site busy enough to need several servers should use a client/server database ([[https://www.sqlite.org/whentouse.html][Appropriate Uses For SQLite]]).
+
+SQLite's own ceilings are far past pad's: about 281 TB per file, 1,000,000,000 bytes per blob by default ([[https://www.sqlite.org/limits.html][Limits In SQLite]]).
+
+* What a person costs
+
+From the editor (=src/lib/Pad.svelte=):
++ An open pad polls every 5 s: 0.2 requests a second per open tab, while the tab is visible.
++ Typing saves at most once per 600 ms pause.
+
+* Measured
+
+On the author's laptop (16 threads, NVMe), 2026-10-11, with the scripts in =scripts/bench/=. Not the VPS's: those go here when measured.
+
+| What                                            | Result                     |
+|-------------------------------------------------+----------------------------|
+| SQLite, new 512 KiB rows                         | 431 a second, 215 MiB/s    |
+| SQLite, 3 KiB overwrites                         | 55,568 a second            |
+| =sum(length(data))= over 2,001 rows of 512 KiB   | 0.18 ms                    |
+| Built app, 2.4 KB saves, one at a time            | 5,114 a second, 0.20 ms each (0.17 before the limits) |
+| Built app, 2.4 KB saves, 8 at a time              | 7,056 a second, 0.14 ms each (0.12 before) |
+| Built app, 512 KiB saves, 8 at a time             | 353 a second, 2.84 ms each (2.34 before) |
+| Built app, 2.4 KB saves into a root of 1000 pads  | 0.19 ms each (0.91 when the quota summed the root) |
+| A meter's memory                                 | about 400 bytes a key      |
+
+=requests.ts= gives the app's numbers; "before" is the build of =3d7f628=, before these limits. The meters, quota checks and the triggers that keep each root's usage (=schema.ts=, step 3) add about 0.03 ms to a small save. The app's numbers are over localhost, without TLS or a proxy, with the database on tmpfs. At about 6,000 small requests a second, one instance carries about 30,000 open tabs polling. Polling is the larger load, so it's the first thing to replace past that.
+
+* Pad sizes
+
+From the author's own root (186 pads, 422,986 bytes sealed): half are under 437 bytes, 90% under 2,992, 99% under 4,232; the largest is 249,586. With its sealed path (about 64 bytes) and its row, an average pad takes about 2.4 KB. So:
+
++ 1 GiB holds about 450,000 average pads, or about 2,400 roots like that one.
++ 5 GiB holds about 2.2 million pads.
+
+* Limits
+
+Disk is capped by quotas, not rates: a rate only slows growth (60 saves of 512 KiB a minute is still 43 GiB a day). What keeps the one database writer busy is metered per root; what anyone may send without a password, per address. An address is an IPv4 address, or an IPv6 /64, which one host can have all of.
+
+| Limit                     | Value                                          | Why                                                                                                     |
+|---------------------------+------------------------------------------------+---------------------------------------------------------------------------------------------------------|
+| A pad                     | 512 KiB of text                                | Pastebin's free tier caps a paste at the same 512 KB ([[https://pastebin.com/faq][FAQ]]).                                               |
+| A path                    | 255 characters, 10 segments of 64             |                                                                                                         |
+| A link                    | 1 MiB, deflated and sealed                    | A pad and its subpads in one copy.                                                                      |
+| Links per root            | 1000                                           |                                                                                                         |
+| Server                    | 5 GiB of database                              | About 2.2 million average pads. Past it pads and links stop growing: =507=.                           |
+| Server, hard              | 5 GiB + 64 MiB                                 | SQLite's =max_page_count=: past it every write fails. The 64 MiB is for unlocks and new roots, so a full server still lets people in. |
+| Root, bytes               | 16 MiB of pads and links, emptied pads included until purged | About 40 times the author's root. At 5 GiB, 320 full roots fill the server.          |
+| Root, pads                | 5000, emptied ones included                    | The list returns at most this many; past it the finder and export would miss pads.                     |
+| Export                    | what the root holds                            | At most 16 MiB of sealed text, which the browser zips in memory.                                        |
+| New bytes per address     | 1 GiB a day, at most 64 MiB at once             | One address needs 5 days to fill 5 GiB; 100 people behind one NAT writing 1 MiB each use a tenth of a day's. With all of it at once, one address wrote 1 GiB in 20 s (below): 64 MiB, four full roots, makes filling the server take 80 fresh addresses at once. Overwrites count only what they add. |
+| Writes per root           | each costs its bytes, at least 16 KiB; 16 MiB at once, 1 MiB a second after | Counts what the writer spends. 16 MiB at once lets 1000 small pads in at once. The 16 KiB floor caps a root at 64 requests a second, about 1% of a core each; 100 roots to fill one. |
+| Anyone, per address       | the same, for claim, unlock, lock and reading links | A link costs its size.                                                                          |
+| Wrong passwords           | 4 free, then 1 s doubling to 15 min, per device or address | About 100 guesses a day per address after the first 17 minutes. Nothing per root, which would let anyone lock its owner out. |
+| Meters' memory            | 20,000 keys each, least recently used forgotten | About 8 MB a meter at 400 bytes a key.                                                                  |
+
+Claiming a root is free: a root is a row of a few hundred bytes, and disk is only taken by what's written under it.
+
+Not limited by the app: page loads, the unlocked =GET=s (the editor polls them, export fetches every pad), =GET /_/limits=. A flood of those, or of anything, past what the machine's link carries is the proxy's and the provider's to stop ([[file:../guide/install.org][install guide]]). There is no limit for the whole server: anyone could spend it, and everyone's saves would fail.
+
+* What the limits changed
+
+=scenarios.ts=, run on the build of =3d7f628= (before) and on this one, each on a fresh database, 2026-10-11:
+
+| Scenario                                                       | Before                                   | After                               |
+|----------------------------------------------------------------+------------------------------------------+-------------------------------------|
+| Import: 2,000 pads of 2.4 KB, one address, honouring =429=s    | 67 saved in 60 s (all: about 33 minutes) | all 2,000 in 15.5 s                 |
+| Five people behind one address, a save a second each, 20 s     | 55 of 100 saved                          | 100 of 100                          |
+| One address filling the disk, 20 s                             | 26 MiB, and 30 MiB a minute after: 43 GiB a day | 64 MiB, then 1 GiB a day         |
+| A guesser at a 16 s wait, then 15,000 wrong guesses from other addresses in 2 s | the flood cleared every count: the guesser's next try was let through (=401=) | still waiting (=429=) |
+
+The disk-filling row is the first run's correction: with the day's 1 GiB available at once, the same run took 1 GiB in 20 s, which the 64 MiB burst replaced.
+
+* Out of scope
+
++ Several instances, or one database shared between machines.
++ Volumetric floods: no software on the machine helps once its link is full.
++ Someone with many addresses: an IPv6 /48 is 65,536 /64s. The per-address limits slow one host; the server ceiling is what holds against many.
