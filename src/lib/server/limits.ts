@@ -151,8 +151,9 @@ export function meterGrowth(event: RequestEvent, bytes: number) {
 }
 
 // Failed password attempts back off, per device or per address (auth.ts's
-// attemptKeys): a few free, then a wait that doubles up to 15 minutes. In memory: a restart forgets the counts, which costs an
-// attacker a restart they can't cause.
+// attemptKeys): a few free, then a wait that doubles up to 15 minutes. In
+// memory: a restart forgets the counts, which costs an attacker a restart
+// they can't cause.
 export const BACKOFF_FREE = 5;
 export const BACKOFF_MAX = 15 * 60 * 1000;
 const failures = lru<{ count: number; until: number }>();
