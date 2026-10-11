@@ -6,7 +6,8 @@ import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as usage from '../../routes/_/[root]/usage/+server.ts';
-import { MAX_SEALED, ROOT_BYTES, ROOT_PADS, WRITES } from './limits.ts';
+import { db, setCeiling } from './db.ts';
+import { MAX_SEALED, ROOT_BYTES, ROOT_PADS, SERVER_BYTES, SERVER_SLACK, WRITES } from './limits.ts';
 
 const b64 = (n: number) => randomBytes(n).toString('base64url');
 
@@ -199,6 +200,43 @@ describe('quotas', () => {
     for (let i = 0; i < 3000; i++) {
       expect((await save('rewrite', cookies, MAX_SEALED, id, '203.0.113.30')).status).toBe(200);
       later(500);
+    }
+  });
+
+  test('a full server is 507 to growth, and SQLite refuses past its slack', async () => {
+    const { page_count, page_size } = db
+      .query<{ page_count: number; page_size: number }, []>(
+        'SELECT page_count, page_size FROM pragma_page_count, pragma_page_size'
+      )
+      .get()!;
+    setCeiling(page_count * page_size + 1024 * 1024);
+    try {
+      const cookies = await claimed('ceiling');
+      const id = b64(32);
+      let status = 200;
+      for (let i = 0; i < 10 && status === 200; i++) {
+        status = (await save('ceiling', cookies, MAX_SEALED, i ? undefined : id)).status;
+        later(1000);
+      }
+      expect(status).toBe(507);
+      // Rewriting what's there still passes.
+      expect((await save('ceiling', cookies, 10, id)).status).toBe(200);
+      // Past the slack, any write fails in SQLite itself.
+      const insert = db.query(
+        'INSERT INTO sealed (root, id, name, data, updated_at) VALUES (?, ?, ?, ?, 0)'
+      );
+      let thrown: unknown;
+      for (let i = 0; i < SERVER_SLACK / MAX_SEALED + 10 && !thrown; i++) {
+        try {
+          insert.run('ceiling', b64(32), 'n', new Uint8Array(MAX_SEALED));
+        } catch (e) {
+          thrown = e;
+        }
+      }
+      expect((thrown as { code?: string })?.code).toBe('SQLITE_FULL');
+    } finally {
+      db.run("DELETE FROM sealed WHERE root = 'ceiling'");
+      setCeiling(SERVER_BYTES);
     }
   });
 

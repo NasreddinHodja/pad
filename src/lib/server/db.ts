@@ -14,17 +14,25 @@ db.run('PRAGMA synchronous = NORMAL');
 migrate(db);
 // Off while migrating: a step may rebuild a table others refer to.
 db.run('PRAGMA foreign_keys = ON');
-// SQLite's own ceiling, per connection: past it every write fails. Pads and
-// links stop growing at SERVER_BYTES (`full`), short of it.
 const pageSize = db.query<{ page_size: number }, []>('PRAGMA page_size').get()!.page_size;
-db.run(`PRAGMA max_page_count = ${Math.floor((SERVER_BYTES + SERVER_SLACK) / pageSize)}`);
 const usedStmt = db.query<{ pages: number }, []>(
   'SELECT page_count - freelist_count AS pages FROM pragma_page_count, pragma_freelist_count'
 );
+let ceiling = 0;
 
-/** Whether the database has reached SERVER_BYTES. */
+/**
+ * Pads and links stop growing at `bytes` (`full`); SQLite refuses any write
+ * SERVER_SLACK past it, per connection, so a full server still lets people in.
+ */
+export function setCeiling(bytes: number) {
+  ceiling = bytes;
+  db.run(`PRAGMA max_page_count = ${Math.ceil((bytes + SERVER_SLACK) / pageSize)}`);
+}
+setCeiling(SERVER_BYTES);
+
+/** Whether the database has reached its ceiling. */
 export function full() {
-  return usedStmt.get()!.pages * pageSize >= SERVER_BYTES;
+  return usedStmt.get()!.pages * pageSize >= ceiling;
 }
 
 const getStmt = db.query<{ data: Uint8Array; updated_at: number }, [string, string]>(
