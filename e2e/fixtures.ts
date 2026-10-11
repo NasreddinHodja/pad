@@ -110,6 +110,12 @@ export async function claim(page: Page, root: string) {
   await opened(page);
 }
 
+/** A pad's address: the root in the path, the rest after the `#` (src/lib/href.ts). */
+export const padUrl = (path: string) => {
+  const [root, ...rest] = path.split('/');
+  return '/' + root + (rest.length ? '#' + rest.join('/') : '');
+};
+
 /** Opens a new root and claims it. */
 export async function claimNew(page: Page) {
   const root = freshRoot();
@@ -131,7 +137,7 @@ export async function unlock(page: Page, root: string) {
  */
 export async function stored(context: BrowserContext, path: string) {
   const page = await context.newPage();
-  await page.goto('/' + path);
+  await page.goto(padUrl(path));
   await opened(page);
   const text = await editor(page).inputValue();
   await page.close();

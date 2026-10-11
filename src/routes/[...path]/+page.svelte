@@ -1,27 +1,36 @@
 <script lang="ts">
+  import { browser } from '$app/env';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import * as api from '#lib/api.ts';
   import { storedKeys, storeKeys, type Keys } from '#lib/crypto.ts';
   import Gate from '#lib/Gate.svelte';
+  import { pathOf } from '#lib/href.ts';
   import Pad from '#lib/Pad.svelte';
   import { applyTheme, DEFAULT, rememberedTheme, rememberTheme, type Theme } from '#lib/theme.ts';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
 
+  // The pad: the root from the server, the rest from after the `#`, which only
+  // the browser has (href.ts). Moving between pads of one root changes only
+  // the `#`: nothing is asked of the server.
+  const path = $derived(browser ? pathOf(page.url) : data.root);
+  const root = $derived(data.root);
+  const access = $derived(data.state);
+
   // The root's keys in this browser: undefined while looking, null if it has none.
   let keys = $state<Keys | null | undefined>(undefined);
 
   $effect(() => {
-    const { root, state } = data;
+    const [r, s] = [root, access];
     keys = undefined;
-    if (state !== 'unlocked') {
+    if (s !== 'unlocked') {
       keys = null;
       return;
     }
     let current = true;
-    storedKeys(root).then((k) => current && (keys = k ?? null));
+    storedKeys(r).then((k) => current && (keys = k ?? null));
     return () => (current = false);
   });
 
@@ -30,15 +39,15 @@
   let theme = $state<Theme>(DEFAULT);
 
   $effect(() => {
-    const { root, state } = data;
-    theme = rememberedTheme(root) ?? DEFAULT;
-    if (!keys || state !== 'unlocked') return;
+    const [r, s] = [root, access];
+    theme = rememberedTheme(r) ?? DEFAULT;
+    if (!keys || s !== 'unlocked') return;
     let current = true;
-    api.theme(root, keys).then(
+    api.theme(r, keys).then(
       (t) => {
         if (!current) return;
         theme = t ?? DEFAULT;
-        rememberTheme(root, t);
+        rememberTheme(r, t);
       },
       () => {}
     );
@@ -67,11 +76,21 @@
 
 <!-- The server lets this browser in, but it needs the keys too, and the other
      way round: either missing, the password gives both. -->
-{#if keys === undefined}
+{#if browser && path === null}
+  <main class="flex min-h-dvh flex-col items-center justify-center px-3 py-8">
+    <div class="flex w-full max-w-xl flex-col gap-3 panel p-3 sm:p-6">
+      <h1 class="border-b border-ink text-xl">400</h1>
+      <p class="text-ink" role="alert">► not a valid pad path</p>
+      <a class="hit relative self-start text-ink hover:text-hi hover:underline" href="/"
+        >another pad</a
+      >
+    </div>
+  </main>
+{:else if keys === undefined || path === null}
   <!-- Opening the key store takes a moment; nothing to show before. -->
 {:else if !keys || data.state !== 'unlocked'}
   <Gate
-    path={data.path}
+    {path}
     root={data.root}
     mode={data.state === 'open' || data.state === 'deleted' ? 'claim' : 'unlock'}
     salt={data.salt}
@@ -79,10 +98,10 @@
     {onunlock}
   />
 {:else if page.url.searchParams.has('password')}
-  <Gate path={data.path} root={data.root} mode="password" salt={data.salt} {onunlock} />
+  <Gate {path} root={data.root} mode="password" salt={data.salt} {onunlock} />
 {:else}
   <!-- A fresh editor per pad, so nothing typed in one leaks into the next. -->
-  {#key data.path}
-    <Pad path={data.path} root={data.root} {keys} {theme} {retheme} />
+  {#key path}
+    <Pad {path} root={data.root} {keys} {theme} {retheme} />
   {/key}
 {/if}

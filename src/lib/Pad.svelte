@@ -59,6 +59,8 @@
   let textarea: HTMLTextAreaElement;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let saving = false;
+  // False once this editor is gone: what it was waiting for has nowhere to go.
+  let alive = true;
 
   const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
@@ -101,7 +103,7 @@
   async function refresh() {
     if (document.hidden || saving || saved === null || content !== saved) return;
     const remote = await api.load(where.root, where.keys, where.path).catch(() => null);
-    if (remote === null || remote === saved || content !== saved || saving) return;
+    if (!alive || remote === null || remote === saved || content !== saved || saving) return;
     const { selectionStart, selectionEnd } = textarea;
     content = saved = remote;
     requestAnimationFrame(() => textarea.setSelectionRange(selectionStart, selectionEnd));
@@ -113,11 +115,13 @@
         api.load(where.root, where.keys, where.path),
         api.list(where.root, where.keys)
       ]);
+      if (!alive) return;
       content = saved = text;
       subpads = under(paths, where.path).filter((p) => !p.includes('/'));
       status = 'saved';
       ready = true;
       requestAnimationFrame(() => {
+        if (!alive) return;
         textarea.setSelectionRange(0, 0);
         textarea.focus({ preventScroll: true });
       });
@@ -141,9 +145,13 @@
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('beforeunload', onUnload);
     return () => {
+      alive = false;
       fits.disconnect();
       clearInterval(poll);
       clearTimeout(timer);
+      // Moving to another pad of the root changes only the `#`, which
+      // beforeNavigate doesn't see: leaving saves here.
+      if (saved !== null && content !== saved) save();
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('beforeunload', onUnload);
     };
@@ -195,7 +203,7 @@
     { label: 'share', disabled: !ready, run: () => (sharing = true) },
     { label: 'export', disabled: !ready, run: exportAll },
     ...(isRoot ? [{ label: 'theme', disabled: !ready, run: () => (theming = true) }] : []),
-    { label: 'password', disabled: false, run: () => goto('?password') },
+    { label: 'password', disabled: false, run: () => goto(href(segments, '?password')) },
     ...(isRoot ? [{ label: 'delete', disabled: !ready, run: () => (deleting = true) }] : []),
     { label: 'lock', disabled: false, run: lock }
   ]);
@@ -203,13 +211,14 @@
   // The path on one line: the first segment, "…", then as many of the last as
   // fit. A single segment too long for the row still scrolls, to its end.
   async function fit() {
+    if (!alive) return;
     folded = 0;
     await tick();
-    while (crumbs.scrollWidth > crumbs.clientWidth && folded < segments.length - 2) {
+    while (alive && crumbs.scrollWidth > crumbs.clientWidth && folded < segments.length - 2) {
       folded++;
       await tick();
     }
-    crumbs.scrollLeft = crumbs.scrollWidth;
+    if (alive) crumbs.scrollLeft = crumbs.scrollWidth;
   }
 
   // Holding the path copies all of it.
@@ -295,7 +304,10 @@
           onclick={() => (theming = true)}>theme</button
         >
       {/if}
-      <a class="hit relative text-ink hover:text-hi hover:underline" href="?password">password</a>
+      <a
+        class="hit relative text-ink hover:text-hi hover:underline"
+        href={href(segments, '?password')}>password</a
+      >
       {#if isRoot}
         <button
           class="hit relative cursor-pointer text-ink hover:text-hi hover:underline disabled:cursor-default disabled:opacity-40"

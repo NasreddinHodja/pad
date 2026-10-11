@@ -73,11 +73,11 @@ each.
   from: trusting an instance means trusting its operator.
 - **A lost password can't be reset.** Nothing on the server can open the
   pads.
-- **Root names and page paths aren't secret.** A root's name is stored and
-  sent in the clear. Loading a pad's page sends its whole path in the URL; the
-  database keeps subpad paths only as HMACs, and `deploy/Caddyfile` keeps no
-  access log so they aren't written to disk, but a proxy that logs requests
-  will write them.
+- **Root names aren't secret.** A root's name is stored and sent in the
+  clear: it's the path of every page of the root. The path under it is after
+  the `#` (`/notes#today`), which browsers don't send, and the database keeps
+  it only as HMACs. An address from before that change (`/notes/today`) still
+  reaches the server once, to be redirected.
 - **Sizes show.** A copy of the database shows how many pads a root has and
   how long each is.
 - **The first save claims a root.** Whoever saves under an unclaimed root

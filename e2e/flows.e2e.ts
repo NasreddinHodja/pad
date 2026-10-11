@@ -7,6 +7,7 @@ import {
   expectAccessible,
   freshRoot,
   opened,
+  padUrl,
   status,
   test,
   unlock
@@ -53,6 +54,9 @@ test.describe('a root with a pad under it', () => {
   test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
   test('finder, read-only link, export', async ({ page, newContext }) => {
+    // Every URL this browser asks for: the pad under the root must be in none.
+    const asked: string[] = [];
+    page.on('request', (r) => asked.push(r.url()));
     const root = await claimNew(page);
     await editor(page).fill('top');
     await expect(status(page)).toHaveText('saved');
@@ -62,7 +66,7 @@ test.describe('a root with a pad under it', () => {
     await finder.click();
     await finder.fill('sub');
     await finder.press('Enter');
-    await expect(page).toHaveURL(`/${root}/sub`);
+    await expect(page).toHaveURL(`/${root}#sub`);
     await opened(page);
     await editor(page).fill('below');
     await expect(status(page)).toHaveText('saved');
@@ -73,6 +77,9 @@ test.describe('a root with a pad under it', () => {
 
     await finder.click();
     await expect(page.getByRole('option', { name: /sub/ })).toBeVisible();
+    expect(asked.filter((u) => !u.includes('/_app/') && /sub/.test(u.replace(root, '')))).toEqual(
+      []
+    );
     await expectAccessible(page, 'finder, open');
     await finder.press('Escape');
     await expect(page.getByRole('listbox')).toBeHidden();
@@ -101,6 +108,12 @@ test.describe('a root with a pad under it', () => {
       .getByRole('link')
       .click();
     await expect(reader.locator('pre')).toHaveText('below');
+    expect(reader.url()).toBe(url + '~sub');
+    // A link from before the place in it moved after the #: /s/<id>/sub#<key>.
+    const [before, key] = url.split('#');
+    await reader.goto(`${before}/sub#${key}`);
+    await expect(reader).toHaveURL(url + '~sub');
+    await expect(reader.locator('pre')).toHaveText('below');
 
     // Export: a zip of org files, the root's and the one under it.
     const [download] = await Promise.all([
@@ -114,5 +127,21 @@ test.describe('a root with a pad under it', () => {
       [`${root}/sub.org`]: 'below'
     });
     await expect(status(page)).toHaveText('exported');
+    expect(asked.filter((u) => !u.includes('/_app/') && /sub/.test(u.replace(root, '')))).toEqual(
+      []
+    );
+  });
+
+  test('an address from before the path moved after the #', async ({ page }) => {
+    const root = await claimNew(page);
+    await page.goto(padUrl(`${root}/old`));
+    await opened(page);
+    await editor(page).fill('kept');
+    await expect(status(page)).toHaveText('saved');
+    // /root/old: the server sends it on to /root#old.
+    await page.goto(`/${root}/old`);
+    await expect(page).toHaveURL(`/${root}#old`);
+    await opened(page);
+    await expect(editor(page)).toHaveValue('kept');
   });
 });

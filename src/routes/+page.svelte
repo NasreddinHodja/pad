@@ -1,13 +1,14 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { blockCaret } from '#lib/caret.ts';
+  import { href } from '#lib/href.ts';
 
   let name = $state('');
 
   function open(e: SubmitEvent) {
     e.preventDefault();
-    const path = name.split('/').filter(Boolean).map(encodeURIComponent).join('/');
-    if (path) goto('/' + path);
+    const parts = name.split('/').filter(Boolean);
+    if (parts.length) goto(href(parts));
   }
 </script>
 

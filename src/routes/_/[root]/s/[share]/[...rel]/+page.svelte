@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { browser } from '$app/env';
+  import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import * as api from '#lib/api.ts';
   import { href } from '#lib/href.ts';
@@ -8,14 +10,29 @@
   // A read-only link's copy: the pad it was made at and those under it, all
   // fetched and opened once; moving between them stays on this page. The key
   // is after the `#`, which never reaches the server, so this opens in the
-  // browser only.
+  // browser only. So is where in the copy this is: `#<key>~a/b`, the `~`
+  // being outside base64's alphabet.
   let shared = $state<api.Shared & { createdAt: number }>();
   let problem = $state('');
   let key = $state('');
 
   const root = $derived(page.params.root!);
   const id = $derived(page.params.share!);
-  const rel = $derived(page.params.rel ?? '');
+  const fragment = $derived(browser ? page.url.hash.slice(1) : '');
+  const rel = $derived.by(() => {
+    const at = fragment.indexOf('~');
+    if (at === -1) return '';
+    try {
+      return fragment
+        .slice(at + 1)
+        .split('/')
+        .filter(Boolean)
+        .map(decodeURIComponent)
+        .join('/');
+    } catch {
+      return '';
+    }
+  });
   const path = $derived(shared && (rel ? `${shared.path}/${rel}` : shared.path));
   const pad = $derived(shared?.pads.find((p) => p.path === path));
   const children = $derived(
@@ -34,11 +51,12 @@
 
   /** A place in the copy, `parts` under the pad it was made at. */
   const within = (parts: string[]) =>
-    `/_/${encodeURIComponent(root)}/s/${id}${parts.length ? href(parts) : ''}#${key}`;
+    `/_/${encodeURIComponent(root)}/s/${id}#${key}` +
+    (parts.length ? '~' + parts.map(encodeURIComponent).join('/') : '');
 
   $effect(() => {
     void id;
-    const hash = location.hash.slice(1);
+    const hash = location.hash.slice(1).split('~')[0];
     key = hash;
     shared = undefined;
     problem = '';
@@ -55,6 +73,12 @@
   });
 
   const relParts = $derived(rel ? rel.split('/') : []);
+
+  // A link from before the place moved after the `#`: `/s/<id>/a/b#<key>`.
+  $effect(() => {
+    const old = page.params.rel;
+    if (old && key) goto(within(old.split('/')), { replaceState: true });
+  });
 
   // The root's theme as it was when the link was made.
   $effect(() => {

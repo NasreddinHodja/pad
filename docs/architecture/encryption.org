@@ -1,7 +1,7 @@
 #+TITLE: Encryption and access
 #+OPTIONS: ^:{}
 
-The server never sees a password, a key, a pad's text or a subpad's name. The browser does all of it in =src/lib/crypto.ts=; the server's side is =src/lib/server/auth.ts=.
+The server never sees a password, a key, a pad's text or a subpad's name: a page's address has the path under its root after the =#=, which browsers don't send (=src/lib/href.ts=). The browser does all of it in =src/lib/crypto.ts=; the server's side is =src/lib/server/auth.ts=.
 
 * Keys
 
@@ -46,7 +46,7 @@ Nothing is counted per root: anyone could run that up to keep everyone else out.
 
 * Read-only links
 
-A link is =/_/<root>/s/<id>#<key>=, with the path of a pad under the one it was made at between them for the pages within it. The browser makes both: =id= 16 random bytes, =key= 32. It writes the pad and those under it as JSON, ={"path": …, "pads": [{"path": …, "text": …}], "theme": {"bg": …, "fg": …, "ink": …}}=, deflates it, and seals it under =key= with AES-GCM bound to =id=; and seals =key= under the root's content key, also bound to =id=. The server gets the two sealed blobs and the pad's id, never =key=: it's after the link's =#=, which browsers don't send.
+A link is =/_/<root>/s/<id>#<key>=; its pages within it add =~= and the path under the pad it was made at (=#<key>~a/b=), =~= being outside base64's alphabet. The browser makes both: =id= 16 random bytes, =key= 32. It writes the pad and those under it as JSON, ={"path": …, "pads": [{"path": …, "text": …}], "theme": {"bg": …, "fg": …, "ink": …}}=, deflates it, and seals it under =key= with AES-GCM bound to =id=; and seals =key= under the root's content key, also bound to =id=. The server gets the two sealed blobs and the pad's id, never =key=: it's after the link's =#=, which browsers don't send.
 
 + Anyone with the link fetches the copy, no cookie needed, and opens it with =key=. Without =key=, =id= gets them nothing they could read.
 + The root's owners list the pad's links, open each =key= with the root's content key, and so can show and copy the links again.

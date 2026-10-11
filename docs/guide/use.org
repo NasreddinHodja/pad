@@ -7,7 +7,7 @@ Any path is a pad: =/notes=, =/notes/today=, =/notes/today/later=. Pads are made
 
 * Roots and passwords
 
-The first segment is the path's root: =/notes/today= belongs to =notes=.
+The first segment is the path's root: =/notes/today= belongs to =notes=. In the address bar, what's under the root comes after a =#=: =pad.nassu.online/notes#today/later=. Browsers never send that part, so the server knows which root you're in but not which pad.
 
 + A root nobody has saved under is free. Opening it asks for a password (at least 8 characters), which then locks the root and every pad under it, for reading as well as writing.
 + A locked root asks for its password. Five wrong ones are free; after that each waits twice as long as the last, up to 15 minutes. A browser that has unlocked the root before, even if it locked since, only waits for its own wrong passwords; any other only for its address's (for IPv6, its /64's). No one else's wrong passwords ever make you wait.
