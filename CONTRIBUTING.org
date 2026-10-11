@@ -31,6 +31,7 @@ The browser's crypto only runs on =localhost= or HTTPS: from a phone on the LAN,
 | =bun run lint=          | Prettier and ESLint check                     |
 | =bun run format=        | Auto-format with Prettier                     |
 | =bun test=              | Tests, with =bun:test=                        |
+| =bun run test:e2e=      | End-to-end tests in Chromium (Playwright)     |
 | =python3 scripts/og.py= | Redraw =static/og.png=, the link preview      |
 
 Building loads the server code, which opens a database: give it a throwaway one, as CI and =deploy.sh= do (=PAD_DB=$(mktemp -d)/pad.db bun run build=). The build runs with =bun build/index.js=; =deploy/pad.service= shows the environment it takes behind a proxy.
@@ -55,3 +56,5 @@ Commit messages follow [[https://www.conventionalcommits.org][Conventional Commi
 * Tests
 
 =bun test= runs every =*.test.ts= under =src/=. =src/test-setup.ts= (preloaded by =bunfig.toml=) gives them an in-memory database and stands in for =$app/env=, since they run outside SvelteKit.
+
+=e2e/= drives the production build in Chromium with Playwright (=bun run test:e2e=): it builds, then serves =build/= on port 5591 with a fresh database in the temp directory. It covers the editor's save loop, with the server made slow, failing or 429 per request through =page.route= (the save after a pause, saving again after a slow save, retries and =Retry-After=, saving on hide and on navigation, and a poll that shows another browser's write but never overwrites unsaved edits), and whole flows: claim, reload, unlock from a second browser, lock, a read-only link, and export's zip. Any console error, uncaught exception or CSP violation fails a test, and every page it visits is checked with axe for WCAG 2.1 A and AA violations. It uses =/usr/bin/chromium=; =CHROMIUM_PATH= points elsewhere, or set it empty and run =bunx playwright install chromium= for Playwright's own.
