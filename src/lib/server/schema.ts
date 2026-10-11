@@ -146,6 +146,41 @@ const MIGRATIONS: (string | ((db: Database) => void))[] = [
   CREATE INDEX unlocks_by_root ON unlocks (root);
   CREATE INDEX devices_by_root ON devices (root);
   CREATE INDEX shares_by_pad ON shares (root, pad);
+  `,
+
+  // 3. What a root's quota counts, kept on its row by triggers: summing its
+  // pads on every save cost 372 µs at 1000 pads, five times the save itself.
+  `
+  -- Its pads' sealed text and paths, emptied ones too, and its links' copies.
+  ALTER TABLE roots ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0;
+  -- Its pads, emptied ones too.
+  ALTER TABLE roots ADD COLUMN pads INTEGER NOT NULL DEFAULT 0;
+
+  UPDATE roots SET
+    bytes =
+      (SELECT coalesce(sum(length(data) + length(name)), 0) FROM sealed WHERE root = roots.name) +
+      (SELECT coalesce(sum(length(data)), 0) FROM shares WHERE root = roots.name),
+    pads = (SELECT count(*) FROM sealed WHERE root = roots.name);
+
+  CREATE TRIGGER sealed_added AFTER INSERT ON sealed BEGIN
+    UPDATE roots SET bytes = bytes + length(NEW.data) + length(NEW.name), pads = pads + 1
+      WHERE name = NEW.root;
+  END;
+  CREATE TRIGGER sealed_changed AFTER UPDATE OF data, name ON sealed BEGIN
+    UPDATE roots SET bytes = bytes + length(NEW.data) + length(NEW.name)
+        - length(OLD.data) - length(OLD.name)
+      WHERE name = NEW.root;
+  END;
+  CREATE TRIGGER sealed_removed AFTER DELETE ON sealed BEGIN
+    UPDATE roots SET bytes = bytes - length(OLD.data) - length(OLD.name), pads = pads - 1
+      WHERE name = OLD.root;
+  END;
+  CREATE TRIGGER shares_added AFTER INSERT ON shares BEGIN
+    UPDATE roots SET bytes = bytes + length(NEW.data) WHERE name = NEW.root;
+  END;
+  CREATE TRIGGER shares_removed AFTER DELETE ON shares BEGIN
+    UPDATE roots SET bytes = bytes - length(OLD.data) WHERE name = OLD.root;
+  END;
   `
 ];
 

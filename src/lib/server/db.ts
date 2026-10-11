@@ -38,13 +38,9 @@ const putStmt = db.query(
 const listStmt = db.query<{ id: string; name: string; size: number }, [string]>(
   `SELECT id, name, length(data) AS size FROM sealed WHERE root = ? AND deleted_at IS NULL ORDER BY id LIMIT ${ROOT_PADS}`
 );
-// What counts toward a root's quota: every pad, emptied ones too until
-// they're purged, and every link. length() of a blob doesn't read it.
+// What counts toward a root's quota, kept by triggers (schema.ts, step 3).
 const usageStmt = db.query<{ bytes: number; pads: number }, [string]>(
-  `SELECT
-     (SELECT coalesce(sum(length(data) + length(name)), 0) FROM sealed WHERE root = ?1) +
-     (SELECT coalesce(sum(length(data)), 0) FROM shares WHERE root = ?1) AS bytes,
-     (SELECT count(*) FROM sealed WHERE root = ?1) AS pads`
+  'SELECT bytes, pads FROM roots WHERE name = ?'
 );
 const sizeStmt = db.query<{ size: number }, [string, string]>(
   'SELECT length(data) + length(name) AS size FROM sealed WHERE root = ? AND id = ?'
@@ -67,7 +63,7 @@ export function listSealed(root: string) {
 
 /** The bytes and pads the root's quota counts. */
 export function usage(root: string) {
-  return usageStmt.get(root)!;
+  return usageStmt.get(root) ?? { bytes: 0, pads: 0 };
 }
 
 /** The bytes the pad counts for now; null if it doesn't exist. */

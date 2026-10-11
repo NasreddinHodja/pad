@@ -38,7 +38,8 @@ export const addShare = db.transaction(
   (root: string, id: string, pad: string, sealedKey: Uint8Array, data: Uint8Array) => {
     if (countStmt.get(root)!.n >= MAX_SHARES) return 'full';
     const now = Date.now();
-    return addStmt.run(id, root, pad, sealedKey, data, now).changes === 1 ? now : 'taken';
+    // `changes` counts the trigger's update of the root too.
+    return addStmt.run(id, root, pad, sealedKey, data, now).changes > 0 ? now : 'taken';
   }
 );
 

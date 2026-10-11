@@ -59,7 +59,10 @@ test('a database from before migrations keeps its rows', () => {
       sealed_key: key,
       created_at: 1,
       deleted_at: 2,
-      theme: key
+      theme: key,
+      // Its pad's text and name, 3 + 1, and its link's copy, 3.
+      bytes: 7,
+      pads: 1
     }
   ]);
   expect(db.query('SELECT * FROM sealed').all()).toEqual([
@@ -97,7 +100,7 @@ test('a purged root takes everything of its own with it', () => {
   db.run('PRAGMA foreign_keys = ON');
   const key = new Uint8Array([1]);
   for (const root of ['a', 'b']) {
-    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL)`).run(root, key);
+    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0)`).run(root, key);
     db.query(`INSERT INTO sealed VALUES (?1, 'p', 'n', ?2, 3, NULL)`).run(root, key);
     db.query(`INSERT INTO unlocks VALUES (?2, ?1, 4, 5)`).run(root, key);
     db.query(`INSERT INTO devices VALUES (?2, ?1, 6)`).run(root, key);
@@ -119,4 +122,43 @@ test('migrating twice changes nothing', () => {
   const before = schema(db);
   migrate(db);
   expect(schema(db)).toEqual(before);
+});
+
+test("a root's counts follow every write, as a recount gives them", () => {
+  const db = fresh();
+  const blob = (n: number) => new Uint8Array(n);
+  const counts = () =>
+    db
+      .query<{ bytes: number; pads: number }, []>("SELECT bytes, pads FROM roots WHERE name = 'r'")
+      .get();
+  const recount = () =>
+    db
+      .query<{ bytes: number; pads: number }, []>(
+        `SELECT
+           (SELECT coalesce(sum(length(data) + length(name)), 0) FROM sealed WHERE root = 'r') +
+           (SELECT coalesce(sum(length(data)), 0) FROM shares WHERE root = 'r') AS bytes,
+           (SELECT count(*) FROM sealed WHERE root = 'r') AS pads`
+      )
+      .get();
+  const put = db.query(
+    `INSERT INTO sealed (root, id, name, data, updated_at) VALUES ('r', ?1, ?2, ?3, 0)
+     ON CONFLICT (root, id) DO UPDATE SET name = ?2, data = ?3`
+  );
+  db.query(
+    `INSERT INTO roots (name, salt, auth_hash, sealed_key, created_at) VALUES ('r', ?1, ?1, ?1, 0)`
+  ).run(blob(1));
+  const steps = [
+    () => put.run('a', 'nn', blob(10)),
+    () => put.run('b', 'n', blob(100)),
+    () => put.run('a', 'nnnn', blob(3)),
+    () => db.run("UPDATE sealed SET deleted_at = 1 WHERE id = 'b'"),
+    () => db.query(`INSERT INTO shares VALUES ('s', 'r', 'a', ?1, ?2, 0)`).run(blob(1), blob(50)),
+    () => db.run("DELETE FROM sealed WHERE id = 'b'"),
+    () => db.run("DELETE FROM shares WHERE id = 's'")
+  ];
+  for (const step of steps) {
+    step();
+    expect(counts()).toEqual(recount());
+  }
+  expect(counts()).toEqual({ bytes: 7, pads: 1 });
 });
