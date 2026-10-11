@@ -19,16 +19,16 @@ From the editor (=src/lib/Pad.svelte=):
 
 With the scripts in =scripts/bench/=, 2026-10-11, on two machines: the author's laptop (16 threads, NVMe) and pad.nassu.online's VPS (2 cores of a Xeon Gold 6148, 5.8 GiB of memory, 77 GB of disk), whose numbers are the ones to plan by.
 
-| What                                             | VPS                        | Laptop                                    |
-|--------------------------------------------------+----------------------------+-------------------------------------------|
-| SQLite, new 512 KiB rows                          | 189 a second, 95 MiB/s     | 431 a second, 215 MiB/s                   |
-| SQLite, 3 KiB overwrites                          | 33,559 a second            | 55,568 a second                           |
-| =sum(length(data))= over 2,001 rows of 512 KiB    | 0.75 ms                    | 0.18 ms                                   |
-| Built app, 2.4 KB saves, one at a time            | 1,408 a second, 0.71 ms each | 5,114 a second, 0.20 ms (0.17 before the limits) |
-| Built app, 2.4 KB saves, 8 at a time              | 1,923 a second, 0.52 ms each | 7,056 a second, 0.14 ms (0.12 before)    |
-| Built app, 512 KiB saves, 8 at a time             | 94 a second, 10.6 ms each  | 353 a second, 2.84 ms (2.34 before)       |
-| Built app, 2.4 KB saves into a root of 1000 pads  |                            | 0.19 ms (0.91 when the quota summed the root) |
-| A meter's memory                                  |                            | about 400 bytes a key                     |
+| What                                             | VPS                          | Laptop                                           |
+|--------------------------------------------------+------------------------------+--------------------------------------------------|
+| SQLite, new 512 KiB rows                         | 189 a second, 95 MiB/s       | 431 a second, 215 MiB/s                          |
+| SQLite, 3 KiB overwrites                         | 33,559 a second              | 55,568 a second                                  |
+| =sum(length(data))= over 2,001 rows of 512 KiB   | 0.75 ms                      | 0.18 ms                                          |
+| Built app, 2.4 KB saves, one at a time           | 1,408 a second, 0.71 ms each | 5,114 a second, 0.20 ms (0.17 before the limits) |
+| Built app, 2.4 KB saves, 8 at a time             | 1,923 a second, 0.52 ms each | 7,056 a second, 0.14 ms (0.12 before)            |
+| Built app, 512 KiB saves, 8 at a time            | 94 a second, 10.6 ms each    | 353 a second, 2.84 ms (2.34 before)              |
+| Built app, 2.4 KB saves into a root of 1000 pads |                              | 0.19 ms (0.91 when the quota summed the root)    |
+| A meter's memory                                 |                              | about 400 bytes a key                            |
 
 =requests.ts= gives the app's numbers; "before" is the build of =3d7f628=, before these limits. The meters, quota checks and the triggers that keep each root's usage (=schema.ts=, step 3) add about 0.03 ms to a small save. The app's numbers are over localhost, without TLS or a proxy; the laptop's database was on tmpfs, the VPS's on its disk. At about 1,900 small requests a second, the VPS carries about 9,600 open tabs polling. Polling is the larger load, so it's the first thing to replace past that.
 
@@ -43,23 +43,23 @@ From the author's own root (186 pads, 422,986 bytes sealed): half are under 437 
 
 Disk is capped by quotas, not rates: a rate only slows growth (60 saves of 512 KiB a minute is still 43 GiB a day). What keeps the one database writer busy is metered per root; what anyone may send without a password, per address. An address is an IPv4 address, or an IPv6 /64, which one host can have all of.
 
-| Limit                     | Value                                          | Why                                                                                                     |
-|---------------------------+------------------------------------------------+---------------------------------------------------------------------------------------------------------|
-| A pad                     | 512 KiB of text                                | Pastebin's free tier caps a paste at the same 512 KB ([[https://pastebin.com/faq][FAQ]]).                                               |
-| A path                    | 255 characters, 10 segments of 64             |                                                                                                         |
-| A link                    | 1 MiB, deflated and sealed                    | A pad and its subpads in one copy.                                                                      |
-| Links per root            | 1000                                           |                                                                                                         |
-| Server                    | 5 GiB of database                              | About 2.2 million average pads. Past it pads and links stop growing: =507=.                           |
-| Server, hard              | 5 GiB + 64 MiB                                 | SQLite's =max_page_count=: past it every write fails. The 64 MiB is for unlocks and new roots, so a full server still lets people in. |
-| Root, bytes               | 16 MiB of pads and links, emptied pads included until purged | About 40 times the author's root. At 5 GiB, 320 full roots fill the server.          |
-| Root, pads                | 5000, emptied ones included                    | The list returns at most this many; past it the finder and export would miss pads.                     |
-| Export                    | what the root holds                            | At most 16 MiB of sealed text, which the browser zips in memory.                                        |
-| New bytes per address     | 1 GiB a day, at most 64 MiB at once             | One address needs 5 days to fill 5 GiB; 100 people behind one NAT writing 1 MiB each use a tenth of a day's. With all of it at once, one address wrote 1 GiB in 20 s (below): 64 MiB, four full roots, makes filling the server take 80 fresh addresses at once. Overwrites count only what they add. |
-| Writes per root           | each costs its bytes, at least 16 KiB; 16 MiB at once, 1 MiB a second after | Counts what the writer spends. 16 MiB at once lets 1000 small pads in at once. The 16 KiB floor caps a root at 64 requests a second: about 3% of the VPS's 1,900 a second, so about 30 roots writing flat out fill it. Claims are free, so one address can do that; see Out of scope. |
-| Anyone, per address       | the same, for claim, unlock, lock and reading links | A link costs its size.                                                                          |
-| Every request, per address | 200 a second, 5000 at once                    | A tab polls 0.2 a second and saves at most 1.7, so 200 is about a thousand people's; the VPS takes about 1,900, so one address can't take it alone. 5000 at once lets an export read a full root. Checked first, so a refusal costs little. |
-| Wrong passwords           | 4 free, then 1 s doubling to 15 min, per device or address | About 100 guesses a day per address after the first 17 minutes. Nothing per root, which would let anyone lock its owner out. |
-| Meters' memory            | 20,000 keys each, least recently used forgotten | About 8 MB a meter at 400 bytes a key.                                                                  |
+| Limit                      | Value                                                                       | Why                                                                                                                                                                                                                                                                                                   |
+|----------------------------+-----------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A pad                      | 512 KiB of text                                                             | Pastebin's free tier caps a paste at the same 512 KB ([[https://pastebin.com/faq][FAQ]]).                                                                                                                                                                                                                                           |
+| A path                     | 255 characters, 10 segments of 64                                           |                                                                                                                                                                                                                                                                                                       |
+| A link                     | 1 MiB, deflated and sealed                                                  | A pad and its subpads in one copy.                                                                                                                                                                                                                                                                    |
+| Links per root             | 1000                                                                        |                                                                                                                                                                                                                                                                                                       |
+| Server                     | 5 GiB of database                                                           | About 2.2 million average pads. Past it pads and links stop growing: =507=.                                                                                                                                                                                                                           |
+| Server, hard               | 5 GiB + 64 MiB                                                              | SQLite's =max_page_count=: past it every write fails. The 64 MiB is for unlocks and new roots, so a full server still lets people in.                                                                                                                                                                 |
+| Root, bytes                | 16 MiB of pads and links, emptied pads included until purged                | About 40 times the author's root. At 5 GiB, 320 full roots fill the server.                                                                                                                                                                                                                           |
+| Root, pads                 | 5000, emptied ones included                                                 | The list returns at most this many; past it the finder and export would miss pads.                                                                                                                                                                                                                    |
+| Export                     | what the root holds                                                         | At most 16 MiB of sealed text, which the browser zips in memory.                                                                                                                                                                                                                                      |
+| New bytes per address      | 1 GiB a day, at most 64 MiB at once                                         | One address needs 5 days to fill 5 GiB; 100 people behind one NAT writing 1 MiB each use a tenth of a day's. With all of it at once, one address wrote 1 GiB in 20 s (below): 64 MiB, four full roots, makes filling the server take 80 fresh addresses at once. Overwrites count only what they add. |
+| Writes per root            | each costs its bytes, at least 16 KiB; 16 MiB at once, 1 MiB a second after | Counts what the writer spends. 16 MiB at once lets 1000 small pads in at once. The 16 KiB floor caps a root at 64 requests a second: about 3% of the VPS's 1,900 a second, so about 30 roots writing flat out fill it. Claims are free, so one address can do that; see Out of scope.                 |
+| Anyone, per address        | the same, for claim, unlock, lock and reading links                         | A link costs its size.                                                                                                                                                                                                                                                                                |
+| Every request, per address | 200 a second, 5000 at once                                                  | A tab polls 0.2 a second and saves at most 1.7, so 200 is about a thousand people's; the VPS takes about 1,900, so one address can't take it alone. 5000 at once lets an export read a full root. Checked first, so a refusal costs little.                                                           |
+| Wrong passwords            | 4 free, then 1 s doubling to 15 min, per device or address                  | About 100 guesses a day per address after the first 17 minutes. Nothing per root, which would let anyone lock its owner out.                                                                                                                                                                          |
+| Meters' memory             | 20,000 keys each, least recently used forgotten                             | About 8 MB a meter at 400 bytes a key.                                                                                                                                                                                                                                                                |
 
 Claiming a root is free: a root is a row of a few hundred bytes, and disk is only taken by what's written under it.
 
@@ -69,20 +69,20 @@ Not limited by the app: page loads, the unlocked =GET=s (the editor polls them, 
 
 =scenarios.ts=, run on the build of =3d7f628= (before) and on this one, each on a fresh database, 2026-10-11:
 
-| Scenario                                                       | Before                                   | After                               |
-|----------------------------------------------------------------+------------------------------------------+-------------------------------------|
-| Import: 2,000 pads of 2.4 KB, one address, honouring =429=s    | 67 saved in 60 s (all: about 33 minutes) | all 2,000 in 15.5 s                 |
-| Five people behind one address, a save a second each, 20 s     | 55 of 100 saved                          | 100 of 100                          |
-| One address filling the disk, 20 s                             | 26 MiB, and 30 MiB a minute after: 43 GiB a day | 64 MiB, then 1 GiB a day         |
-| A guesser at a 16 s wait, then 15,000 wrong guesses from other addresses in 2 s | the flood cleared every count: the guesser's next try was let through (=401=) | still waiting (=429=) |
+| Scenario                                                                        | Before                                                                        | After                    |
+|---------------------------------------------------------------------------------+-------------------------------------------------------------------------------+--------------------------|
+| Import: 2,000 pads of 2.4 KB, one address, honouring =429=s                     | 67 saved in 60 s (all: about 33 minutes)                                      | all 2,000 in 15.5 s      |
+| Five people behind one address, a save a second each, 20 s                      | 55 of 100 saved                                                               | 100 of 100               |
+| One address filling the disk, 20 s                                              | 26 MiB, and 30 MiB a minute after: 43 GiB a day                               | 64 MiB, then 1 GiB a day |
+| A guesser at a 16 s wait, then 15,000 wrong guesses from other addresses in 2 s | the flood cleared every count: the guesser's next try was let through (=401=) | still waiting (=429=)    |
 
 On the VPS, the build before the per-address request meter and the one after, the same day:
 
-| Scenario                                                            | Before                                | After                                  |
-|---------------------------------------------------------------------+---------------------------------------+----------------------------------------|
-| One address loading pages flat out, 8 connections, 10 s             | 3,143 pages a second, the whole server | 700 a second (the 5000 at once, then 200) |
-| Someone's saves every 100 ms while one address floods, 64 connections | p50 20.9 ms, p99 43.7 ms              | p50 6.1 ms, p99 38.1 ms                |
-| The same, 256 connections                                           | p50 80.1 ms, 56 saves in 10 s         | p50 18.9 ms, 84 saves                  |
+| Scenario                                                              | Before                                 | After                                     |
+|-----------------------------------------------------------------------+----------------------------------------+-------------------------------------------|
+| One address loading pages flat out, 8 connections, 10 s               | 3,143 pages a second, the whole server | 700 a second (the 5000 at once, then 200) |
+| Someone's saves every 100 ms while one address floods, 64 connections | p50 20.9 ms, p99 43.7 ms               | p50 6.1 ms, p99 38.1 ms                   |
+| The same, 256 connections                                             | p50 80.1 ms, 56 saves in 10 s          | p50 18.9 ms, 84 saves                     |
 
 No save failed in either. The flood ran on the VPS itself, so it also took CPU from the server; the other scenarios didn't change.
 
