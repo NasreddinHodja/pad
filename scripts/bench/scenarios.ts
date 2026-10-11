@@ -1,5 +1,6 @@
 // What the limits do to people and to abuse, as scenarios: an import, a
-// shared address, one address filling the disk, a password-guess flood.
+// shared address, one address filling the disk, a password-guess flood, one
+// address loading pages flat out, and what that costs someone else.
 // Run on two builds to compare them; an argument after the URL runs one.
 //
 // Run against a build started with a throwaway database and the client
@@ -7,7 +8,7 @@
 //
 //   PAD_DB=/tmp/pad-bench.db PORT=5597 ADDRESS_HEADER=x-forwarded-for \
 //     XFF_DEPTH=1 BODY_SIZE_LIMIT=1M bun build/index.js
-//   bun scripts/bench/scenarios.ts [importing|nat|fill|flood] http://127.0.0.1:5597
+//   bun scripts/bench/scenarios.ts [importing|nat|fill|flood|pages|neighbour] http://127.0.0.1:5597
 //
 // Results are in docs/architecture/capacity.org.
 const base = process.argv[2];
@@ -155,5 +156,55 @@ async function flood() {
   });
 }
 
-const all = { importing, nat, fill, flood };
+// 5. One address loading pages as fast as it can, 8 at a time, for 10 s:
+// the costliest request, which needs no password.
+async function pages() {
+  let served = 0,
+    refused = 0;
+  const end = performance.now() + 10_000;
+  await Promise.all(
+    Array.from({ length: 8 }, async () => {
+      while (performance.now() < end) {
+        const r = await fetch(`${base}/notes`, { headers: h('10.6.0.1') });
+        await r.arrayBuffer();
+        if (r.status === 200) served++;
+        else refused++;
+      }
+    })
+  );
+  console.log('pages', { servedPerSecond: served / 10, refused });
+}
+
+// 6. Someone else's saves while one address loads pages flat out: what the
+// flood costs everyone else, in failures and waiting. FLOOD sets the
+// attacker's connections, 8 by default.
+async function neighbour() {
+  const ip = '10.7.0.1';
+  const root = `nb${tag}`;
+  const cookie = await claim(root, ip);
+  const id = b64(32);
+  const times: number[] = [];
+  let failed = 0;
+  const end = performance.now() + 10_000;
+  const attacker = Promise.all(
+    Array.from({ length: Number(process.env.FLOOD ?? 8) }, async () => {
+      while (performance.now() < end) {
+        const r = await fetch(`${base}/notes`, { headers: h('10.6.0.2') });
+        await r.arrayBuffer();
+      }
+    })
+  );
+  while (performance.now() < end) {
+    const t = performance.now();
+    if ((await save(root, cookie, ip, 2400, id)) !== 200) failed++;
+    times.push(performance.now() - t);
+    await sleep(100);
+  }
+  await attacker;
+  times.sort((a, b) => a - b);
+  const at = (q: number) => times[Math.floor(q * (times.length - 1))].toFixed(1);
+  console.log('neighbour', { saves: times.length, failed, p50ms: at(0.5), p99ms: at(0.99) });
+}
+
+const all = { importing, nat, fill, flood, pages, neighbour };
 for (const [name, run] of Object.entries(all)) if (!only || only === name) await run();
