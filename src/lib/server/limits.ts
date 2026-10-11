@@ -151,8 +151,7 @@ export function meterGrowth(event: RequestEvent, bytes: number) {
 }
 
 // Failed password attempts back off, per device or per address (auth.ts's
-// attemptKeys), as konigslibrary's do: a few free, then a wait that doubles up
-// to 15 minutes. In memory: a restart forgets the counts, which costs an
+// attemptKeys): a few free, then a wait that doubles up to 15 minutes. In memory: a restart forgets the counts, which costs an
 // attacker a restart they can't cause.
 export const BACKOFF_FREE = 5;
 export const BACKOFF_MAX = 15 * 60 * 1000;
@@ -184,7 +183,7 @@ export function succeeded(keys: string[]) {
 
 /**
  * The address, or for IPv6 its /64, which one host can have all of; an
- * IPv4-mapped one as the IPv4 address. (konigslibrary's `limit_key`.)
+ * IPv4-mapped one as the IPv4 address.
  */
 export function limitKey(address: string) {
   const ip = address.replace(/%.*$/, '');

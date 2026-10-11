@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { fadeOut, flyIn } from './motion';
-  import { PRESETS, sameTheme, type Theme } from './theme';
+  import { fadeOut, flyIn } from './motion.ts';
+  import { PRESETS, sameTheme, type Theme } from './theme.ts';
 
-  // The root's theme, as konigslibrary's settings pick one: a preset, or each
-  // colour. Every pick shows at once and is saved to the root.
+  // The root's theme: a preset, or each colour. Every pick shows at once and is saved to the root.
   let {
     theme,
     retheme,

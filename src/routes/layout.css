@@ -11,7 +11,7 @@
 }
 
 /* On touch screens, a tap area of at least 48×48 centred on the control. The
-   control must be positioned for the area to sit on it. (konigslibrary) */
+   control must be positioned for the area to sit on it. */
 @utility hit {
   @media (pointer: coarse) {
     &::after {
@@ -27,8 +27,10 @@
 }
 
 @theme {
-  /* konigslibrary's palette (docs/design/system.org): background, text and
-     ink are the root's theme (lib/theme.ts); the rest is mixed from them.
+  /* konigslibrary's palette:
+     https://github.com/NasreddinHodja/konigslibrary/blob/main/docs/design/system.org
+     Background, text and ink are the root's theme (lib/theme.ts); the rest
+     is mixed from them.
      These are dusk's, until a theme sets its own. */
   --color-bg: #171a2b;
   --color-fg: #ece6f3;
@@ -64,7 +66,7 @@
 }
 
 /* A 50% checkerboard of the background, dithered over what's behind a
-   dialog. (konigslibrary) */
+   dialog. */
 @utility checker {
   background-image: conic-gradient(
     var(--color-bg) 25%,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fadeOut, flyIn } from './motion';
+  import { fadeOut, flyIn } from './motion.ts';
 
   // Deleting a root: it and every pad in it, reclaimable with the password
   // for 30 days.

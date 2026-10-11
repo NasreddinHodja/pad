@@ -2,9 +2,9 @@
 // notes.org, notes/today.org, notes/today/later.org. Built in the browser,
 // since only it can read them.
 
-import * as api from './api';
-import type { Keys } from './crypto';
-import { zip } from './zip';
+import * as api from './api.ts';
+import type { Keys } from './crypto.ts';
+import { zip } from './zip.ts';
 
 /** Pads fetched at once: enough to hide the round trips, few enough for the server. */
 const PARALLEL = 4;

@@ -2,7 +2,7 @@
 // can't read the pads. Deflated by the browser's own CompressionStream. No
 // zip64, so under 65535 files and 4 GiB, which an export keeps well under.
 
-import { deflate } from './deflate';
+import { deflate } from './deflate.ts';
 
 export type File = { name: string; data: Uint8Array };
 

@@ -17,7 +17,7 @@
 //
 // Wrong passwords back off, but only ever on the one who sent them: a browser
 // that has unlocked the root before on its own failures, by a device token
-// that outlives locking (konigslibrary's), any other on its address's. There
+// that outlives locking, any other on its address's. There
 // is no count per root, which anyone could run up to keep everyone else out.
 // The counting is limits.ts's.
 

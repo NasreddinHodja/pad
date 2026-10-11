@@ -1,7 +1,9 @@
-// A root's theme: konigslibrary's palettes (its src/lib/theme), three colours
-// the rest is mixed from. The marble behind the panels is recoloured to
-// match. This browser remembers each root's, so app.html can put it on before
-// the first paint; the root keeps it sealed (api.ts).
+// A root's theme: three colours the rest is mixed from, presets after
+// konigslibrary's:
+// https://github.com/NasreddinHodja/konigslibrary/blob/main/src/lib/theme/index.ts
+// The marble behind the panels is recoloured to match. This browser
+// remembers each root's, so app.html can put it on before the first paint;
+// the root keeps it sealed (api.ts).
 
 export type Theme = { bg: string; fg: string; ink: string };
 
@@ -19,7 +21,7 @@ export const PRESETS: ThemePreset[] = [
 ];
 
 /** Dusk: layout.css's and bg.png's, and a root's until it picks another. */
-export const DEFAULT: Theme = { bg: '#171a2b', fg: '#ece6f3', ink: '#f7b2d6' };
+export const DEFAULT: Theme = { bg: PRESETS[0].bg, fg: PRESETS[0].fg, ink: PRESETS[0].ink };
 
 const HEX = /^#[0-9a-f]{6}$/i;
 

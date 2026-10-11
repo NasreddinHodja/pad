@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import * as api from './api';
-  import { blockCaret } from './caret';
-  import { checkPassword, type Keys } from './crypto';
-  import { href } from './href';
+  import * as api from './api.ts';
+  import { blockCaret } from './caret.ts';
+  import { checkPassword, type Keys } from './crypto.ts';
+  import { href } from './href.ts';
 
   let {
     path,

@@ -1,18 +1,18 @@
 <script lang="ts">
   import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
   import { onMount, tick, untrack } from 'svelte';
-  import * as api from './api';
-  import { blockCaret } from './caret';
-  import { forgetKeys, type Keys } from './crypto';
+  import * as api from './api.ts';
+  import { blockCaret } from './caret.ts';
+  import { forgetKeys, type Keys } from './crypto.ts';
   import Delete from './Delete.svelte';
-  import { collect, download, exportPads } from './export';
+  import { collect, download, exportPads } from './export.ts';
   import Finder from './Finder.svelte';
   import Share from './Share.svelte';
-  import { href } from './href';
-  import { fadeOut, flyIn } from './motion';
-  import { rememberTheme, type Theme } from './theme';
+  import { href } from './href.ts';
+  import { fadeOut, flyIn } from './motion.ts';
+  import { rememberTheme, type Theme } from './theme.ts';
   import ThemePicker from './ThemePicker.svelte';
-  import { under } from './tree';
+  import { under } from './tree.ts';
 
   let {
     path,

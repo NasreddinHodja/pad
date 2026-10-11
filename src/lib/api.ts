@@ -20,11 +20,11 @@ import {
   sealTheme,
   toBase64,
   type Keys
-} from './crypto';
-import { deflate, inflate } from './deflate';
-import type { Pad } from './export';
-import { MAX_SHARE } from './limits';
-import { parseTheme, type Theme } from './theme';
+} from './crypto.ts';
+import { deflate, inflate } from './deflate.ts';
+import type { Pad } from './export.ts';
+import { MAX_SHARE } from './limits.ts';
+import { parseTheme, type Theme } from './theme.ts';
 
 const utf8 = new TextEncoder();
 const utf8Decode = new TextDecoder();

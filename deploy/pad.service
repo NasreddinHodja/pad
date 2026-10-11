@@ -27,7 +27,7 @@ ExecStart=/usr/local/bin/bun /opt/pad/build/index.js
 Restart=on-failure
 RestartSec=3
 
-# Sandbox, as konigslibrary's: the whole system read-only except the state
+# Sandbox: the whole system read-only except the state
 # directory, no home directories, no way to gain privileges. Not
 # MemoryDenyWriteExecute: untested with Bun's JIT.
 NoNewPrivileges=yes

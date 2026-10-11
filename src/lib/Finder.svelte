@@ -1,10 +1,10 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { tick } from 'svelte';
-  import { blockCaret } from './caret';
-  import { rank } from './fuzzy';
-  import { href } from './href';
-  import { fadeOut, flyIn } from './motion';
+  import { blockCaret } from './caret.ts';
+  import { rank } from './fuzzy.ts';
+  import { href } from './href.ts';
+  import { fadeOut, flyIn } from './motion.ts';
 
   // fzf over the pads under this one. Collapsed it's the field; focused, a
   // panel opens upwards around it over a checker backdrop, best match nearest

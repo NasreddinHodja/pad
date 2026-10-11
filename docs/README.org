@@ -17,4 +17,4 @@
 
 * Design
 
-The UI follows konigslibrary's design system (=docs/design/system.org= in that repo): the VGA 9x16 font at 16px and 32px, its palettes (dusk, pad's own, by default), raised panels over a dither texture, 48px touch targets.
+The UI follows konigslibrary's design system ([[https://github.com/NasreddinHodja/konigslibrary/blob/main/docs/design/system.org][docs/design/system.org]] in that repo): the VGA 9x16 font at 16px and 32px, its palettes (dusk, pad's own, by default), raised panels over a dither texture, 48px touch targets.

@@ -1,6 +1,6 @@
 import { fade, fly } from 'svelte/transition';
 
-// konigslibrary's motion: 120ms in, 90ms out, nothing under reduced motion.
+// Motion: 120ms in, 90ms out, nothing under reduced motion.
 const reduced =
   typeof globalThis.matchMedia === 'function' &&
   globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;

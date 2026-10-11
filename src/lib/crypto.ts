@@ -11,7 +11,7 @@
 
 import { argon2id } from 'hash-wasm';
 
-// OWASP's minimum for Argon2id, as the server used before.
+// OWASP's minimum for Argon2id.
 const ARGON2 = { iterations: 2, parallelism: 1, memorySize: 19 * 1024 } as const;
 const IV = 12;
 

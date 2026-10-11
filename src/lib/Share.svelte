@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import * as api from './api';
-  import type { Keys } from './crypto';
-  import type { Pad } from './export';
-  import { fadeOut, flyIn } from './motion';
-  import type { Theme } from './theme';
+  import * as api from './api.ts';
+  import type { Keys } from './crypto.ts';
+  import type { Pad } from './export.ts';
+  import { fadeOut, flyIn } from './motion.ts';
+  import type { Theme } from './theme.ts';
 
   // The pad's read-only links: each a copy of the pad and those under it as
   // they were when made.

@@ -6,7 +6,7 @@
 pad.nassu.online {
   encode zstd gzip
   header {
-    # As konigslibrary's: no includeSubDomains, the other subdomains aren't this.
+    # No includeSubDomains: the other subdomains aren't this server.
     Strict-Transport-Security "max-age=63072000"
     X-Content-Type-Options nosniff
     # Links in a pad would otherwise tell the site they lead to the pad's path.

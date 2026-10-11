@@ -31,7 +31,7 @@ The link's page shows the pad, and under it the pads under it, each opening with
 
 * Themes
 
-*theme*, in a root pad's header, picks the root's colours: pad's own, made for long reading (dusk, the default, and dawn), or one of konigslibrary's (one bark, bubblegum, paper, white), or a background, text and ink of its own. Every pad under the root takes it, and so do read-only links made after. It's sealed like the pads, so the password page shows it only in a browser that has unlocked the root, until that browser locks it.
+*theme*, in a root pad's header, picks the root's colours: pad's own, made for long reading (dusk, the default, and dawn), or one of [[https://github.com/NasreddinHodja/konigslibrary][konigslibrary]]'s (one bark, bubblegum, paper, white), or a background, text and ink of its own. Every pad under the root takes it, and so do read-only links made after. It's sealed like the pads, so the password page shows it only in a browser that has unlocked the root, until that browser locks it.
 
 * Export
 

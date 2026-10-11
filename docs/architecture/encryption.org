@@ -35,7 +35,7 @@ The cookie is =__Host-pad=: =HttpOnly=, =Secure=, =SameSite=Lax=, a fresh 256-bi
 
 Five are free; after that each doubles the wait, up to 15 minutes. Whose failures count:
 
-+ A browser that has unlocked the root before: only its own. Unlocking sets a second cookie, =__Host-pad-device=, whose token's SHA-256 the database keeps per root; locking leaves it, and 180 days unseen at the root forgets it. So strangers failing the password can't keep out a browser that has been in. (konigslibrary's device tokens.)
++ A browser that has unlocked the root before: only its own. Unlocking sets a second cookie, =__Host-pad-device=, whose token's SHA-256 the database keeps per root; locking leaves it, and 180 days unseen at the root forgets it. So strangers failing the password can't keep out a browser that has been in.
 + Any other: its address's, or for IPv6 its /64's, which one host can have all of.
 
 Nothing is counted per root: anyone could run that up to keep everyone else out. So guesses at one root from many addresses are each slowed per address only, and by the Argon2id every guess costs the guesser.
