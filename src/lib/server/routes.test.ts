@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
+import * as usage from '../../routes/_/[root]/usage/+server.ts';
 import { MAX_SEALED, ROOT_BYTES, ROOT_PADS, WRITES } from './limits.ts';
 
 const b64 = (n: number) => randomBytes(n).toString('base64url');
@@ -199,5 +200,12 @@ describe('quotas', () => {
       expect((await save('rewrite', cookies, MAX_SEALED, id, '203.0.113.30')).status).toBe(200);
       later(500);
     }
+  });
+
+  test('usage counts pads and links', async () => {
+    const cookies = await claimed('count');
+    await save('count', cookies, 100);
+    const { res } = await call(usage.GET, { params: { root: 'count' }, cookies });
+    expect(await res!.json()).toEqual({ bytes: 101, pads: 1 });
   });
 });
