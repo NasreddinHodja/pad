@@ -62,12 +62,6 @@ export const reclaimRoot = db.transaction((root: string) => {
 export const purgeRoot = db.transaction((root: string) => {
   for (const table of ['sealed', 'shares', 'unlocks', 'devices'])
     db.query(`DELETE FROM ${table} WHERE root = ?`).run(root);
-  // As db.ts's legacyStmt: the root's own pad and every one under `root/`.
-  db.query('DELETE FROM pads WHERE path = ?1 OR (path > ?2 AND path < ?3)').run(
-    root,
-    root + '/',
-    root + '0'
-  );
   db.query('DELETE FROM roots WHERE name = ?').run(root);
 });
 

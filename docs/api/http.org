@@ -55,15 +55,9 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** GET /_/<root>/pads
 
-/Unlocked./ Every pad of the root, and its pads from before encryption.
+/Unlocked./ Every pad of the root.
 
-=200= ={"pads": [{"id": "…", "name": "<sealed path>", "size": <bytes of sealed text>}], "legacy": [{"path": "a/b", "content": "…"}]}=. At most 5000 pads.
-
-** DELETE /_/<root>/pads
-
-/Unlocked./ Deletes the plain copies of pads from before encryption, once they're sealed.
-
-Body: ={"paths": ["a/b", …]}=, every one under =<root>=. =204=.
+=200= ={"pads": [{"id": "…", "name": "<sealed path>", "size": <bytes of sealed text>}]}=. At most 5000 pads.
 
 ** GET /_/<root>/pads/<id>
 
@@ -78,9 +72,8 @@ Body: ={"paths": ["a/b", …]}=, every one under =<root>=. =204=.
 
 + Body: the sealed text, at most 512 KiB + 28 bytes; over: =413=.
 + =X-Pad-Name=: the sealed path, base64url, at most 1400 characters.
-+ =X-Pad-Legacy= (optional): the percent-encoded path of the plain pad this replaces. The plain copy is deleted in the same transaction, and the save isn't rate-limited; if the plain copy is already gone, =409=.
 
-=200= ={"updatedAt": <ms>}=, or =204= for a legacy migration.
+=200= ={"updatedAt": <ms>}=.
 
 ** DELETE /_/<root>/pads/<id>
 

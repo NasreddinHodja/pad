@@ -37,9 +37,8 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 + =unlocks= :: one row per browser per root it unlocked: SHA-256 of the cookie's token, when it was made, when it was last used.
 + =devices= :: one row per browser per root it has ever unlocked: SHA-256 of the device cookie's token, when it was last seen there. Kept through locking; gone after 180 days unseen.
 + =shares= :: one row per read-only link: its random =id=, root, =pad= (the pad's id), =sealed_key= (the link's key, encrypted under the root's), =data= (the copy, encrypted under the link's key), =created_at=.
-+ =pads= :: pads from before encryption, in plain text. The first browser to unlock their root encrypts them into =sealed= and deletes them here.
 
-Emptying a pad sets its =deleted_at=; saving it again clears it. Deleting a root sets the root's and its live pads' to one time, later than any of its pads already emptied, and drops its =unlocks=; unlocking it clears the root's and those pads'. A marked pad's links 404, as do a deleted root's. A request runs a purge at most hourly: whatever was marked more than 30 days ago goes, a root with its pads, links, =unlocks=, =devices= and plain pads. Claiming a deleted root purges it first.
+Emptying a pad sets its =deleted_at=; saving it again clears it. Deleting a root sets the root's and its live pads' to one time, later than any of its pads already emptied, and drops its =unlocks=; unlocking it clears the root's and those pads'. A marked pad's links 404, as do a deleted root's. A request runs a purge at most hourly: whatever was marked more than 30 days ago goes, a root with its pads, links, =unlocks= and =devices=. Claiming a deleted root purges it first.
 
 Rate limits and wrong-password counts are in memory (=limits.ts=, =auth.ts=): a restart clears them.
 

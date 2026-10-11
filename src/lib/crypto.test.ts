@@ -7,7 +7,6 @@ import {
   openRootKey,
   openShare,
   openShareKey,
-  openSnapshot,
   openText,
   openTheme,
   padId,
@@ -17,7 +16,6 @@ import {
   sealRootKey,
   sealShare,
   sealShareKey,
-  sealSnapshot,
   sealText,
   sealTheme,
   toBase64
@@ -64,24 +62,15 @@ test('text and names open only under the id they were sealed for', async () => {
   await expect(openName(keys, other, name)).rejects.toThrow();
 });
 
-test("a link's copy opens with its key, for its id, and its key with the root's", async () => {
+test("a link's pads open with its key, for its id, and its key with the root's", async () => {
   const keys = await padKeys(random(32));
-  const key = random(32);
-  const snapshot = { path: 'a/b', text: 'first line\nsecond line' };
-  const sealed = await sealSnapshot(key, 'link', snapshot);
-  expect(await openSnapshot(key, 'link', sealed)).toEqual(snapshot);
-  await expect(openSnapshot(random(32), 'link', sealed)).rejects.toThrow();
-  await expect(openSnapshot(key, 'other', sealed)).rejects.toThrow();
-  expect(await openShareKey(keys, 'link', await sealShareKey(keys, 'link', key))).toEqual(key);
-});
-
-test("a link's pads open with its key, for its id, and never as a link from before", async () => {
   const key = random(32);
   const plain = new TextEncoder().encode('{"path":"a","pads":[]}');
   const sealed = await sealShare(key, 'link', plain);
   expect(await openShare(key, 'link', sealed)).toEqual(plain);
+  await expect(openShare(random(32), 'link', sealed)).rejects.toThrow();
   await expect(openShare(key, 'other', sealed)).rejects.toThrow();
-  await expect(openSnapshot(key, 'link', sealed)).rejects.toThrow();
+  expect(await openShareKey(keys, 'link', await sealShareKey(keys, 'link', key))).toEqual(key);
 });
 
 test("a theme opens only with its root's keys, and isn't a pad's text", async () => {

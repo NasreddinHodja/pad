@@ -2,8 +2,7 @@
 //
 // The first segment of a path is its root: `/a/b/c` belongs to `a`. Whoever
 // first saves under a root sets its password, and from then on reading or
-// writing anything under it needs that password. Root pads saved before this
-// existed have none, and the next person to edit one claims it.
+// writing anything under it needs that password.
 //
 // The password never leaves the browser (see `#lib/crypto.ts`). What the
 // server gets is `auth`, 32 bytes the browser derives from it with Argon2id,

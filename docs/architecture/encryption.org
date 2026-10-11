@@ -53,7 +53,6 @@ A link is =/_/<root>/s/<id>#<key>=, with the path of a pad under the one it was 
 + Revoking deletes the row. Someone who read the copy before still has what they read.
 + The copy is sealed under its own key, not the root's: a link opens that one copy, nothing else in the root.
 + Deflating first means the server learns the copy's compressed size rather than its size.
-+ Links from before subpads were shared hold one pad, as =path\ntext=, sealed bound to =pad share= rather than =pad share tree=; the page opens those too.
 
 * What it doesn't protect against
 

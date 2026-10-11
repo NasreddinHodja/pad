@@ -9,13 +9,6 @@ mkdirSync(dirname(file), { recursive: true });
 export const db = new Database(file, { strict: true });
 db.run('PRAGMA journal_mode = WAL');
 db.run('PRAGMA synchronous = NORMAL');
-// Pads from before encryption, in plain text. The first browser to unlock
-// their root encrypts them into `sealed` and deletes them from here.
-db.run(`CREATE TABLE IF NOT EXISTS pads (
-  path TEXT PRIMARY KEY,
-  content TEXT NOT NULL,
-  updated_at INTEGER NOT NULL
-) WITHOUT ROWID`);
 // `id` is the HMAC of the pad's path under the root's key; `name` is the path
 // and `data` the text, both sealed by the browser. The server can tell how
 // many pads a root has and how long each is, nothing more.
@@ -45,12 +38,6 @@ const putStmt = db.query(
 const listStmt = db.query<{ id: string; name: string; size: number }, [string]>(
   'SELECT id, name, length(data) AS size FROM sealed WHERE root = ? AND deleted_at IS NULL ORDER BY id LIMIT 5000'
 );
-// The root's own pad and every one under `root/`: '0' is the character after
-// '/', so the range is exactly the paths starting with `root/`.
-const legacyStmt = db.query<{ path: string; content: string }, [string, string, string]>(
-  'SELECT path, content FROM pads WHERE path = ?1 OR (path > ?2 AND path < ?3)'
-);
-const dropLegacyStmt = db.query('DELETE FROM pads WHERE path = ?');
 
 export function getSealed(root: string, id: string) {
   return getStmt.get(root, id);
@@ -66,24 +53,3 @@ export function putSealed(root: string, id: string, name: string, data: Uint8Arr
 export function listSealed(root: string) {
   return listStmt.all(root);
 }
-
-export function legacyPads(root: string) {
-  return legacyStmt.all(root, root + '/', root + '0');
-}
-
-/**
- * Swaps a pad from before encryption for its sealed copy. False if there was
- * no such plain pad, so each migration uses one up.
- */
-export const migrateLegacy = db.transaction(
-  (root: string, id: string, name: string, data: Uint8Array, path: string) => {
-    if (dropLegacyStmt.run(path).changes !== 1) return false;
-    putSealed(root, id, name, data);
-    return true;
-  }
-);
-
-/** Only the paths the browser encrypted: nothing else is lost. */
-export const dropLegacy = db.transaction((paths: string[]) => {
-  for (const path of paths) dropLegacyStmt.run(path);
-});

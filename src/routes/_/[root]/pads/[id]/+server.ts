@@ -1,7 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { ours, padIdParam, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
-import { rootOf } from '#lib/server/auth.ts';
-import { getSealed, migrateLegacy, putSealed } from '#lib/server/db.ts';
+import { getSealed, putSealed } from '#lib/server/db.ts';
 import { checkRate, MAX_SEALED, MAX_SEALED_NAME } from '#lib/server/limits.ts';
 import { markPad } from '#lib/server/trash.ts';
 import type { RequestEvent, RequestHandler } from './$types';
@@ -26,23 +25,16 @@ export const GET: RequestHandler = (event) => {
 };
 
 // The editor's autosave: the sealed text as the body, the sealed path in a
-// header. Or a pad from before encryption, sealed: `x-pad-legacy` names its
-// plain copy, deleted in the same transaction. Those skip the rate limit,
-// since each needs a plain pad to use up and a root can have hundreds.
+// header.
 export const PUT: RequestHandler = async (event) => {
   ours(event);
   const { root, id } = target(event);
-  const legacy = event.request.headers.get('x-pad-legacy');
-  const legacyPath = legacy === null ? null : decodeHeader(legacy);
-  if (legacyPath !== null && rootOf(legacyPath) !== root) error(400, 'not a pad of this root');
-  if (legacyPath === null) checkRate(event.getClientAddress());
+  checkRate(event.getClientAddress());
   const name = event.request.headers.get('x-pad-name') ?? '';
   if (!/^[A-Za-z0-9_-]+$/.test(name) || name.length > MAX_SEALED_NAME)
     error(400, 'malformed pad name');
   const data = await readCapped(event.request, MAX_SEALED, 'pad is over 512 KiB');
-  if (legacyPath === null) return json({ updatedAt: putSealed(root, id, name, data) });
-  if (!migrateLegacy(root, id, name, data, legacyPath)) error(409, 'already encrypted');
-  return new Response(null, { status: 204 });
+  return json({ updatedAt: putSealed(root, id, name, data) });
 };
 
 // An emptied pad: marked, and purged in 30 days unless it's saved again.
@@ -53,11 +45,3 @@ export const DELETE: RequestHandler = (event) => {
   markPad(root, id);
   return new Response(null, { status: 204 });
 };
-
-function decodeHeader(value: string) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    error(400, 'malformed pad path');
-  }
-}

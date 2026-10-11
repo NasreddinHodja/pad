@@ -7,7 +7,6 @@ import {
   openRootKey,
   openShareKey,
   openShare,
-  openSnapshot,
   openText,
   openTheme,
   padId,
@@ -32,9 +31,9 @@ const utf8Decode = new TextDecoder();
 
 /**
  * What a read-only link holds: the pad it was made at, and it and those under
- * it; and the root's theme, which links from before themes don't have.
+ * it; and the root's theme.
  */
-export type Shared = { path: string; pads: Pad[]; theme?: Theme };
+export type Shared = { path: string; pads: Pad[]; theme: Theme };
 
 const base = (root: string) => '/_/' + encodeURIComponent(root);
 
@@ -99,30 +98,12 @@ export const lock = (root: string) => post(`${base(root)}/auth/lock`, {});
 /** Marks the root and its pads deleted, and signs every browser out; its password reclaims it. */
 export const remove = (root: string) => post(`${base(root)}/auth/delete`, {});
 
-/**
- * Every pad path in the root. Pads from before encryption get encrypted on
- * the way, and their plain text deleted from the server.
- */
+/** Every pad path in the root. */
 export async function list(root: string, keys: Keys) {
-  const { pads, legacy } = (await (await call(`${base(root)}/pads`)).json()) as {
-    pads: { id: string; name: string; size: number }[];
-    legacy: { path: string; content: string }[];
+  const { pads } = (await (await call(`${base(root)}/pads`)).json()) as {
+    pads: { id: string; name: string }[];
   };
-  const paths = await Promise.all(pads.map((p) => openName(keys, p.id, p.name)));
-  // Sealed by an earlier, interrupted run: only the plain copy is left to delete.
-  const done = legacy.filter((p) => paths.includes(p.path)).map((p) => p.path);
-  for (const { path, content } of legacy) {
-    if (done.includes(path)) continue;
-    await save(root, keys, path, content, path);
-    paths.push(path);
-  }
-  if (done.length)
-    await call(`${base(root)}/pads`, {
-      method: 'DELETE',
-      body: JSON.stringify({ paths: done }),
-      headers: { 'content-type': 'application/json' }
-    });
-  return [...new Set(paths)];
+  return Promise.all(pads.map((p) => openName(keys, p.id, p.name)));
 }
 
 /** Every pad path in the root, with the size of its sealed text. */
@@ -142,8 +123,8 @@ export async function load(root: string, keys: Keys, path: string) {
   return openText(keys, id, new Uint8Array(await res.arrayBuffer()));
 }
 
-/** An empty pad is deleted. `legacy`: the plain pad this replaces. */
-export async function save(root: string, keys: Keys, path: string, text: string, legacy?: string) {
+/** An empty pad is deleted. */
+export async function save(root: string, keys: Keys, path: string, text: string) {
   const id = await padId(keys, path);
   const url = `${base(root)}/pads/${id}`;
   if (text === '') return call(url, { method: 'DELETE' });
@@ -152,8 +133,7 @@ export async function save(root: string, keys: Keys, path: string, text: string,
     body: await sealText(keys, id, text),
     headers: {
       'content-type': 'application/octet-stream',
-      'x-pad-name': await sealName(keys, id, path),
-      ...(legacy !== undefined && { 'x-pad-legacy': encodeURIComponent(legacy) })
+      'x-pad-name': await sealName(keys, id, path)
     }
   });
 }
@@ -226,19 +206,11 @@ export const revokeAll = async (root: string, keys: Keys, path: string) =>
 /** A link's copy, opened with the key from its `#`. */
 export async function readShare(root: string, id: string, key: string) {
   const res = await call(`${base(root)}/shares/${id}`);
-  const data = new Uint8Array(await res.arrayBuffer());
-  const bytes = fromBase64(key);
-  const shared: Shared = await openShare(bytes, id, data).then(
-    async (plain) => JSON.parse(utf8Decode.decode(await inflate(plain))),
-    // A link from before subpads were shared: one pad.
-    async () => {
-      const one = await openSnapshot(bytes, id, data);
-      return { path: one.path, pads: [one] };
-    }
-  );
+  const plain = await openShare(fromBase64(key), id, new Uint8Array(await res.arrayBuffer()));
+  const shared: Shared = JSON.parse(utf8Decode.decode(await inflate(plain)));
   return {
     ...shared,
-    theme: shared.theme && parseTheme(shared.theme),
+    theme: parseTheme(shared.theme),
     createdAt: Number(res.headers.get('x-created-at'))
   };
 }
