@@ -6,9 +6,6 @@
 // password reclaims it, unmarking what was marked with it, and a fresh claim
 // purges it first. Whatever is still marked after GRACE is purged: the sealed
 // pads, their links and, for a root, its password, unlocks and devices.
-//
-// The tables are made by db.ts, shares.ts and auth.ts; these statements are
-// prepared on first use, so this module only needs the database.
 
 import { db } from './db.ts';
 
@@ -17,70 +14,79 @@ export const GRACE = 30 * DAY;
 /** How often a request may set off a purge. */
 const PURGE_EVERY = 60 * 60 * 1000;
 
+const markPadStmt = db.query(
+  'UPDATE sealed SET deleted_at = ? WHERE root = ? AND id = ? AND deleted_at IS NULL'
+);
+const deletedAtStmt = db.query<{ deleted_at: number | null }, [string]>(
+  'SELECT deleted_at FROM roots WHERE name = ?'
+);
+const lastMarkStmt = db.query<{ at: number | null }, [string]>(
+  'SELECT max(deleted_at) AS at FROM sealed WHERE root = ?'
+);
+const markRootStmt = db.query(
+  'UPDATE roots SET deleted_at = ? WHERE name = ? AND deleted_at IS NULL'
+);
+const markPadsStmt = db.query(
+  'UPDATE sealed SET deleted_at = ? WHERE root = ? AND deleted_at IS NULL'
+);
+const signOutStmt = db.query('DELETE FROM unlocks WHERE root = ?');
+const unmarkPadsStmt = db.query(
+  'UPDATE sealed SET deleted_at = NULL WHERE root = ? AND deleted_at = ?'
+);
+const unmarkRootStmt = db.query('UPDATE roots SET deleted_at = NULL WHERE name = ?');
+// The root's pads, links, unlocks and devices go with it.
+const purgeRootStmt = db.query('DELETE FROM roots WHERE name = ?');
+const purgeRootsStmt = db.query('DELETE FROM roots WHERE deleted_at <= ?');
+const purgeLinksStmt = db.query(
+  'DELETE FROM shares WHERE (root, pad) IN (SELECT root, id FROM sealed WHERE deleted_at <= ?)'
+);
+const purgePadsStmt = db.query('DELETE FROM sealed WHERE deleted_at <= ?');
+
 /** An emptied pad. Its first emptying counts, not later ones. */
 export function markPad(root: string, id: string) {
-  db.query('UPDATE sealed SET deleted_at = ? WHERE root = ? AND id = ? AND deleted_at IS NULL').run(
-    Date.now(),
-    root,
-    id
-  );
+  markPadStmt.run(Date.now(), root, id);
 }
 
 /** When the root was deleted, if it's waiting to be purged. */
 export function deletedAt(root: string) {
-  return (
-    db
-      .query<{ deleted_at: number | null }, [string]>('SELECT deleted_at FROM roots WHERE name = ?')
-      .get(root)?.deleted_at ?? null
-  );
+  return deletedAtStmt.get(root)?.deleted_at ?? null;
 }
 
 /** Marks the root and every pad in it, and signs every browser out. */
 export const deleteRoot = db.transaction((root: string) => {
   // After every pad already emptied, even within the millisecond, so a
   // reclaim tells them apart.
-  const last = db
-    .query<{ at: number | null }, [string]>(
-      'SELECT max(deleted_at) AS at FROM sealed WHERE root = ?'
-    )
-    .get(root)?.at;
+  const last = lastMarkStmt.get(root)?.at;
   const now = Math.max(Date.now(), (last ?? 0) + 1);
-  db.query('UPDATE roots SET deleted_at = ? WHERE name = ? AND deleted_at IS NULL').run(now, root);
-  db.query('UPDATE sealed SET deleted_at = ? WHERE root = ? AND deleted_at IS NULL').run(now, root);
-  db.query('DELETE FROM unlocks WHERE root = ?').run(root);
+  markRootStmt.run(now, root);
+  markPadsStmt.run(now, root);
+  signOutStmt.run(root);
 });
 
 /** Unmarks the root and the pads marked with it; pads emptied before stay marked. */
 export const reclaimRoot = db.transaction((root: string) => {
   const at = deletedAt(root);
   if (at === null) return;
-  db.query('UPDATE sealed SET deleted_at = NULL WHERE root = ? AND deleted_at = ?').run(root, at);
-  db.query('UPDATE roots SET deleted_at = NULL WHERE name = ?').run(root);
+  unmarkPadsStmt.run(root, at);
+  unmarkRootStmt.run(root);
 });
 
 /** Everything of the root, now. */
-export const purgeRoot = db.transaction((root: string) => {
-  for (const table of ['sealed', 'shares', 'unlocks', 'devices'])
-    db.query(`DELETE FROM ${table} WHERE root = ?`).run(root);
-  db.query('DELETE FROM roots WHERE name = ?').run(root);
-});
+export function purgeRoot(root: string) {
+  purgeRootStmt.run(root);
+}
 
 /** What's been marked longer than GRACE. */
 export const purge = db.transaction((now: number) => {
   const before = now - GRACE;
-  const roots = db
-    .query<{ name: string }, [number]>('SELECT name FROM roots WHERE deleted_at <= ?')
-    .all(before);
-  for (const { name } of roots) purgeRoot(name);
-  db.query(
-    `DELETE FROM shares WHERE (root, pad) IN (SELECT root, id FROM sealed WHERE deleted_at <= ?)`
-  ).run(before);
-  db.query('DELETE FROM sealed WHERE deleted_at <= ?').run(before);
+  purgeRootsStmt.run(before);
+  purgeLinksStmt.run(before);
+  purgePadsStmt.run(before);
 });
 
 let lastPurge = 0;
 
-/** A purge, at most once every PURGE_EVERY: requests set it off, there's no timer. */
+/** A purge, at most once every PURGE_EVERY: requests set it off (hooks.server.ts), there's no timer. */
 export function purgeDue(now = Date.now()) {
   if (now - lastPurge < PURGE_EVERY) return;
   lastPurge = now;

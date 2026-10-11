@@ -12,7 +12,6 @@ export const load: PageServerLoad = ({ params, cookies }) => {
   if (path === '') redirect(308, '/');
   if (path !== params.path) redirect(308, href(path.split('/')));
   const root = rootOf(path);
-  // First: it may purge the root.
   const state = access(cookies, root);
   const salt = saltOf(root);
   const deleted = deletedAt(root);

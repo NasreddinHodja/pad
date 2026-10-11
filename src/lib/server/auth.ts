@@ -24,7 +24,7 @@ import { dev } from '$app/env';
 import type { Cookies, RequestEvent } from '@sveltejs/kit';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { db } from './db.ts';
-import { purgeDue, purgeRoot } from './trash.ts';
+import { purgeRoot } from './trash.ts';
 
 export const SALT_BYTES = 16;
 export const AUTH_BYTES = 32;
@@ -43,31 +43,6 @@ const COOKIE = dev ? 'pad' : '__Host-pad';
 const DEVICE_COOKIE = dev ? 'pad-device' : '__Host-pad-device';
 /** A device not seen at a root this long is a stranger there again. */
 const DEVICE_IDLE = 180 * DAY;
-
-db.run(`CREATE TABLE IF NOT EXISTS roots (
-  name TEXT PRIMARY KEY,
-  salt BLOB NOT NULL,
-  auth_hash BLOB NOT NULL,
-  sealed_key BLOB NOT NULL,
-  created_at INTEGER NOT NULL
-) WITHOUT ROWID`);
-// A deleted root's, until it's reclaimed or trash.ts purges it.
-if (!db.query("SELECT 1 FROM pragma_table_info('roots') WHERE name = 'deleted_at'").get())
-  db.run('ALTER TABLE roots ADD COLUMN deleted_at INTEGER');
-db.run(`CREATE TABLE IF NOT EXISTS unlocks (
-  token_hash BLOB NOT NULL,
-  root TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  last_seen INTEGER NOT NULL,
-  PRIMARY KEY (token_hash, root)
-) WITHOUT ROWID`);
-db.run('CREATE INDEX IF NOT EXISTS unlocks_by_root ON unlocks (root)');
-db.run(`CREATE TABLE IF NOT EXISTS devices (
-  token_hash BLOB NOT NULL,
-  root TEXT NOT NULL,
-  last_seen INTEGER NOT NULL,
-  PRIMARY KEY (token_hash, root)
-) WITHOUT ROWID`);
 
 type Root = {
   salt: Uint8Array;
@@ -148,7 +123,6 @@ export type Access = 'open' | 'deleted' | 'unlocked' | 'locked';
 
 /** Open: no one has claimed the root yet. Deleted: claimable, or its password reclaims it. */
 export function access(cookies: Cookies, root: string): Access {
-  purgeDue();
   const claimed = rootStmt.get(root);
   if (!claimed) return 'open';
   if (claimed.deleted_at !== null) return 'deleted';

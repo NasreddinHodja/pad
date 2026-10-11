@@ -19,6 +19,7 @@ const id = (c: string) => c.repeat(43);
 const link = (c: string) => c.repeat(22);
 
 test('an emptied pad drops out, its links go quiet, and saving it again brings both back', () => {
+  claim('empty', bytes(16), bytes(32), bytes(60));
   putSealed('empty', id('a'), 'name', bytes(10));
   addShare('empty', link('w'), id('a'), bytes(60), bytes(10));
   markPad('empty', id('a'));
@@ -66,6 +67,7 @@ test('a purge takes only what has been marked longer than the grace', () => {
   claim('old', bytes(16), bytes(32), bytes(60));
   putSealed('old', id('a'), 'name', bytes(10));
   deleteRoot('old');
+  claim('kept', bytes(16), bytes(32), bytes(60));
   putSealed('kept', id('a'), 'name', bytes(10));
   putSealed('kept', id('b'), 'name', bytes(10));
   addShare('kept', link('y'), id('b'), bytes(60), bytes(10));

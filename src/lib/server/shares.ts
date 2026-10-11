@@ -9,16 +9,6 @@ import { db } from './db.ts';
 export const MAX_SHARES = 1000;
 export const MAX_SHARE_BYTES = 64 * 1024 * 1024;
 
-db.run(`CREATE TABLE IF NOT EXISTS shares (
-  id TEXT PRIMARY KEY,
-  root TEXT NOT NULL,
-  pad TEXT NOT NULL,
-  sealed_key BLOB NOT NULL,
-  data BLOB NOT NULL,
-  created_at INTEGER NOT NULL
-) WITHOUT ROWID`);
-db.run('CREATE INDEX IF NOT EXISTS shares_by_pad ON shares (root, pad)');
-
 // A link to an emptied pad is quiet until the pad is saved again or purged.
 const getStmt = db.query<{ data: Uint8Array; created_at: number }, [string, string]>(
   `SELECT data, created_at FROM shares s WHERE id = ? AND root = ? AND NOT EXISTS

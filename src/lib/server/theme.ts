@@ -2,14 +2,10 @@
 // browser like a pad's text, so the server can't tell which. On the root's
 // row, so a purge takes it too.
 
-import './auth.ts';
 import { db } from './db.ts';
 
 /** `{"bg":"#rrggbb","fg":"#rrggbb","ink":"#rrggbb"}` is 45 bytes; sealed, 73. */
 export const MAX_THEME = 256;
-
-if (!db.query("SELECT 1 FROM pragma_table_info('roots') WHERE name = 'theme'").get())
-  db.run('ALTER TABLE roots ADD COLUMN theme BLOB');
 
 const getStmt = db.query<{ theme: Uint8Array | null }, [string]>(
   'SELECT theme FROM roots WHERE name = ?'
