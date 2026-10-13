@@ -6,8 +6,8 @@
 // Run against a build started with a throwaway database and the client
 // address from X-Forwarded-For, so each scenario can be any address:
 //
-//   PAD_DB=/tmp/pad-bench.db PORT=5597 ADDRESS_HEADER=x-forwarded-for \
-//     XFF_DEPTH=1 BODY_SIZE_LIMIT=1M bun build/index.js
+//   PAD_DB=/tmp/pad-bench.db PORT=5597 PAD_TRUSTED_PROXIES=127.0.0.1,::1 \
+//     BODY_SIZE_LIMIT=1M bun build/index.js
 //   bun scripts/bench/scenarios.ts [importing|nat|fill|flood|pages|neighbour] http://127.0.0.1:5597
 //
 // Results are in docs/architecture/capacity.org.

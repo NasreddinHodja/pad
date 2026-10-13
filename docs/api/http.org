@@ -61,14 +61,21 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 /Unlocked./ Every pad of the root.
 
-=200= ={"pads": [{"id": "…", "name": "<sealed path>"}]}=. A root has at most 5000 pads.
+=200= ={"pads": [{"id": "…", "name": "<sealed path>"}]}=, with an =ETag= hashed from that body. A root has at most 5000 pads, and the list returns no more. =If-None-Match= with the current =ETag=: =304=, no body.
 
 ** GET /_/<root>/pads/<id>
 
 /Unlocked./ =<id>= is 43 base64url characters.
 
 + =200=, =application/octet-stream=: the sealed text, with its version as =ETag=: ="<ms>"=, its last write's time in Unix milliseconds.
-+ =204= if there's no such pad, or it's been emptied.
++ =204= if there's no such pad, or it's been emptied, with =ETag: "0"=.
++ =304=, no body, when =If-None-Match= is the pad's version now: the editor's poll.
+
+** POST /_/<root>/pads/batch
+
+/Unlocked./ Many pads at once, for export and a link's copy. Body: ={"ids": ["…", …]}=, 1 to 100 ids; otherwise =400=.
+
+=200=, =application/octet-stream=: for each id in the order asked, its sealed text's length as 4 bytes little-endian, then the sealed text; a length of 0 for a pad that doesn't exist or has been emptied.
 
 ** PUT /_/<root>/pads/<id>
 

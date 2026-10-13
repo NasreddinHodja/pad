@@ -11,6 +11,8 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 | =/<root>#<path>=                                        | =src/routes/[...path]/=: the gate or the editor |
 | =/_/<root>/auth/<action>=                               | claim, unlock, change password, lock            |
 | =/_/<root>/pads=, =/_/<root>/pads/<id>=                 | list, read, write, delete sealed pads           |
+| =/_/<root>/pads/batch=                                  | read many sealed pads at once                   |
+| =/_/<root>/theme=                                       | read, write the root's sealed theme             |
 | =/_/<root>/s/<link>#<key>~<path>=                       | a read-only link's pages                        |
 | =/_/<root>/shares/<link>=, =/_/<root>/pads/<id>/shares= | make, read, revoke, list read-only links        |
 | =/_/limits=                                             | every limit                                     |
@@ -25,9 +27,9 @@ What every screen uses is in =src/lib/ui/=, which imports nothing from the app, 
 
 * The editor
 
-=Pad.svelte= loads the pad and the root's list of paths, decrypts both, and keeps =saved=, the text the server has as far as it knows. Typing schedules a save 600ms out; blur, a hidden tab and navigating away save at once. Only one save runs at a time. A failed one retries after 5 seconds. Every 5 seconds, if nothing is unsaved, it reloads the pad and takes the server's text if it changed, keeping the selection. An empty pad is deleted rather than saved, so it drops out of its parent's list.
+=Pad.svelte= loads the pad and the root's list of paths, decrypts both, and keeps =saved=, the text the server has as far as it knows. Typing schedules a save 600ms out; blur, a hidden tab and navigating away save at once. Only one save runs at a time. A failed one retries when the server's =Retry-After= says, or after 5 seconds. Every 5 seconds while the window has focus, every 30 while it doesn't, and never while the tab is hidden, if nothing is unsaved, it asks for the pad with the version it has (=If-None-Match=), and takes the server's text if it changed, keeping the selection. An empty pad is deleted rather than saved, so it drops out of its parent's list.
 
-*export* (=export.ts=) lists the root's pads, then loads the pad and those under it four at a time, and writes them into a zip in the browser (=zip.ts=: deflated by =CompressionStream=, no zip64).
+*export* (=export.ts=) lists the root's pads, then loads the pad and those under it 100 a request (=/pads/batch=), the next batch asked for while the last is zipped, and writes them into a zip in the browser (=zip.ts=: deflated by =CompressionStream=, no zip64).
 
 *theme* (=theme.ts=) sets the root's three colours on =<html>=; =layout.css= mixes the rest from them, and the marble is redrawn in the background and ink2 on a canvas. =[...path]/+page.svelte= applies it on every page of the root, the gate's included, from what this browser last saw (=localStorage=, which =app.html= also reads before the first paint), then from the root's copy. Locking or deleting the root forgets it here.
 
@@ -47,4 +49,4 @@ Rate limits and wrong-password counts are in memory (=limits.ts=, =auth.ts=): a 
 
 * Deployment
 
-The =Dockerfile= builds once, on the builder's platform, and copies the build onto Bun's distroless image for amd64 and arm64. pad.nassu.online runs it on =127.0.0.1:5512= with a read-only root and no capabilities, behind Caddy (=deploy/Caddyfile=), which sets HSTS, =nosniff=, =Referrer-Policy: no-referrer= and =Cross-Origin-Opener-Policy=, and keeps no access log; =deploy/pad-update= moves it to each release. The app sets the =Content-Security-Policy= itself (=vite.config.ts=), with a nonce per page.
+The =Dockerfile= builds once, on the builder's platform, and copies the build onto Bun's distroless image for amd64 and arm64. pad.nassu.online runs it on =127.0.0.1:5512= with a read-only root and no capabilities, behind Caddy (=deploy/Caddyfile=), which keeps no access log nor its error log; =deploy/pad-update= moves it to each release. The app sets HSTS, =nosniff=, =Referrer-Policy: no-referrer=, =Cross-Origin-Opener-Policy= and =Cross-Origin-Resource-Policy= on its pages and answers (=hooks.server.ts=), and Caddy the same on the files the app serves past the hook; the =Content-Security-Policy= is the app's alone (=vite.config.ts=), with a nonce per page.

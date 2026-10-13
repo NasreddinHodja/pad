@@ -136,7 +136,7 @@ Max root, the page's renderer and the browser process, PSS above the moment befo
 + The browser process holds the finished zip for the download.
 
 * Typing
-2,000 characters into the root pad, one every 30 ms (about 70 s), autosaving as it goes. "Pad" is the build as shipped; "no caret" is a build with =blockCaret= turned off (=caret.ts=), run back to back against copies of the same database. Renderers in MiB, absolute; "+" is the peak above the open pad.
+2,000 characters into the root pad, one every 30 ms (about 70 s), autosaving as it goes. "Pad" is the build as shipped; "no caret" is a build with =blockCaret= turned off (=caret.ts=, since removed: ceeaa6f), run back to back against copies of the same database. Renderers in MiB, absolute; "+" is the peak above the open pad.
 
 | Mode     | Pad     |  Open |  Peak |     + | After, collected | No caret: open |  Peak |     + | After, collected |
 |----------+---------+-------+-------+-------+------------------+----------------+-------+-------+------------------|

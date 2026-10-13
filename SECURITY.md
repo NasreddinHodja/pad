@@ -5,7 +5,7 @@
 Report privately through GitHub: **Security → Report a vulnerability** on this
 repository. Please don't open a public issue for it.
 
-There are no releases yet: fixes go to `main`.
+Fixes go to `main` and out in the next release.
 
 ## What the server protects
 

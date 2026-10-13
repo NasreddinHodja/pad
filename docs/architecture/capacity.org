@@ -12,7 +12,7 @@ SQLite's own ceilings are far past pad's: about 281 TB per file, 1,000,000,000 b
 * What a person costs
 
 From the editor (=src/lib/Pad.svelte=):
-+ An open pad polls every 5 s: 0.2 requests a second per open tab, while the tab is visible.
++ An open pad polls every 5 s while its window has focus, 0.2 requests a second, and every 30 s while it doesn't; a hidden tab doesn't. An unchanged pad answers =304=, no body.
 + Typing saves at most once per 600 ms pause.
 
 * Measured
@@ -58,7 +58,7 @@ Disk is capped by quotas, not rates: a rate only slows growth (60 saves of 512 K
 | Writes per root            | each costs its bytes, at least 16 KiB; 16 MiB at once, 1 MiB a second after | Counts what the writer spends. 16 MiB at once lets 1000 small pads in at once. The 16 KiB floor caps a root at 64 requests a second: about 3% of the VPS's 1,900 a second, so about 30 roots writing flat out fill it. Claims are free, so one address can do that; see Out of scope.                 |
 | Anyone, per address        | the same, for claim, unlock, lock and reading links                         | A link costs its size.                                                                                                                                                                                                                                                                                |
 | Every request, per address | 200 a second, 5000 at once                                                  | A tab polls 0.2 a second and saves at most 1.7, so 200 is about a thousand people's; the VPS takes about 1,900, so one address can't take it alone. 5000 at once lets an export read a full root. Checked first, so a refusal costs little.                                                           |
-| Wrong passwords            | 4 free, then 1 s doubling to 15 min, per device or address                  | About 100 guesses a day per address after the first 17 minutes. Nothing per root, which would let anyone lock its owner out.                                                                                                                                                                          |
+| Wrong passwords            | 5 free, then 1 s doubling to 15 min, per device or address                  | About 100 guesses a day per address after the first 17 minutes. Nothing per root, which would let anyone lock its owner out.                                                                                                                                                                          |
 | Meters' memory             | 20,000 keys each, least recently used forgotten                             | About 8 MB a meter at 400 bytes a key.                                                                                                                                                                                                                                                                |
 
 Claiming a root is free: a root is a row of a few hundred bytes, and disk is only taken by what's written under it.
