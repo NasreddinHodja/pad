@@ -128,6 +128,38 @@ describe('requests', () => {
   });
 });
 
+describe('versions', () => {
+  const read = (root: string, id: string, cookies: Cookies, version?: number) =>
+    call(pad.GET, {
+      params: { root, id },
+      cookies,
+      headers: version === undefined ? {} : { 'if-none-match': `"${version}"` }
+    });
+
+  test('a pad is 304 to the version it is at, its text to any other', async () => {
+    const cookies = await claimed('versions');
+    const id = b64(32);
+    const version = (await (await save('versions', cookies, 10, id)).res!.json()).updatedAt;
+    const full = await read('versions', id, cookies);
+    expect(full.status).toBe(200);
+    expect(full.res!.headers.get('etag')).toBe(`"${version}"`);
+    const same = await read('versions', id, cookies, version);
+    expect(same.status).toBe(304);
+    expect((await same.res!.arrayBuffer()).byteLength).toBe(0);
+    expect((await read('versions', id, cookies, version - 1)).status).toBe(200);
+  });
+
+  test('two writes in one millisecond get two versions', async () => {
+    const cookies = await claimed('same-ms');
+    const id = b64(32);
+    later(1000);
+    const a = (await (await save('same-ms', cookies, 10, id)).res!.json()).updatedAt;
+    const b = (await (await save('same-ms', cookies, 10, id)).res!.json()).updatedAt;
+    expect(b).toBeGreaterThan(a);
+    expect((await read('same-ms', id, cookies, a)).status).toBe(200);
+  });
+});
+
 describe('meters', () => {
   test('every request counts toward its address, and a refusal says when to come back', async () => {
     const ok = new Response('');

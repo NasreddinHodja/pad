@@ -51,7 +51,8 @@ export class Refused extends Error {
 
 async function call(url: string, init: RequestInit = {}) {
   const res = await fetch(url, init);
-  if (!res.ok) {
+  // 304 is an answer too: what was asked about hasn't changed.
+  if (!res.ok && res.status !== 304) {
     const message = (await res.json().catch(() => null))?.message;
     const wait = Number(res.headers.get('retry-after'));
     throw new Refused(
@@ -130,12 +131,31 @@ export async function load(root: string, keys: Keys, path: string) {
   return openText(keys, id, new Uint8Array(await res.arrayBuffer()));
 }
 
-/** An empty pad is deleted. */
+/**
+ * The pad, unless it's still at `version`: null then. Its version comes with
+ * it, for the next ask.
+ */
+export async function loadSince(root: string, keys: Keys, path: string, version: number) {
+  const id = await padId(keys, path);
+  const res = await call(`${base(root)}/pads/${id}`, {
+    headers: { 'if-none-match': `"${version}"` },
+    cache: 'no-store'
+  });
+  if (res.status === 304) return null;
+  const now = Number(res.headers.get('x-updated-at')) || 0;
+  if (res.status === 204) return { text: '', version: now };
+  return { text: await openText(keys, id, new Uint8Array(await res.arrayBuffer())), version: now };
+}
+
+/** An empty pad is deleted. The pad's new version: 0 once deleted. */
 export async function save(root: string, keys: Keys, path: string, text: string) {
   const id = await padId(keys, path);
   const url = `${base(root)}/pads/${id}`;
-  if (text === '') return call(url, { method: 'DELETE' });
-  return call(url, {
+  if (text === '') {
+    await call(url, { method: 'DELETE' });
+    return 0;
+  }
+  const res = await call(url, {
     method: 'PUT',
     body: await sealText(keys, id, text),
     headers: {
@@ -143,6 +163,7 @@ export async function save(root: string, keys: Keys, path: string, text: string)
       'x-pad-name': await sealName(keys, id, path)
     }
   });
+  return ((await res.json()) as { updatedAt: number }).updatedAt;
 }
 
 /** The root's theme; null if it's never been picked. */

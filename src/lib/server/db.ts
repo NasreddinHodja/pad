@@ -38,6 +38,13 @@ export function full() {
 const getStmt = db.query<{ data: Uint8Array; updated_at: number }, [string, string]>(
   'SELECT data, updated_at FROM sealed WHERE root = ? AND id = ? AND deleted_at IS NULL'
 );
+const versionStmt = db.query<{ updated_at: number }, [string, string]>(
+  'SELECT updated_at FROM sealed WHERE root = ? AND id = ? AND deleted_at IS NULL'
+);
+// Emptied pads included: a version never repeats, even across an emptying.
+const lastStmt = db.query<{ updated_at: number }, [string, string]>(
+  'SELECT updated_at FROM sealed WHERE root = ? AND id = ?'
+);
 const putStmt = db.query(
   `INSERT INTO sealed (root, id, name, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
    ON CONFLICT(root, id) DO UPDATE SET name = ?3, data = ?4, updated_at = ?5, deleted_at = NULL`
@@ -57,9 +64,17 @@ export function getSealed(root: string, id: string) {
   return getStmt.get(root, id);
 }
 
-/** Last write wins, and unmarks an emptied pad. */
+/** The pad's version, its last write's time; 0 when it has none. */
+export function padVersion(root: string, id: string) {
+  return versionStmt.get(root, id)?.updated_at ?? 0;
+}
+
+/**
+ * Last write wins, and unmarks an emptied pad. Its time is its version, so it
+ * only ever grows: two writes in one millisecond still get two.
+ */
 export function putSealed(root: string, id: string, name: string, data: Uint8Array) {
-  const now = Date.now();
+  const now = Math.max(Date.now(), (lastStmt.get(root, id)?.updated_at ?? 0) + 1);
   putStmt.run(root, id, name, data, now);
   return now;
 }

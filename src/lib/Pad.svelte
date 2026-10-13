@@ -31,6 +31,8 @@
 
   const SAVE_DELAY = 600;
   const POLL = 5000;
+  // With the window in the background (another focused), the poll slows to this.
+  const POLL_AWAY = 30000;
   const RETRY = 5000;
 
   const segments = $derived(path.split('/'));
@@ -40,6 +42,12 @@
   let content = $state('');
   // What the server has, as far as we know; null until it's been fetched.
   let saved: string | null = null;
+  // Its version on the server (its last write's time): the poll asks only
+  // whether it's still that. Writes counts our saves, so a poll that crossed
+  // one doesn't take an older version for current.
+  let version = 0;
+  let writes = 0;
+  let polled = 0;
   let status = $state('opening…');
   let subpads = $state<string[]>([]);
   let ready = $state(false);
@@ -86,7 +94,8 @@
     saving = true;
     status = 'saving…';
     try {
-      await api.save(where.root, where.keys, where.path, body);
+      version = await api.save(where.root, where.keys, where.path, body);
+      writes++;
       saved = body;
       status = content === saved ? 'saved' : 'unsaved';
       if (content !== saved) schedule();
@@ -111,21 +120,31 @@
   // Someone else's last write, shown while we have nothing unsaved.
   async function refresh() {
     if (document.hidden || saving || saved === null || content !== saved) return;
-    const remote = await api.load(where.root, where.keys, where.path).catch(() => null);
-    if (!alive || remote === null || remote === saved || content !== saved || saving) return;
+    if (!document.hasFocus() && Date.now() - polled < POLL_AWAY) return;
+    polled = Date.now();
+    const before = writes;
+    const remote = await api
+      .loadSince(where.root, where.keys, where.path, version)
+      .catch(() => null);
+    // null: unchanged, or the poll failed; either way, nothing to show.
+    if (!alive || remote === null || writes !== before) return;
+    version = remote.version;
+    if (remote.text === saved || content !== saved || saving) return;
     const { selectionStart, selectionEnd } = textarea;
-    content = saved = remote;
+    content = saved = remote.text;
     requestAnimationFrame(() => textarea.setSelectionRange(selectionStart, selectionEnd));
   }
 
   async function open() {
     try {
-      const [text, paths] = await Promise.all([
-        api.load(where.root, where.keys, where.path),
+      const [pad, paths] = await Promise.all([
+        // No version matches -1: always the pad itself.
+        api.loadSince(where.root, where.keys, where.path, -1),
         api.list(where.root, where.keys)
       ]);
-      if (!alive) return;
-      content = saved = text;
+      if (!alive || !pad) return;
+      version = pad.version;
+      content = saved = pad.text;
       subpads = under(paths, where.path).filter((p) => !p.includes('/'));
       status = 'saved';
       ready = true;

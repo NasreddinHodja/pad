@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { allowGrowth, ours, padIdParam, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
-import { getSealed, padSize, putSealed } from '#lib/server/db.ts';
+import { getSealed, padSize, padVersion, putSealed } from '#lib/server/db.ts';
 import { MAX_SEALED, MAX_SEALED_NAME, meterWrite } from '#lib/server/limits.ts';
 import { markPad } from '#lib/server/trash.ts';
 import type { RequestEvent, RequestHandler } from './$types';
@@ -11,15 +11,25 @@ function target(event: RequestEvent) {
   return { root, id: padIdParam(event.params.id) };
 }
 
+// The pad's version (its last write's time) is its ETag: the editor's poll
+// sends the one it has, and gets 304 and no body while it's current.
 export const GET: RequestHandler = (event) => {
   const { root, id } = target(event);
+  const known = event.request.headers.get('if-none-match');
+  if (known !== null && known === `"${padVersion(root, id)}"`)
+    return new Response(null, {
+      status: 304,
+      headers: { etag: known, 'cache-control': 'no-store' }
+    });
   const row = getSealed(root, id);
+  const version = row?.updated_at ?? 0;
   return new Response(row ? new Uint8Array(row.data) : null, {
     status: row ? 200 : 204,
     headers: {
       'content-type': 'application/octet-stream',
       'cache-control': 'no-store',
-      'x-updated-at': String(row?.updated_at ?? 0)
+      etag: `"${version}"`,
+      'x-updated-at': String(version)
     }
   });
 };
