@@ -9,8 +9,6 @@
 // The server keeps the salt, a hash of auth and the sealed root key. A
 // password change re-seals the same root key, so no pad is re-encrypted.
 
-import { argon2id } from 'hash-wasm';
-
 // OWASP's minimum for Argon2id.
 const ARGON2 = { iterations: 2, parallelism: 1, memorySize: 19 * 1024 } as const;
 const IV = 12;
@@ -52,6 +50,9 @@ function hkdf(info: string) {
 
 /** What a password gives: the proof for the server, and the key that seals the root key. */
 export async function fromPassword(password: string, salt: Bytes) {
+  // Loaded here, not with the page: only a password needs it, and a second
+  // visit (keys from IndexedDB) or a read-only link has none.
+  const { argon2id } = await import('hash-wasm');
   const master = await argon2id({
     password: password.normalize('NFC'),
     salt,
