@@ -466,6 +466,53 @@ if (root === 'avgroot') {
     await pickTheme('dusk');
   });
 
+  // The picker dragged: 60 colours into its ink, one every 30 ms, as a drag
+  // sends them, then closed without saving. Script time and the JS heap after
+  // collection, before and after.
+  await section('themeDrag', async () => {
+    await ev(`${button('theme')}.click()`);
+    await until(`!!document.getElementById('theme-title')`, 10000);
+    await ev(`(() => { window.__textures = []; const set = CSSStyleDeclaration.prototype.setProperty;
+      CSSStyleDeclaration.prototype.setProperty = function (n, v, p) { if (n === '--texture' && this === document.documentElement.style) window.__textures.push(v.length); return set.call(this, n, v, p); }; })()`);
+    await S('HeapProfiler.collectGarbage');
+    const heap0 = (await S('Runtime.getHeapUsage')).usedSize;
+    const script0 = await metric('ScriptDuration');
+    const t0 = Date.now();
+    for (let i = 0; i < 60; i++) {
+      const hex = '#' + (0x402080 + i * 0x030103).toString(16).padStart(6, '0');
+      await ev(`(() => { const c = document.querySelectorAll('input[type=color]')[2];
+        c.value = '${hex}'; c.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+      await Bun.sleep(30);
+    }
+    await Bun.sleep(1000);
+    const ms = Date.now() - t0;
+    const scriptMs = Math.round(((await metric('ScriptDuration')) - script0) * 1000);
+    await S('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'Escape',
+      code: 'Escape',
+      windowsVirtualKeyCode: 27
+    });
+    await S('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'Escape',
+      code: 'Escape',
+      windowsVirtualKeyCode: 27
+    });
+    await Bun.sleep(500);
+    await S('HeapProfiler.collectGarbage');
+    const heap1 = (await S('Runtime.getHeapUsage')).usedSize;
+    out.themeDrag = {
+      colours: 60,
+      ms,
+      scriptMs,
+      heapKeptMiB: +((heap1 - heap0) / 2 ** 20).toFixed(2),
+      // Each set of --texture: a url's length, or 4 for 'none'.
+      textureSets: await ev('window.__textures'),
+      closed: !(await ev(`!!document.getElementById('theme-title')`))
+    };
+  });
+
   // What a load downloaded, and which of its scripts carries WebAssembly (the
   // Argon2 chunk): `from` is where in the events the load starts.
   async function scripts(from: number, load: any) {
