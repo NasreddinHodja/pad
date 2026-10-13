@@ -23,7 +23,7 @@ import {
 } from './crypto.ts';
 import { deflate, inflate } from './deflate.ts';
 import type { Pad } from './export.ts';
-import { MAX_SHARE } from './limits.ts';
+import { BATCH_PADS, MAX_SHARE } from './limits.ts';
 import { parseTheme, type Theme } from './theme.ts';
 
 const utf8 = new TextEncoder();
@@ -145,6 +145,27 @@ export async function loadSince(root: string, keys: Keys, path: string, version:
   const now = Number(res.headers.get('x-updated-at')) || 0;
   if (res.status === 204) return { text: '', version: now };
   return { text: await openText(keys, id, new Uint8Array(await res.arrayBuffer())), version: now };
+}
+
+/**
+ * Up to BATCH_PADS pads in one request, their texts in the order of `paths`:
+ * '' for one that doesn't exist.
+ */
+export async function loadMany(root: string, keys: Keys, paths: string[]) {
+  if (paths.length > BATCH_PADS) throw new Error(`at most ${BATCH_PADS} pads at once`);
+  const ids = await Promise.all(paths.map((p) => padId(keys, p)));
+  const res = await post(`${base(root)}/pads/batch`, { ids });
+  const all = new Uint8Array(await res.arrayBuffer());
+  const view = new DataView(all.buffer);
+  const texts: Promise<string>[] = [];
+  let at = 0;
+  for (const id of ids) {
+    const length = view.getUint32(at, true);
+    const sealed = all.slice(at + 4, at + 4 + length);
+    texts.push(length ? openText(keys, id, sealed) : Promise.resolve(''));
+    at += 4 + length;
+  }
+  return Promise.all(texts);
 }
 
 /** An empty pad is deleted. The pad's new version: 0 once deleted. */

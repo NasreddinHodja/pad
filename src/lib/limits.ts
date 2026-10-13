@@ -21,3 +21,6 @@ export function normalizePath(raw: string): string | null {
   }
   return path;
 }
+
+/** Pads one batch read returns (export, a link's copy): a root of 5000 is 50 requests. */
+export const BATCH_PADS = 100;

@@ -5,6 +5,8 @@ import { randomBytes } from 'node:crypto';
 import { handle } from '../../hooks.server.ts';
 import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
+import * as batch from '../../routes/_/[root]/pads/batch/+server.ts';
+import { BATCH_PADS } from '../limits.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as usage from '../../routes/_/[root]/usage/+server.ts';
 import { db, setCeiling } from './db.ts';
@@ -157,6 +159,44 @@ describe('versions', () => {
     const b = (await (await save('same-ms', cookies, 10, id)).res!.json()).updatedAt;
     expect(b).toBeGreaterThan(a);
     expect((await read('same-ms', id, cookies, a)).status).toBe(200);
+  });
+});
+
+describe('batch reads', () => {
+  const many = (root: string, cookies: Cookies, ids: unknown, site?: string) =>
+    call(batch.POST, {
+      method: 'POST',
+      params: { root },
+      body: JSON.stringify({ ids }),
+      headers: { 'content-type': 'application/json' },
+      cookies,
+      site
+    });
+
+  test('pads in the order asked, each after its length; 0 for one that is missing', async () => {
+    const cookies = await claimed('batched');
+    const [a, b, missing] = [b64(32), b64(32), b64(32)];
+    await save('batched', cookies, 3, a);
+    await save('batched', cookies, 5, b);
+    const { status, res } = await many('batched', cookies, [b, missing, a]);
+    expect(status).toBe(200);
+    const bytes = new Uint8Array(await res!.arrayBuffer());
+    const v = new DataView(bytes.buffer);
+    expect(v.getUint32(0, true)).toBe(5);
+    expect(v.getUint32(4 + 5, true)).toBe(0);
+    expect(v.getUint32(4 + 5 + 4, true)).toBe(3);
+    expect(bytes.length).toBe(4 + 5 + 4 + 4 + 3);
+  });
+
+  test('locked, cross-site, too many or malformed is refused', async () => {
+    const cookies = await claimed('batch-refused');
+    expect((await many('batch-refused', jar(), [b64(32)])).status).toBe(401);
+    expect((await many('batch-refused', cookies, [b64(32)], 'cross-site')).status).toBe(403);
+    const ids = Array.from({ length: BATCH_PADS + 1 }, () => b64(32));
+    expect((await many('batch-refused', cookies, ids)).status).toBe(400);
+    expect((await many('batch-refused', cookies, [])).status).toBe(400);
+    expect((await many('batch-refused', cookies, ['not an id'])).status).toBe(400);
+    expect((await many('batch-refused', cookies, [42])).status).toBe(400);
   });
 });
 

@@ -28,13 +28,24 @@ function dosTime(d: Date) {
 
 const utf8 = new TextEncoder();
 
-export async function zip(files: File[], now = new Date()) {
-  const { time, date } = dosTime(now);
-  const parts: BlobPart[] = [];
-  const central: Uint8Array<ArrayBuffer>[] = [];
-  let offset = 0;
+/**
+ * A zip built a file at a time: each is compressed as it's added and only
+ * its compressed bytes are kept, so its text can go before the next comes.
+ */
+export class ZipWriter {
+  #parts: BlobPart[] = [];
+  #central: Uint8Array<ArrayBuffer>[] = [];
+  #offset = 0;
+  #count = 0;
+  #time: number;
+  #date: number;
 
-  for (const file of files) {
+  constructor(now = new Date()) {
+    ({ time: this.#time, date: this.#date } = dosTime(now));
+  }
+
+  async add(file: File) {
+    const [time, date] = [this.#time, this.#date];
     const name = utf8.encode(file.name);
     const crc = crc32(file.data);
     const deflated = await deflate(new Uint8Array(file.data));
@@ -64,25 +75,34 @@ export async function zip(files: File[], now = new Date()) {
     const local = head(0x04034b50, 30);
     fields(local.v, 4);
     local.bytes.set(name, 30);
-    parts.push(local.bytes, body);
+    this.#parts.push(local.bytes, body);
 
     const entry = head(0x02014b50, 46);
     entry.v.setUint16(4, 20, true);
     fields(entry.v, 6);
-    entry.v.setUint32(42, offset, true);
+    entry.v.setUint32(42, this.#offset, true);
     entry.bytes.set(name, 46);
-    central.push(entry.bytes);
+    this.#central.push(entry.bytes);
 
-    offset += local.bytes.length + body.length;
+    this.#offset += local.bytes.length + body.length;
+    this.#count++;
   }
 
-  const size = central.reduce((n, c) => n + c.length, 0);
-  const end = new Uint8Array(22);
-  const v = new DataView(end.buffer);
-  v.setUint32(0, 0x06054b50, true);
-  v.setUint16(8, files.length, true);
-  v.setUint16(10, files.length, true);
-  v.setUint32(12, size, true);
-  v.setUint32(16, offset, true);
-  return new Blob([...parts, ...central, end], { type: 'application/zip' });
+  finish() {
+    const size = this.#central.reduce((n, c) => n + c.length, 0);
+    const end = new Uint8Array(22);
+    const v = new DataView(end.buffer);
+    v.setUint32(0, 0x06054b50, true);
+    v.setUint16(8, this.#count, true);
+    v.setUint16(10, this.#count, true);
+    v.setUint32(12, size, true);
+    v.setUint32(16, this.#offset, true);
+    return new Blob([...this.#parts, ...this.#central, end], { type: 'application/zip' });
+  }
+}
+
+export async function zip(files: File[], now = new Date()) {
+  const out = new ZipWriter(now);
+  for (const file of files) await out.add(file);
+  return out.finish();
 }
