@@ -22,17 +22,18 @@ The browser's crypto only runs on =localhost= or HTTPS: from a phone on the LAN,
 
 * Scripts
 
-| Command                 | Description                                   |
-|-------------------------+-----------------------------------------------|
-| =bun run dev=           | Dev server                                    |
-| =bun run build=         | Production build (adapter-bun), into =build/= |
-| =bun run check=         | Svelte and TypeScript type checking           |
-| =bun run check:watch=   | The same, on every change                     |
-| =bun run lint=          | Prettier and ESLint check                     |
-| =bun run format=        | Auto-format with Prettier                     |
-| =bun test=              | Tests, with =bun:test=                        |
-| =bun run test:e2e=      | End-to-end tests in Chromium (Playwright)     |
-| =python3 scripts/og.py= | Redraw =static/og.png=, the link preview      |
+| Command                                             | Description                                                            |
+|-----------------------------------------------------+------------------------------------------------------------------------|
+| =bun run dev=                                       | Dev server                                                             |
+| =bun run build=                                     | Production build (adapter-bun), into =build/=                          |
+| =bun run check=                                     | Svelte and TypeScript type checking                                    |
+| =bun run check:watch=                               | The same, on every change                                              |
+| =bun run lint=                                      | Prettier and ESLint check                                              |
+| =bun run format=                                    | Auto-format with Prettier                                              |
+| =bun test=                                          | Tests, with =bun:test=                                                 |
+| =bun run test:e2e=                                  | End-to-end tests in Chromium (Playwright)                              |
+| =python3 scripts/og.py=                             | Redraw =static/og.png=, the link preview                               |
+| =bun scripts/screenshots.ts <url> docs/screenshots= | Retake README's screenshots from a running build (its header says how) |
 
 Building loads the server code, which opens a database: give it a throwaway one, as CI and the =Dockerfile= do (=PAD_DB=$(mktemp -d)/pad.db bun run build=). The build runs with =bun build/index.js=; [[file:docs/guide/install.org][Installing pad]] lists the environment it takes. =SOURCE_DATE_EPOCH= makes two builds of one commit the same bytes, as the release's are (=vite.config.ts=).
 
@@ -51,7 +52,11 @@ CI ([[file:.github/workflows/ci.yml][ci.yml]]) runs lint, type checking, the tes
 
 A change to the database's tables is a new step at the end of =MIGRATIONS= in =src/lib/server/schema.ts=; a released step is never edited.
 
+A release is a =v*= tag matching =package.json='s version: =.github/workflows/release.yml= builds and attests the image, and publishes the client files' hashes and the notes (=cliff.toml=).
+
 Commit messages follow [[https://www.conventionalcommits.org][Conventional Commits]].
+
+Docs and the pages say what pad does and doesn't, with the numbers: never "most secure", "zero knowledge" or the like.
 
 * Tests
 

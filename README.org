@@ -2,29 +2,18 @@
 #+DESCRIPTION: A notepad at every URL
 #+OPTIONS: ^:{}
 
-A notepad at every URL, like dontpad: open =pad.nassu.online/anything= and type, and it saves. The first segment of a path is its root. Whoever saves under a root first sets its password, which then guards reading and writing the root and every pad under it.
+A notepad at every URL, like dontpad: open =/anything=, type, and it saves. The first segment of a path is its root; whoever saves under a root first sets its password, which guards reading and writing every pad under it. Pads are encrypted in the browser with keys from that password: the server never sees it, a pad's text or the path under the root. Self-hosted as one Docker image and one SQLite file, for amd64 and arm64; the author's runs at [[https://pad.nassu.online][pad.nassu.online]].
+
+#+html: <p align="center"><img src="docs/screenshots/desktop.png" alt="A pad, its finder open on the pads under it" width="560">&nbsp;&nbsp;<img src="docs/screenshots/phone.png" alt="The same pad on a phone" width="180"></p>
 
 * Documentation
 
++ [[file:docs/guide/install.org][Installing pad]]
 + [[file:docs/guide/use.org][Using pad]]
-+ [[file:docs/README.org][Everything else]]: architecture, encryption, the HTTP API
++ [[file:SECURITY.md][Security]]: what the server protects, its limits, reporting a vulnerability
++ [[file:docs/README.org][Everything else]]: architecture, encryption, capacity and limits, the HTTP API
++ [[file:CONTRIBUTING.org][Contributing]]
 
-* Security
+* License
 
-Pads are encrypted in the browser with keys from their root's password: the server never sees a password, a pad's text or a subpad's name. How: [[file:docs/architecture/encryption.org][Encryption and access]]. Lose a root's password and its pads are gone. What the server protects, its known limits and how to report a vulnerability: [[file:SECURITY.md][Security]].
-
-* Develop
-
-SvelteKit, Svelte 5, Tailwind 4 and SQLite (=bun:sqlite=), on Bun. Setup, scripts and what to run before a pull request: [[file:CONTRIBUTING.org][Contributing]].
-
-* Deploy
-
-The Docker image, =ghcr.io/nasreddinhodja/pad=, behind a proxy with HTTPS: [[file:docs/guide/install.org][Installing pad]]. A release is a =v*= tag matching =package.json='s version: =.github/workflows/release.yml= builds and attests the image, and publishes the client files' hashes and the notes (=cliff.toml=).
-
-* Limits
-
-A pad holds 512 KiB, a path 255 characters over at most 10 segments of 64, a root 16 MiB and 5000 pads, a server 5 GiB. Every limit, and the estimate behind it, is in [[file:docs/architecture/capacity.org][Capacity and limits]]; the code, =src/lib/server/limits.ts=.
-
-* Credits
-
-The font is WebPlus IBM VGA 9x16 from VileR's [[https://int10h.org/oldschool-pc-fonts/][Ultimate Oldschool PC Font Pack]], CC BY-SA 4.0.
+[[file:LICENSE][MIT]]. The font is WebPlus IBM VGA 9x16 from VileR's [[https://int10h.org/oldschool-pc-fonts/][Ultimate Oldschool PC Font Pack]], CC BY-SA 4.0. The marble is =marble.xbm= from Anthony Thyssen's [[https://github.com/codingisacopingstrategy/AIcons][AIcons]] library (=desc/bw-bgnd=): the library's README says almost all of it is public domain, and its section lists no restriction for this one.
