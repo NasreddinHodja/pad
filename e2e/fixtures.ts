@@ -95,10 +95,15 @@ export const editor = (page: Page) => page.getByRole('textbox', { name: 'pad', e
 /** The editor's status: saved, unsaved, saving…, or an error. */
 export const status = (page: Page) => page.locator('header [aria-live="polite"]');
 
-/** Waits for the pad to be fetched and open for typing. */
+/**
+ * Waits for the pad to be fetched and open for typing. Focused too: the pad
+ * puts the caret at its start a frame after it opens (Pad.svelte, open), and
+ * a fill before that frame types in front of the old text, not over it.
+ */
 export async function opened(page: Page) {
   await expect(status(page)).toHaveText('saved');
   await expect(editor(page)).toBeEditable();
+  await expect(editor(page)).toBeFocused();
 }
 
 /** Claims `root` from its gate, which `page` must be on or about to show. */
