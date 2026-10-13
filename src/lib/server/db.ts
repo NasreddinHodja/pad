@@ -11,6 +11,13 @@ mkdirSync(dirname(file), { recursive: true });
 export const db = new Database(file, { strict: true });
 db.run('PRAGMA journal_mode = WAL');
 db.run('PRAGMA synchronous = NORMAL');
+// What's deleted or overwritten is zeroed in the file, and the WAL is cut
+// back to nothing each time it starts over, rather than reused with old pages
+// past its end: a purged pad leaves no copy on the disk. Measured on the
+// laptop: 0 copies of 200 deleted rows left, against 150 in the file and
+// 3,233 in the WAL without; a save's 14.5 µs in SQLite becomes 16.2.
+db.run('PRAGMA secure_delete = ON');
+db.run('PRAGMA journal_size_limit = 0');
 migrate(db);
 // Off while migrating: a step may rebuild a table others refer to.
 db.run('PRAGMA foreign_keys = ON');

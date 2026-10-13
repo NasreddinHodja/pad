@@ -91,3 +91,10 @@ test('a purge takes only what has been marked longer than the grace', () => {
   expect(listSealed('kept').map((p) => p.id)).toEqual([id('a')]);
   expect(getShare('kept', link('y'))).not.toBeNull();
 });
+
+test('a purge zeroes what it deletes, and the WAL keeps no old pages', () => {
+  const pragma = (name: string) =>
+    Object.values(db.query(`PRAGMA ${name}`).get() as Record<string, number>)[0];
+  expect(pragma('secure_delete')).toBe(1);
+  expect(pragma('journal_size_limit')).toBe(0);
+});

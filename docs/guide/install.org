@@ -130,7 +130,7 @@ docker exec pad bun /app/backup.ts /data/pad.db /backups 7
 
 The image has it as =/app/backup.ts=; =/backups= is the volume from [[*Docker][Docker]]. On pad.nassu.online, =deploy/pad-backup.timer= runs it daily, and =pad-update= before each switch. Outside a container: =bun scripts/backup.ts <pad.db> <directory> 7=, run as the user pad runs as: opening the database creates its =-wal= and =-shm= files when they're missing, owned by whoever opened it. Copies on the server's own disk survive a mistake, not the disk; pull them elsewhere, e.g. =rsync= from another machine.
 
-A copy is the whole database: root names, salts, the hash the password is checked against, sealed root keys, sealed pads and names, read-only links. Whoever has one can try passwords against it offline, at Argon2's cost per guess. Keep copies as you keep the server.
+A copy is the whole database: root names, salts, the hash the password is checked against, sealed root keys, sealed pads and names, read-only links. Whoever has one can try passwords against it offline, at Argon2's cost per guess. Keep copies as you keep the server. A purge zeroes what it removes from the database, not from copies: a purged pad is in every copy made before it, until that copy is rotated out (after 7 days at one a day).
 
 To restore: stop the container (=docker stop pad=), move =pad.db=, =pad.db-wal= and =pad.db-shm= aside together, put the copy in as =pad.db=, owned by the user pad runs as, and start it.
 
