@@ -9,6 +9,7 @@ The routes under =/_/= that the page calls (=src/lib/api.ts=). Everything sent i
 + Bytes in JSON are base64url without padding.
 + Errors are JSON, ={"status": 401, "message": "/x is locked"}=.
 + Every route but =GET=s needs =Sec-Fetch-Site: same-origin=, or an =Origin= matching the page's when the browser doesn't send that. Otherwise: =403=.
++ The =GET=s under =/_/<root>/= refuse a =Sec-Fetch-Site= other than =same-origin= or =none= with =403=; without the header they answer.
 + Routes marked /unlocked/ need the unlock cookie for =<root>=. Otherwise, or if the root is unclaimed: =401=.
 + Every request, pages included, counts toward 200 a second per address (5000 at once). Over that: =429= with =Retry-After=, before anything else is looked at.
 + Routes marked /metered/ draw on a bucket per root; those marked /open/, on one per address (IPv6 per /64). Each request costs its body's bytes, at least 16 KiB. Out of it: =429= with =Retry-After= in seconds.

@@ -15,6 +15,18 @@ export function ours(event: RequestEvent) {
   if (!sameOrigin(event)) error(403, 'cross-site request refused');
 }
 
+/**
+ * For every read: another site's request is refused, a same-site one too
+ * (another nassu.online subdomain sends the cookie, SameSite being per
+ * domain). Without Sec-Fetch-Site it passes: curl sends none, and a browser
+ * too old to send it still has CORP and the cookie's SameSite.
+ */
+export function notCrossSite({ request }: RequestEvent) {
+  const site = request.headers.get('sec-fetch-site');
+  if (site !== null && site !== 'same-origin' && site !== 'none')
+    error(403, 'cross-site request refused');
+}
+
 export function unlocked(event: RequestEvent, root: string) {
   if (access(event.cookies, root) !== 'unlocked') error(401, `/${root} is locked`);
 }

@@ -1,5 +1,13 @@
 import { error, json } from '@sveltejs/kit';
-import { allowGrowth, ours, padIdParam, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
+import {
+  allowGrowth,
+  notCrossSite,
+  ours,
+  padIdParam,
+  readCapped,
+  rootParam,
+  unlocked
+} from '#lib/server/api.ts';
 import { getSealed, padSize, padVersion, putSealed } from '#lib/server/db.ts';
 import { MAX_BYTES, MAX_SEALED, MAX_SEALED_NAME, meterWrite } from '#lib/server/limits.ts';
 import { markPad } from '#lib/server/trash.ts';
@@ -22,6 +30,7 @@ function current(event: RequestEvent, root: string, id: string) {
 // The pad's version (its last write's time) is its ETag: the editor's poll
 // sends the one it has, and gets 304 and no body while it's current.
 export const GET: RequestHandler = (event) => {
+  notCrossSite(event);
   const { root, id } = target(event);
   const known = event.request.headers.get('if-none-match');
   if (known !== null && known === `"${padVersion(root, id)}"`)

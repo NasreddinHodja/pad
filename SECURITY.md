@@ -30,7 +30,8 @@ database still shows: [Encryption and access](docs/architecture/encryption.org).
 
 Who it guards against: anyone else who can reach the server, other sites open
 in the same browser (other `nassu.online` subdomains included: a request that
-changes anything needs `Sec-Fetch-Site: same-origin`, or a matching `Origin`),
+changes anything needs `Sec-Fetch-Site: same-origin`, or a matching `Origin`,
+and a read is refused with any `Sec-Fetch-Site` but `same-origin` or `none`),
 and whoever gets a copy of the database.
 
 ## Guessing passwords
@@ -63,6 +64,7 @@ proxy, every visitor shares the proxy's address and its limits.
 
 `src/lib/crypto.ts` (everything derived and sealed in the browser),
 `src/lib/server/auth.ts` (unlocking, cookies, the cross-site check),
+`src/lib/server/api.ts` (the checks every route makes),
 `src/lib/server/limits.ts` (meters, quotas, backoff),
 `src/lib/server/address.ts` (the client's address), `src/hooks.server.ts`,
 `src/lib/server/shares.ts` and `src/lib/server/trash.ts`, with tests beside

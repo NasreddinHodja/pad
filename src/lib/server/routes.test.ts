@@ -10,6 +10,8 @@ import * as pads from '../../routes/_/[root]/pads/+server.ts';
 import { ARGON2, BATCH_PADS } from '../limits.ts';
 import { kdfOf } from './auth.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
+import * as padShares from '../../routes/_/[root]/pads/[id]/shares/+server.ts';
+import * as theme from '../../routes/_/[root]/theme/+server.ts';
 import { db, padVersion, setCeiling, usage } from './db.ts';
 import {
   REQUESTS,
@@ -38,7 +40,8 @@ type Call = {
   headers?: Record<string, string>;
   cookies?: Cookies;
   address?: string;
-  site?: string;
+  /** Sec-Fetch-Site; null sends none. */
+  site?: string | null;
 };
 
 /** The handler's status, thrown or returned, and the headers it set. */
@@ -49,7 +52,10 @@ async function call(handler: unknown, c: Call) {
     request: new Request(url, {
       method: c.method ?? 'GET',
       body: c.body,
-      headers: { 'sec-fetch-site': c.site ?? 'same-origin', ...c.headers }
+      headers: {
+        ...(c.site === null ? {} : { 'sec-fetch-site': c.site ?? 'same-origin' }),
+        ...c.headers
+      }
     }),
     url,
     params: c.params,
@@ -108,6 +114,25 @@ describe('requests', () => {
       site: 'cross-site'
     });
     expect(status).toBe(403);
+  });
+
+  test('reads from another site are refused, another subdomain included', async () => {
+    const cookies = await claimed('crossread');
+    const id = b64(32);
+    const reads = [
+      [pads.GET, { root: 'crossread' }],
+      [pad.GET, { root: 'crossread', id }],
+      [theme.GET, { root: 'crossread' }],
+      [padShares.GET, { root: 'crossread', id }],
+      [share.GET, { root: 'crossread', share: b64(16) }]
+    ] as const;
+    for (const [handler, params] of reads) {
+      for (const site of ['cross-site', 'same-site'])
+        expect((await call(handler, { params, cookies, site })).status).toBe(403);
+      // Our own page, the address bar, and curl, which sends no Sec-Fetch-Site.
+      for (const site of ['same-origin', 'none', null])
+        expect((await call(handler, { params, cookies, site })).status).not.toBe(403);
+    }
   });
 
   test('a locked root is 401', async () => {

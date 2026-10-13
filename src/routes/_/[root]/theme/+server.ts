@@ -1,9 +1,10 @@
-import { ours, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
+import { notCrossSite, ours, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
 import { MAX_THEME, meterWrite } from '#lib/server/limits.ts';
 import { getTheme, setTheme } from '#lib/server/theme.ts';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = (event) => {
+  notCrossSite(event);
   const root = rootParam(event.params.root);
   unlocked(event, root);
   const theme = getTheme(root);

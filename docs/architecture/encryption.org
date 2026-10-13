@@ -65,7 +65,7 @@ Nothing is counted per root: anyone could run that up to keep everyone else out.
 
 * Writes from other sites
 
-=SameSite= keeps other sites' requests from carrying the cookie, but other =nassu.online= subdomains are the same site. So every request that changes something must have =Sec-Fetch-Site: same-origin=, or, from a browser too old to send it, an =Origin= matching the page's.
+=SameSite= keeps other sites' requests from carrying the cookie, but other =nassu.online= subdomains are the same site. So every request that changes something must have =Sec-Fetch-Site: same-origin=, or, from a browser too old to send it, an =Origin= matching the page's. Reads are refused with any other =Sec-Fetch-Site= but =none= (the address bar), and pass without one: curl sends none, and a browser too old to send it still has =Cross-Origin-Resource-Policy: same-origin=.
 
 * Read-only links
 

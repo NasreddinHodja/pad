@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import {
   allowGrowth,
   bytes,
+  notCrossSite,
   ours,
   padIdParam,
   readCapped,
@@ -20,6 +21,7 @@ import type { RequestHandler } from './$types';
 // its `#` it's noise.
 // A deleted root's links are quiet until it's reclaimed.
 export const GET: RequestHandler = (event) => {
+  notCrossSite(event);
   const root = rootParam(event.params.root);
   const row = deletedAt(root) === null ? getShare(root, shareIdParam(event.params.share)) : null;
   meterOpen(event, row?.data.length);
