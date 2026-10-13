@@ -19,8 +19,11 @@ const HEADERS = {
   'cross-origin-resource-policy': 'same-origin'
 };
 
-function secure(response: Response) {
+function secure(response: Response, path: string) {
   for (const [name, value] of Object.entries(HEADERS)) response.headers.set(name, value);
+  // A root's or a link's address names the root; only the home page is for
+  // search engines. A header, so it holds for pages with no HTML of their own.
+  if (path !== '/') response.headers.set('x-robots-tag', 'noindex');
   return response;
 }
 
@@ -32,9 +35,10 @@ export const handle: Handle = async ({ event, resolve }) => {
       Response.json(
         { status: 429, message: `too many requests, wait ${wait}s` },
         { status: 429, headers: { 'retry-after': String(wait) } }
-      )
+      ),
+      event.url.pathname
     );
   // Before anything reads a root, so none is seen past its purge.
   purgeDue();
-  return secure(await resolve(event));
+  return secure(await resolve(event), event.url.pathname);
 };

@@ -89,7 +89,6 @@
 
 <svelte:head>
   <title>{path ? `${path} · ` : ''}read-only · pad</title>
-  <meta name="robots" content="noindex" />
   <meta property="og:title" content="a read-only pad" />
 </svelte:head>
 

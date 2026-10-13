@@ -277,16 +277,25 @@ describe('batch reads', () => {
 describe('meters', () => {
   const ok = new Response('');
   /** The hook's answer to a request from `peer`, saying it forwards for `forwarded`. */
-  const send = async (peer: string, forwarded?: string) =>
+  const send = async (peer: string, forwarded?: string, path = '/') =>
     await handle({
       event: {
         getClientAddress: () => peer,
-        request: new Request('http://pad.test/', {
+        url: new URL('http://pad.test' + path),
+        request: new Request('http://pad.test' + path, {
           headers: forwarded ? { 'x-forwarded-for': forwarded } : {}
         })
       } as RequestEvent,
       resolve: async () => ok
     });
+
+  test('only the home page may be indexed', async () => {
+    expect((await send('198.51.100.210')).headers.get('x-robots-tag')).toBeNull();
+    for (const path of ['/nassu', '/_/nassu/s/link', '/_/nassu/pads'])
+      expect((await send('198.51.100.210', undefined, path)).headers.get('x-robots-tag')).toBe(
+        'noindex'
+      );
+  });
 
   test('every request counts toward its address, and a refusal says when to come back', async () => {
     for (let i = 0; i < REQUESTS.burst; i++) expect(await send('198.51.100.200')).toBe(ok);

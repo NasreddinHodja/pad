@@ -1,2 +1,4 @@
+# Open on purpose: every page but / answers with X-Robots-Tag: noindex
+# (hooks.server.ts), which a crawler kept out by Disallow never reads.
 User-agent: *
 Disallow:

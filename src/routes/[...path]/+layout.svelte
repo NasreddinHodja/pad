@@ -17,7 +17,6 @@
 <svelte:head>
   <title>{path} · pad</title>
   <meta property="og:title" content="/{page.data.root}" />
-  <meta name="robots" content="noindex" />
 </svelte:head>
 
 {@render children()}
