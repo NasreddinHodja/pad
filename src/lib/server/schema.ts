@@ -190,7 +190,15 @@ const MIGRATIONS: (string | ((db: Database) => void))[] = [
   ALTER TABLE roots ADD COLUMN argon2_memory INTEGER NOT NULL DEFAULT ${19 * 1024};
   ALTER TABLE roots ADD COLUMN argon2_iterations INTEGER NOT NULL DEFAULT 2;
   ALTER TABLE roots ADD COLUMN argon2_parallelism INTEGER NOT NULL DEFAULT 1;
-  `
+  `,
+
+  // 5. When a root was last used: claimed, unlocked, or open in a browser
+  // (trash.ts, retention). The roots before count as used now, so none is
+  // deleted sooner than its retention after the upgrade.
+  (db) => {
+    db.run('ALTER TABLE roots ADD COLUMN used_at INTEGER NOT NULL DEFAULT 0');
+    db.run('UPDATE roots SET used_at = ?', [Date.now()]);
+  }
 ];
 
 /**

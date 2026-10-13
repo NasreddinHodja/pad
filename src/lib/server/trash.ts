@@ -6,12 +6,16 @@
 // pad in it, at one time, and every browser is signed out of it; its old
 // password reclaims it, unmarking what was marked with it, and a fresh claim
 // purges it first. Whatever is still marked after GRACE is purged: the sealed
-// pads' rows and, for a root, its password, unlocks, devices and links.
+// pads' rows and, for a root, its password, unlocks, devices and links. A root
+// unused for RETENTION, when the operator sets one, is deleted as its owner
+// would: its password brings it back within GRACE.
 
 import { config } from './config.ts';
 import { db } from './db.ts';
 
 export const GRACE = config.grace;
+/** 0: roots are kept until deleted. */
+export const RETENTION = config.retention;
 /** How often a request may set off a purge. */
 const PURGE_EVERY = 60 * 60 * 1000;
 
@@ -39,6 +43,9 @@ const unmarkPadsStmt = db.query(
 );
 const unmarkRootStmt = db.query('UPDATE roots SET deleted_at = NULL WHERE name = ?');
 // The root's pads, links, unlocks and devices go with it.
+const unusedStmt = db.query<{ name: string }, [number]>(
+  'SELECT name FROM roots WHERE deleted_at IS NULL AND used_at <= ?'
+);
 const purgeRootStmt = db.query('DELETE FROM roots WHERE name = ?');
 const purgeRootsStmt = db.query('DELETE FROM roots WHERE deleted_at <= ?');
 const purgePadsStmt = db.query('DELETE FROM sealed WHERE deleted_at <= ?');
@@ -77,8 +84,9 @@ export function purgeRoot(root: string) {
   purgeRootStmt.run(root);
 }
 
-/** What's been marked longer than GRACE. */
-export const purge = db.transaction((now: number) => {
+/** What's been marked longer than GRACE; and marks roots unused for RETENTION. */
+export const purge = db.transaction((now: number, retention = RETENTION) => {
+  if (retention > 0) for (const { name } of unusedStmt.all(now - retention)) deleteRoot(name);
   const before = now - GRACE;
   purgeRootsStmt.run(before);
   purgePadsStmt.run(before);

@@ -62,8 +62,8 @@ const rootStmt = db.query<Root, [string]>(
 );
 const claimStmt = db.query(
   `INSERT OR IGNORE INTO roots (name, salt, argon2_memory, argon2_iterations, argon2_parallelism,
-     auth_hash, sealed_key, created_at)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     auth_hash, sealed_key, created_at, used_at)
+   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)`
 );
 const setPasswordStmt = db.query(
   `UPDATE roots SET salt = ?, argon2_memory = ?, argon2_iterations = ?, argon2_parallelism = ?,
@@ -75,6 +75,8 @@ const unlockedStmt = db.query<{ last_seen: number }, [Uint8Array, string, number
    WHERE token_hash = ?1 AND root = ?2 AND last_seen > ?3 - ${IDLE} AND created_at > ?3 - ${ABSOLUTE}`
 );
 const touchStmt = db.query('UPDATE unlocks SET last_seen = ? WHERE token_hash = ? AND root = ?');
+// For retention (trash.ts): written when an unlock is made or touched.
+const usedStmt = db.query('UPDATE roots SET used_at = ? WHERE name = ?');
 const moveStmt = db.query('UPDATE OR REPLACE unlocks SET token_hash = ? WHERE token_hash = ?');
 const addStmt = db.query(
   `INSERT OR REPLACE INTO unlocks (token_hash, root, created_at, last_seen) VALUES (?1, ?2, ?3, ?3)`
@@ -172,7 +174,10 @@ export function access(cookies: Cookies, root: string): Access {
   const hash = tokenHash(token);
   const row = unlockedStmt.get(hash, root, now);
   if (!row) return 'locked';
-  if (now - row.last_seen > TOUCH_EVERY) touchStmt.run(now, hash, root);
+  if (now - row.last_seen > TOUCH_EVERY) {
+    touchStmt.run(now, hash, root);
+    usedStmt.run(now, root);
+  }
   return 'unlocked';
 }
 
@@ -188,6 +193,7 @@ export function unlock(cookies: Cookies, root: string) {
   const old = cookies.get(COOKIE);
   if (old) moveStmt.run(hash, tokenHash(old));
   addStmt.run(hash, root, now);
+  usedStmt.run(now, root);
   cookies.set(COOKIE, token, {
     path: '/',
     httpOnly: true,

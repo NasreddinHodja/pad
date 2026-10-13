@@ -193,5 +193,8 @@ The site's origin is the request's =Host= over =https=: adapter-bun has no =ORIG
 | =requests=     | 5000 burst, 200/s, 1           | Every request an address sends, counted not weighed                                         |
 | =backoff=      | 5 free, 900000 (15 min)        | Wrong passwords: ={"free", "maxWait"}=; past =free=, a wait that doubles up to =maxWait=    |
 | =grace=        | 2592000000 (30 days)           | How long an emptied pad or a deleted root waits before it's purged                          |
+| =retention=    | 0 (never)                      | How long a root may go unused (no unlock, no browser with it open) before it's deleted      |
+
+A root =retention= leaves unused is deleted as its owner would delete it, and purged =grace= later: its password brings it back until then. A browser with it open counts as a use at most once an hour; a link's readers don't count. The about page states this server's =retention=. Roots from before the release that brought it count as used on the upgrade.
 
 Every request costs its body's bytes, never less than the bucket's =floor=. =burst= and =perSecond= must be more than 0, as must =padBytes=, =serverBytes=, =rootBytes= and =rootPads=.

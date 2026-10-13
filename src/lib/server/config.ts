@@ -44,7 +44,12 @@ export const DEFAULTS = {
   /** Wrong passwords: `free` tries, then a wait that doubles up to `maxWait`. */
   backoff: { free: 5, maxWait: 15 * 60 * 1000 },
   /** How long an emptied pad or a deleted root waits before it's purged. */
-  grace: 30 * DAY
+  grace: 30 * DAY,
+  /**
+   * How long a root may go without an unlock before it's deleted, as its
+   * owner would (then purged after `grace`). 0: never.
+   */
+  retention: 0
 };
 
 export type Config = typeof DEFAULTS;

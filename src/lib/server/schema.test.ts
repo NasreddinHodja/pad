@@ -48,7 +48,9 @@ test('a database from before migrations keeps its rows', () => {
   db.query(`INSERT INTO unlocks VALUES (?, 'a', 4, 5)`).run(key);
   db.query(`INSERT INTO devices VALUES (?, 'a', 6)`).run(key);
   db.query(`INSERT INTO shares VALUES ('s', 'a', 'p', ?1, ?1, 7)`).run(key);
+  const before = Date.now();
   migrate(db);
+  const after = Date.now();
 
   expect(schema(db)).toEqual(schema(fresh()));
   expect(db.query('SELECT * FROM roots').all()).toEqual([
@@ -66,9 +68,14 @@ test('a database from before migrations keeps its rows', () => {
       // What every root before migration 4 was derived with.
       argon2_memory: 19 * 1024,
       argon2_iterations: 2,
-      argon2_parallelism: 1
+      argon2_parallelism: 1,
+      used_at: expect.any(Number)
     }
   ]);
+  // Used at the upgrade, so retention counts from then.
+  const { used_at } = db.query<{ used_at: number }, []>('SELECT used_at FROM roots').get()!;
+  expect(used_at).toBeGreaterThanOrEqual(before);
+  expect(used_at).toBeLessThanOrEqual(after);
   expect(db.query('SELECT * FROM sealed').all()).toEqual([
     { root: 'a', id: 'p', name: 'n', data: key, updated_at: 3, deleted_at: null }
   ]);
@@ -104,7 +111,7 @@ test('a purged root takes everything of its own with it', () => {
   db.run('PRAGMA foreign_keys = ON');
   const key = new Uint8Array([1]);
   for (const root of ['a', 'b']) {
-    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0, 19456, 2, 1)`).run(
+    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0, 19456, 2, 1, 1)`).run(
       root,
       key
     );

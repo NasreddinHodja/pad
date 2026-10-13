@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import * as limits from '#lib/server/limits.ts';
 import { MAX_SHARE } from '#lib/limits.ts';
-import { GRACE } from '#lib/server/trash.ts';
+import { GRACE, RETENTION } from '#lib/server/trash.ts';
 import type { RequestHandler } from './$types';
 
 // Every limit in effect, for a client or an operator to ask rather than read
@@ -25,5 +25,6 @@ export const GET: RequestHandler = () =>
     growth: limits.GROWTH,
     requests: limits.REQUESTS,
     backoff: { free: limits.BACKOFF_FREE, maxWait: limits.BACKOFF_MAX },
-    grace: GRACE
+    grace: GRACE,
+    retention: RETENTION
   });

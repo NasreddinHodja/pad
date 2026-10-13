@@ -16,6 +16,7 @@ export const load: PageServerLoad = () => ({
   growthPerDay: config.growth.perSecond * 24 * 60 * 60,
   backoff: config.backoff,
   grace: config.grace,
+  retention: config.retention,
   idle: IDLE,
   absolute: ABSOLUTE,
   path: { chars: MAX_PATH, segment: MAX_SEGMENT, depth: MAX_DEPTH }

@@ -92,6 +92,53 @@ test('a purge takes only what has been marked longer than the grace', () => {
   expect(getShare('kept', link('y'))).not.toBeNull();
 });
 
+const DAY = 24 * 60 * 60 * 1000;
+const usedAt = (root: string) =>
+  db.query<{ used_at: number }, [string]>('SELECT used_at FROM roots WHERE name = ?').get(root)!
+    .used_at;
+const unused = (root: string, ago: number) =>
+  db.query('UPDATE roots SET used_at = ? WHERE name = ?').run(Date.now() - ago, root);
+
+test('a root unused for the retention is deleted, and its password brings it back', () => {
+  claim('idle', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
+  claim('busy', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
+  putSealed('idle', id('a'), 'name', bytes(10));
+  const browser = jar();
+  unlock(browser, 'idle');
+  unused('idle', 2 * DAY);
+  unused('busy', DAY / 2);
+  purge(Date.now(), DAY);
+  expect(deletedAt('idle')).not.toBeNull();
+  expect(access(browser, 'idle')).toBe('deleted');
+  expect(deletedAt('busy')).toBeNull();
+  // What the unlock route does with the right password.
+  reclaimRoot('idle');
+  unlock(browser, 'idle');
+  purge(Date.now(), DAY);
+  expect(deletedAt('idle')).toBeNull();
+  expect(listSealed('idle').map((p) => p.id)).toEqual([id('a')]);
+});
+
+test('without a retention, no root is deleted for being unused', () => {
+  claim('still', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
+  unused('still', 10_000 * DAY);
+  purge(Date.now());
+  expect(deletedAt('still')).toBeNull();
+});
+
+test('a root open in a browser counts as used, once an hour', () => {
+  claim('open', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
+  const browser = jar();
+  unlock(browser, 'open');
+  unused('open', DAY);
+  access(browser, 'open');
+  // The unlock was just touched: not written again within the hour.
+  expect(usedAt('open')).toBeLessThan(Date.now() - DAY / 2);
+  db.query("UPDATE unlocks SET last_seen = ? WHERE root = 'open'").run(Date.now() - DAY);
+  access(browser, 'open');
+  expect(usedAt('open')).toBeGreaterThan(Date.now() - 60_000);
+});
+
 test('a purge zeroes what it deletes, and the WAL keeps no old pages', () => {
   const pragma = (name: string) =>
     Object.values(db.query(`PRAGMA ${name}`).get() as Record<string, number>)[0];

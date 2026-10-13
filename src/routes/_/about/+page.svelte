@@ -92,6 +92,14 @@
         an unlock lasts {days(data.idle)} unused, {days(data.absolute)} at most. a lost password can't
         be recovered: the pads are encrypted with it.
       </p>
+      <p>
+        {#if data.retention}
+          a root no browser has unlocked or had open for {days(data.retention)} is deleted here, as if
+          by its delete; its password brings it back for {days(data.grace)} after.
+        {:else}
+          a root is kept here until it's deleted.
+        {/if}
+      </p>
 
       <h3 class="underline">saving</h3>
       <p>
