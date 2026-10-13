@@ -9,10 +9,14 @@
 //
 //   PAD_DB=/tmp/pad-bench.db PORT=5597 PAD_TRUSTED_PROXIES=127.0.0.1 \
 //     BODY_SIZE_LIMIT=1M bun build/index.js
-//   bun scripts/bench/loads.ts http://127.0.0.1:5597
+//   bun scripts/bench/loads.ts http://127.0.0.1:5597 [results.jsonl build]
 //
-// Results are in docs/architecture/capacity.org.
-const base = process.argv[2];
+// With a file and a build's name, each load's rate is appended to it as a
+// line of JSON, for scripts/bench/graphs.ts. Results are in
+// docs/architecture/capacity.org.
+import { appendFileSync } from 'node:fs';
+
+const [base, results, build] = process.argv.slice(2);
 const b64 = (n: number) =>
   Buffer.from(crypto.getRandomValues(new Uint8Array(n))).toString('base64url');
 
@@ -63,5 +67,7 @@ for (const [name, urls] of Object.entries(loads)) {
       }
     })
   );
-  console.log(`${name.padEnd(34)} ${String(Math.round(done / 5)).padStart(6)} loads/s`);
+  const perSecond = Math.round(done / 5);
+  console.log(`${name.padEnd(34)} ${String(perSecond).padStart(6)} loads/s`);
+  if (results) appendFileSync(results, JSON.stringify({ build, load: name, perSecond }) + '\n');
 }

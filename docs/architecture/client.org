@@ -3,6 +3,7 @@
 What pad costs the browser that opens it, measured on 2026-10-11, against two references: a bare page with a plain =<textarea>= holding the same text (the floor: what Chromium itself needs to show it), and other sites, light and ordinary, loaded the same way. Goal (AUDIT.org section 17): the least memory and CPU the features allow, on desktop and on phones.
 
 * How it's measured
++ The graphs are drawn from the raw results by =scripts/bench/client/graphs.ts=.
 + Chromium 153 (Arch package), headless unless a table says otherwise, on the author's desktop. "Mobile" is Chromium's emulation: a Pixel 7's viewport and user agent, touch, the CPU slowed 4×. It is not Android: a phone's memory pressure, which makes the collector run sooner, isn't reproduced.
 + Memory is PSS (each process's private pages plus its share of shared ones), read from =/proc/<pid>/smaps_rollup=, summed over Chromium's processes of a kind (the renderers, which run the page; the GPU process; the browser process). "Above blank" is minus the same profile's renderers on =about:blank=, measured first in each run.
 + "At rest": 1.5 s after the action, two forced garbage collections, then read. What a tab keeps while you look at it.
@@ -49,6 +50,8 @@ The 2026-10-12 run, same three sizes, three runs each: 5.2 / 5.2 / 5.1, 28.7 / 2
 | dontpad                      |        62.1 |   165 |           1075.7 |         0.1 |
 | pad's GitHub page            |        71.3 |  2922 |           2151.2 |        -0.1 |
 | YouTube                      |       130.0 |  6070 |           4044.9 |         0.8 |
+
+[[file:graphs/client-sites.svg]]
 
 + Pad's empty pages sit between Hacker News and PrivateBin: 2–3 MiB over the ≤ 10 proposed, 7–9 over the text-only sites.
 + Three runs each, the evening run (/now/): the landing page 12.2 / 12.2 / 13.8, the password page 14.2 / 12.2 / 12.5, Hacker News 11.6 / 13.5 / 10.9. Pad is Hacker News within noise.
@@ -292,6 +295,8 @@ Times are from submitting (or navigating) until the text is in the textarea, on 
 | max     | native |           0.4 |                           2 |            32.9 |           49 |       2.5 |         0.4 |        0.0 |
 
 (CPU columns: % of one core.)
+
+[[file:graphs/client-typing.svg]]
 
 + /old/ can't keep up: over a core while typing, 500 keys taking 47 s and 78 s where the floor takes 20.5 and 28.5. Keys queue: on a long pad, the committed build lags behind the typist. Its 1,209 style recalcs in 20 s of focused idle are the =requestAnimationFrame= loop (=caret.ts:113-129= as committed), there in the finder's field too.
 + /native/ is at the floor: same layout time, same CPU, 4.5 s more over the 500 keys, idle the same.

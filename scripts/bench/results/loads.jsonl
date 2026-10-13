@@ -1,0 +1,24 @@
+{"build":"rendered","load":"control: robots.txt","perSecond":55523}
+{"build":"rendered","load":"home","perSecond":9439}
+{"build":"rendered","load":"a claimed root","perSecond":6039}
+{"build":"rendered","load":"a claimed root, then its data","perSecond":4298}
+{"build":"rendered","load":"an unclaimed root","perSecond":6071}
+{"build":"rendered","load":"an unclaimed root, then its data","perSecond":4613}
+{"build":"shell","load":"control: robots.txt","perSecond":54735}
+{"build":"shell","load":"home","perSecond":13715}
+{"build":"shell","load":"a claimed root","perSecond":11225}
+{"build":"shell","load":"a claimed root, then its data","perSecond":5914}
+{"build":"shell","load":"an unclaimed root","perSecond":11138}
+{"build":"shell","load":"an unclaimed root, then its data","perSecond":6503}
+{"build":"rendered","load":"control: robots.txt","perSecond":55620}
+{"build":"rendered","load":"home","perSecond":9607}
+{"build":"rendered","load":"a claimed root","perSecond":6041}
+{"build":"rendered","load":"a claimed root, then its data","perSecond":4354}
+{"build":"rendered","load":"an unclaimed root","perSecond":6358}
+{"build":"rendered","load":"an unclaimed root, then its data","perSecond":4703}
+{"build":"shell","load":"control: robots.txt","perSecond":56026}
+{"build":"shell","load":"home","perSecond":13904}
+{"build":"shell","load":"a claimed root","perSecond":11360}
+{"build":"shell","load":"a claimed root, then its data","perSecond":6033}
+{"build":"shell","load":"an unclaimed root","perSecond":10300}
+{"build":"shell","load":"an unclaimed root, then its data","perSecond":6325}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330" role="img" aria-label="Page loads a second: rendered, or a shell and its data">
+<style>
+  svg { --surface: #fcfcfb; --text: #0b0b0b; --muted: #52514e; --rule: #d8d7d2;
+        --accent: #2a78d6; --context: #8a8983; --second: #eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface: #1a1a19; --text: #f0efec; --muted: #c3c2b7; --rule: #3a3a37;
+          --accent: #3987e5; --context: #6b6a65; --second: #d95926; }
+  }
+  text { font: 13px system-ui, sans-serif; fill: var(--text); }
+  .muted { fill: var(--muted); }
+  .title { font-size: 15px; font-weight: 600; }
+  .accent { fill: var(--accent); }
+  .context { fill: var(--context); }
+  .second { fill: var(--second); }
+</style>
+<rect width="100%" height="100%" fill="var(--surface)"/>
+<text x="16" y="26" class="title">Page loads a second: rendered, or a shell and its data</text>
+<text x="16" y="46" class="muted">Laptop, 8 at a time, fresh addresses; mean (each run). Control, robots.txt: 55,572 / 55,381</text>
+<text x="16" y="82" class="muted">/, which loads no data</text><path class="accent" d="M180 92h244.2461984069515a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-244.2461984069515z"/><text x="172" y="104" text-anchor="end">rendered</text><text x="434.2461984069515" y="104" class="muted">9,523 (9,439, 9,607)</text><path class="second" d="M180 118h356a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-356z"/><text x="172" y="130" text-anchor="end">shell</text><text x="546" y="130" class="muted">13,810 (13,715, 13,904)</text><line x1="180" x2="180" y1="88" y2="138" stroke="var(--muted)"/><text x="16" y="168" class="muted">a claimed root</text><path class="accent" d="M180 178h153.4511223750905a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-153.4511223750905z"/><text x="172" y="190" text-anchor="end">rendered</text><text x="343.4511223750905" y="190" class="muted">6,040 (6,039, 6,041)</text><path class="second" d="M180 204h151.73062997827662a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-151.73062997827662z"/><text x="172" y="216" text-anchor="end">shell, then its data</text><text x="341.7306299782766" y="216" class="muted">5,974 (5,914, 6,033)</text><line x1="180" x2="180" y1="174" y2="224" stroke="var(--muted)"/><text x="16" y="254" class="muted">an unclaimed root</text><path class="accent" d="M180 264h158.0130340333092a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-158.0130340333092z"/><text x="172" y="276" text-anchor="end">rendered</text><text x="348.01303403330917" y="276" class="muted">6,215 (6,071, 6,358)</text><path class="second" d="M180 290h163.2005792903693a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-163.2005792903693z"/><text x="172" y="302" text-anchor="end">shell, then its data</text><text x="353.2005792903693" y="302" class="muted">6,414 (6,503, 6,325)</text><line x1="180" x2="180" y1="260" y2="310" stroke="var(--muted)"/>
+</svg>

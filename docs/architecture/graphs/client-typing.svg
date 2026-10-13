@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="322" viewBox="0 0 720 322" role="img" aria-label="Seconds to type 500 keys, one every 30 ms">
+<style>
+  svg { --surface: #fcfcfb; --text: #0b0b0b; --muted: #52514e; --rule: #d8d7d2;
+        --accent: #2a78d6; --context: #8a8983; --second: #eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface: #1a1a19; --text: #f0efec; --muted: #c3c2b7; --rule: #3a3a37;
+          --accent: #3987e5; --context: #6b6a65; --second: #d95926; }
+  }
+  text { font: 13px system-ui, sans-serif; fill: var(--text); }
+  .muted { fill: var(--muted); }
+  .title { font-size: 15px; font-weight: 600; }
+  .accent { fill: var(--accent); }
+  .context { fill: var(--context); }
+  .second { fill: var(--second); }
+</style>
+<rect width="100%" height="100%" fill="var(--surface)"/>
+<text x="16" y="26" class="title">Seconds to type 500 keys, one every 30 ms</text>
+<text x="16" y="46" class="muted">The keys alone take 15 s; past that, the page lags the typist. results-2026-10-12/{cpu,floor-cpu}.jsonl</text>
+<text x="16" y="70" class="muted">average root (249,000 characters)</text><path class="context" d="M220 92h233a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-233z"/><text x="212" y="104" text-anchor="end">old: the JS caret</text><text x="463" y="104" class="muted">47.4 s</text><path class="context" d="M220 118h150a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-150z"/><text x="212" y="130" text-anchor="end">cheap: a lighter JS caret</text><text x="380" y="130" class="muted">30.8 s</text><path class="accent" d="M220 144h121a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-121z"/><text x="212" y="156" text-anchor="end">native: the browser’s (shipped)</text><text x="351" y="156" class="muted">25 s</text><line x1="220" x2="220" y1="88" y2="164" stroke="var(--muted)"/><line x1="322.5" x2="322.5" y1="84" y2="164" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="4 3"/><text x="326.5" y="82" class="muted">bare textarea, 20.5 s</text><text x="16" y="200" class="muted">max root (524,224 characters)</text><path class="context" d="M220 222h386a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-386z"/><text x="212" y="234" text-anchor="end">old: the JS caret</text><text x="616" y="234" class="muted">78 s</text><path class="context" d="M220 248h187.49999999999997a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-187.49999999999997z"/><text x="212" y="260" text-anchor="end">cheap: a lighter JS caret</text><text x="417.5" y="260" class="muted">38.3 s</text><path class="accent" d="M220 274h160.5a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-160.5z"/><text x="212" y="286" text-anchor="end">native: the browser’s (shipped)</text><text x="390.5" y="286" class="muted">32.9 s</text><line x1="220" x2="220" y1="218" y2="294" stroke="var(--muted)"/><line x1="362.5" x2="362.5" y1="214" y2="294" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="4 3"/><text x="366.5" y="212" class="muted">bare textarea, 28.5 s</text>
+</svg>

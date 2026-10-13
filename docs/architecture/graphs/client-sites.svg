@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="396" viewBox="0 0 720 396" role="img" aria-label="Memory a page takes, idle, above a blank page">
+<style>
+  svg { --surface: #fcfcfb; --text: #0b0b0b; --muted: #52514e; --rule: #d8d7d2;
+        --accent: #2a78d6; --context: #8a8983; --second: #eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface: #1a1a19; --text: #f0efec; --muted: #c3c2b7; --rule: #3a3a37;
+          --accent: #3987e5; --context: #6b6a65; --second: #d95926; }
+  }
+  text { font: 13px system-ui, sans-serif; fill: var(--text); }
+  .muted { fill: var(--muted); }
+  .title { font-size: 15px; font-weight: 600; }
+  .accent { fill: var(--accent); }
+  .context { fill: var(--context); }
+  .second { fill: var(--second); }
+</style>
+<rect width="100%" height="100%" fill="var(--surface)"/>
+<text x="16" y="26" class="title">Memory a page takes, idle, above a blank page</text>
+<text x="16" y="46" class="muted">Chromium 153, renderers’ PSS, one run each: results-2026-10-12/sites.jsonl</text>
+<path class="context" d="M180 72h8.276923076923076a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-8.276923076923076z"/><text x="172" y="84" text-anchor="end">sourcehut</text><text x="198.27692307692308" y="84" class="muted">3.8 MiB</text><path class="context" d="M180 98h12.153846153846153a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-12.153846153846153z"/><text x="172" y="110" text-anchor="end">lite.duckduckgo.com</text><text x="202.15384615384616" y="110" class="muted">5 MiB</text><path class="context" d="M180 124h13.446153846153845a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-13.446153846153845z"/><text x="172" y="136" text-anchor="end">text.npr.org</text><text x="203.44615384615383" y="136" class="muted">5.4 MiB</text><path class="context" d="M180 150h29.923076923076927a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-29.923076923076927z"/><text x="172" y="162" text-anchor="end">Hacker News</text><text x="219.92307692307693" y="162" class="muted">10.5 MiB</text><path class="accent" d="M180 176h35.738461538461536a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-35.738461538461536z"/><text x="172" y="188" text-anchor="end">pad, password page</text><text x="225.73846153846154" y="188" class="muted">12.3 MiB</text><path class="accent" d="M180 202h38.96923076923077a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-38.96923076923077z"/><text x="172" y="214" text-anchor="end">pad, landing page</text><text x="228.96923076923076" y="214" class="muted">13.3 MiB</text><path class="context" d="M180 228h60.93846153846154a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-60.93846153846154z"/><text x="172" y="240" text-anchor="end">PrivateBin</text><text x="250.93846153846152" y="240" class="muted">20.1 MiB</text><path class="context" d="M180 254h102.93846153846154a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-102.93846153846154z"/><text x="172" y="266" text-anchor="end">google.com</text><text x="292.9384615384615" y="266" class="muted">33.1 MiB</text><path class="context" d="M180 280h122.96923076923076a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-122.96923076923076z"/><text x="172" y="292" text-anchor="end">Wikipedia, "Notepad"</text><text x="312.96923076923076" y="292" class="muted">39.3 MiB</text><path class="context" d="M180 306h196.63076923076923a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-196.63076923076923z"/><text x="172" y="318" text-anchor="end">dontpad</text><text x="386.63076923076926" y="318" class="muted">62.1 MiB</text><path class="context" d="M180 332h226.35384615384615a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-226.35384615384615z"/><text x="172" y="344" text-anchor="end">pad's GitHub page</text><text x="416.3538461538461" y="344" class="muted">71.3 MiB</text><path class="context" d="M180 358h416a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-416z"/><text x="172" y="370" text-anchor="end">YouTube</text><text x="606" y="370" class="muted">130 MiB</text><line x1="180" x2="180" y1="68" y2="378" stroke="var(--muted)"/>
+</svg>
