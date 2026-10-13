@@ -32,6 +32,7 @@ deploy.env
 
 # audit
 AUDIT.org
+/docs/research/
 
 # claude
 .claude/
