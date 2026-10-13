@@ -12,6 +12,14 @@ every push and weekly) is fixed in a release within 7 days if it's high or
 critical and reaches the served code or the server, otherwise in the next
 release.
 
+## Reporting abuse
+
+For content on pad.nassu.online, email abuse@nassu.online with the whole
+read-only link, `#` and all: without what follows the `#`, nobody can read
+the copy, the operator included. A link can be taken down, or a root with
+everything in it; nothing else of a root can be checked. Other instances
+are run by their own operators.
+
 ## What the server protects
 
 Pad is one Bun process with one SQLite file (`PAD_DB`), meant to sit behind a

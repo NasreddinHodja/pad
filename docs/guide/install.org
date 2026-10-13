@@ -120,6 +120,17 @@ What pad and Caddy write. Both write to standard error; on pad.nassu.online that
 
 The app's limits are per address and per root ([[file:../architecture/capacity.org][Capacity and limits]]): about 10 addresses at their full 200 requests a second fill the VPS. Past that, and past what the machine's link carries, nothing on the machine helps: the provider's network filtering, or a CDN in front, which then sees every request ([[*What the proxy sees][What the proxy sees]]).
 
+* Abuse
+
+A report names a root (its address) or a read-only link. Pad can't read either: a link's text opens with the key after its =#=, so a report that includes the whole link lets the operator open it in a browser and see that copy, and nothing else of the root; a root's pads need its password. =scripts/remove.ts= takes either down at once, with no grace and nothing for the password to bring back. A root goes with its pads, links, unlocks and devices, and its name can be claimed again. A link goes alone:
+
+#+begin_src sh
+docker exec pad bun /app/remove.js /data/pad.db root 'https://pad.example/someroot'
+docker exec pad bun /app/remove.js /data/pad.db link 'https://pad.example/_/someroot/s/…#…'
+#+end_src
+
+It takes an address as the reporter sends it, or a root's name or a link's id, and says what it removed (=removed /someroot: 12 pads, 3 links=), or exits 1 if there's nothing by that name. It runs beside the server, which sees the removal on its next request. Removed rows are zeroed in the file, as the server's own deletions are; copies in [[*Backups][backups]] keep them until those are rotated out. Outside a container: =bun scripts/remove.ts <pad.db> root|link …=, as the user pad runs as. pad.nassu.online's contact is in [[file:../../SECURITY.md][SECURITY.md]].
+
 * Backups
 
 The database is one file, written through a WAL: copying =pad.db= while pad runs can catch it halfway. =scripts/backup.ts= takes a consistent copy with SQLite's =VACUUM INTO= while it runs, checks it with =PRAGMA integrity_check= and keeps the newest seven:

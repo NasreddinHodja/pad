@@ -13,11 +13,14 @@ RUN bun install --frozen-lockfile
 COPY . .
 # Building loads the server code, which opens a database.
 RUN PAD_DB=/tmp/pad.db bun run build && mkdir -m 700 /data
+# remove.ts imports the app's name rules: bundled into one file.
+RUN bun build scripts/remove.ts --target=bun --outfile=/src/remove.js
 
 FROM oven/bun:1.4.2-distroless
 COPY --from=build /src/build /app
-# For `docker exec`: install.org, Backups.
+# For `docker exec`: install.org, Backups and Abuse.
 COPY --from=build /src/scripts/backup.ts /app/backup.ts
+COPY --from=build /src/remove.js /app/remove.js
 COPY --from=build --chown=65532:65532 /data /data
 ENV HOST=0.0.0.0 \
     PORT=5512 \
