@@ -83,8 +83,8 @@ each.
   reaches the server once, to be redirected. Sending a hash of the name
   instead would hide little: a name someone could guess is one hash away,
   and the hash would still mark every request for the root. Every
-  response but the home page carries `X-Robots-Tag: noindex`, so search
-  engines that follow it don't list root names.
+  response but the home and about pages carry `X-Robots-Tag: noindex`,
+  so search engines that follow it don't list root names.
 - **Sizes show, rounded.** A copy of the database shows how many pads a root
   has, and how long each is to within its padding (at most 12% more; pads
   under 256 bytes all look the same). Pads sealed before padding show their

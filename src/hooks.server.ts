@@ -19,11 +19,14 @@ const HEADERS = {
   'cross-origin-resource-policy': 'same-origin'
 };
 
+const INDEXED = new Set(['/', '/_/about']);
+
 function secure(response: Response, path: string) {
   for (const [name, value] of Object.entries(HEADERS)) response.headers.set(name, value);
-  // A root's or a link's address names the root; only the home page is for
-  // search engines. A header, so it holds for pages with no HTML of their own.
-  if (path !== '/') response.headers.set('x-robots-tag', 'noindex');
+  // A root's or a link's address names the root; only the home page and the
+  // about page, which name none, are for search engines. A header, so it holds
+  // for pages with no HTML of their own.
+  if (!INDEXED.has(path)) response.headers.set('x-robots-tag', 'noindex');
   return response;
 }
 

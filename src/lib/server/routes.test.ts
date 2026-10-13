@@ -289,9 +289,12 @@ describe('meters', () => {
       resolve: async () => ok
     });
 
-  test('only the home page may be indexed', async () => {
+  test('only the home and about pages may be indexed', async () => {
     expect((await send('198.51.100.210')).headers.get('x-robots-tag')).toBeNull();
-    for (const path of ['/nassu', '/_/nassu/s/link', '/_/nassu/pads'])
+    expect(
+      (await send('198.51.100.210', undefined, '/_/about')).headers.get('x-robots-tag')
+    ).toBeNull();
+    for (const path of ['/nassu', '/_/nassu/s/link', '/_/nassu/pads', '/_/about/x'])
       expect((await send('198.51.100.210', undefined, path)).headers.get('x-robots-tag')).toBe(
         'noindex'
       );
