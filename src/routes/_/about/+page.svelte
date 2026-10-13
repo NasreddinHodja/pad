@@ -57,7 +57,7 @@
         any path is a pad: /notes, /notes/today, /notes/today/later. a pad is made by typing in it
         and deleted by emptying it: it leaves its parent's list and its text leaves the server. a
         path has up to {data.path.depth} segments of up to {data.path.segment} characters,
-        {data.path.chars} in all. /_/… is the server's own.
+        {data.path.chars} in all. case doesn't count: /Notes is /notes. /_/… is the server's own.
       </p>
 
       <h3 class="underline">roots and passwords</h3>

@@ -26,6 +26,18 @@ describe('normalizePath', () => {
     expect(normalizePath('a\u007fb')).toBeNull();
   });
 
+  test('compares names lower-cased and NFC', () => {
+    expect(normalizePath('Notes/ToDo')).toBe('notes/todo');
+    // A decomposed é (e and U+0301) is the composed one.
+    expect(normalizePath('e\u0301t\u00c9')).toBe('\u00e9t\u00e9');
+    expect(normalizePath('\u00c9T\u00c9')).toBe(normalizePath('e\u0301te\u0301'));
+    // Once is enough: what it gives, it gives again.
+    for (const name of ['\u0130stanbul', '\u039f\u0394\u039f\u03a3', 'A\u030a', '\u01c5'])
+      expect(normalizePath(normalizePath(name)!)).toBe(normalizePath(name));
+    // Another script's lookalike stays another name: Cyrillic о.
+    expect(normalizePath('n\u043etes')).not.toBe('notes');
+  });
+
   test('keeps to the limits', () => {
     expect(normalizePath('a'.repeat(MAX_SEGMENT))).not.toBeNull();
     expect(normalizePath('a'.repeat(MAX_SEGMENT + 1))).toBeNull();

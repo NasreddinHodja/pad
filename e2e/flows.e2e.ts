@@ -211,3 +211,17 @@ test('a dialog keeps Tab inside, and Escape gives the pad back its focus', async
   await expect(dialog).toBeHidden();
   await expect(editor(page)).toBeFocused();
 });
+
+test('a pad written another way is the same pad, and its address says so', async ({ page }) => {
+  const root = await claimNew(page);
+  await page.goto(padUrl(`${root}/todo`));
+  await opened(page);
+  await editor(page).fill('milk');
+  await expect(status(page)).toHaveText('saved');
+
+  // The server moves the root, the page the rest after the `#`.
+  await page.goto(`/${root.toUpperCase()}#ToDo`);
+  await expect(page).toHaveURL(padUrl(`${root}/todo`));
+  await opened(page);
+  await expect(editor(page)).toHaveValue('milk');
+});

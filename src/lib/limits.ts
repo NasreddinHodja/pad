@@ -7,9 +7,19 @@ export const MAX_PATH = 255;
 export const MAX_SEGMENT = 64;
 export const MAX_DEPTH = 10;
 
-/** `a//b/` → `a/b`. Null if it can't be a pad. */
+/**
+ * How names are compared: `Notes` and `notes`, or a composed `é` and a
+ * decomposed one, are one name, so no one can claim a root that looks like
+ * another's that way. A lookalike from another script (a Cyrillic `о`) is
+ * still another name.
+ */
+export const canonical = (name: string) => name.toLowerCase().normalize('NFC');
+
+/** `a//B/` → `a/b`. Null if it can't be a pad. */
 export function normalizePath(raw: string): string | null {
-  const segments = raw.split('/').filter((s) => s !== '');
+  const segments = canonical(raw)
+    .split('/')
+    .filter((s) => s !== '');
   // `/_/…` is the API's.
   if (segments[0] === '_') return null;
   const path = segments.join('/');

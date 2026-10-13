@@ -5,6 +5,7 @@
   import * as api from '#lib/api.ts';
   import { message, when } from '#lib/format.ts';
   import { href } from '#lib/href.ts';
+  import { canonical } from '#lib/limits.ts';
   import { applyTheme, DEFAULT } from '#lib/theme.ts';
   import { under } from '#lib/tree.ts';
   import Button from '#lib/ui/Button.svelte';
@@ -30,6 +31,7 @@
         .split('/')
         .filter(Boolean)
         .map(decodeURIComponent)
+        .map(canonical)
         .join('/');
     } catch {
       return '';

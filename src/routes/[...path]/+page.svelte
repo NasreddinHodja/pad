@@ -1,12 +1,12 @@
 <script lang="ts">
   import Button from '#lib/ui/Button.svelte';
   import { browser } from '$app/env';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import * as api from '#lib/api.ts';
   import { storedKeys, storeKeys, type Keys } from '#lib/crypto.ts';
   import Gate from '#lib/Gate.svelte';
-  import { pathOf } from '#lib/href.ts';
+  import { href, pathOf } from '#lib/href.ts';
   import Pad from '#lib/Pad.svelte';
   import { applyTheme, DEFAULT, rememberedTheme, rememberTheme, type Theme } from '#lib/theme.ts';
   import type { PageProps } from './$types';
@@ -18,6 +18,15 @@
   // the `#`: nothing is asked of the server.
   const path = $derived(browser ? pathOf(page.url) : data.root);
   const root = $derived(data.root);
+
+  // An address written another way than its pad's (`#Todo` for `todo`, as
+  // the server does for the root) is replaced by the pad's own.
+  $effect(() => {
+    if (!path) return;
+    const own = href(path.split('/'), page.url.search);
+    if (own !== page.url.pathname + page.url.search + page.url.hash)
+      goto(own, { replace: true, shallow: true });
+  });
   const access = $derived(data.state);
 
   // The root's keys in this browser: undefined while looking, null if it has none.

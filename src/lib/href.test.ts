@@ -31,6 +31,7 @@ describe('pathOf', () => {
   test('normalizes as the server does', () => {
     expect(at('/a#b//c/')).toBe('a/b/c');
     expect(at('/a#')).toBe('a');
+    expect(at('/Notes#ToDo/E%CC%81')).toBe('notes/todo/\u00e9');
   });
 
   test('null for what no pad can be', () => {

@@ -78,6 +78,11 @@ each.
   from: trusting an instance means trusting its operator.
 - **A lost password can't be reset.** Nothing on the server can open the
   pads.
+- **Lookalike names.** Names are compared lower-cased and in Unicode NFC
+  (`canonical` in `src/lib/limits.ts`), so no one can claim `Notes` beside
+  `notes`, or `é` written as `e` and an accent beside `é`. A name using
+  another script's lookalike letter (a Cyrillic `о` in `nоtes`) or
+  fullwidth letters is still another root.
 - **Root names aren't secret.** A root's name is stored and sent in the
   clear: it's the path of every page of the root. The path under it is after
   the `#` (`/notes#today`), which browsers don't send, and the database keeps
