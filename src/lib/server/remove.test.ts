@@ -29,8 +29,8 @@ function database() {
     db.query(`INSERT INTO sealed VALUES (?, 'p', 'n', ?, 1, NULL)`).run(root, MARK);
     db.query(`INSERT INTO unlocks VALUES (?, ?, 1, 1)`).run(key, root);
   }
-  db.query(`INSERT INTO shares VALUES (?, 'bad', 'p', ?2, ?2, 1)`).run(LINK, MARK);
-  db.query(`INSERT INTO shares VALUES (?, 'bad', 'p', ?2, ?2, 1)`).run(OTHER, key);
+  db.query(`INSERT INTO shares VALUES (?, 'bad', 'p', ?2, ?2, 1, NULL, 0)`).run(LINK, MARK);
+  db.query(`INSERT INTO shares VALUES (?, 'bad', 'p', ?2, ?2, 1, NULL, 0)`).run(OTHER, key);
   db.close();
   return file;
 }

@@ -7,13 +7,14 @@ import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
 import * as batch from '../../routes/_/[root]/pads/batch/+server.ts';
 import * as pads from '../../routes/_/[root]/pads/+server.ts';
-import { ARGON2, BATCH_PADS } from '../limits.ts';
+import { ARGON2, BATCH_PADS, LINK_LIFETIMES } from '../limits.ts';
 import { kdfOf } from './auth.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as padShares from '../../routes/_/[root]/pads/[id]/shares/+server.ts';
 import * as theme from '../../routes/_/[root]/theme/+server.ts';
 import { db, padVersion, setCeiling, usage } from './db.ts';
 import {
+  OPEN,
   REQUESTS,
   MAX_SEALED,
   ROOT_BYTES,
@@ -490,5 +491,94 @@ describe('quotas', () => {
     const cookies = await claimed('count');
     await save('count', cookies, 100);
     expect(usage('count')).toEqual({ bytes: 101, pads: 1 });
+  });
+});
+
+describe('links', () => {
+  const make = (root: string, cookies: Cookies, headers: Record<string, string> = {}) => {
+    const id = b64(16);
+    return call(share.PUT, {
+      method: 'PUT',
+      params: { root, share: id },
+      body: new Uint8Array(10),
+      headers: { 'x-pad-id': b64(32), 'x-share-key': b64(61), ...headers },
+      cookies
+    }).then((r) => ({ ...r, id }));
+  };
+  const read = (root: string, id: string, headers: Record<string, string> = {}, address?: string) =>
+    call(share.GET, { params: { root, share: id }, headers, address });
+
+  test('a link lasts one of the offered lifetimes, or never expires', async () => {
+    const cookies = await claimed('lifetimes');
+    for (const ms of Object.values(LINK_LIFETIMES))
+      expect((await make('lifetimes', cookies, { 'x-expires-in': String(ms) })).status).toBe(200);
+    expect((await make('lifetimes', cookies)).status).toBe(200);
+    for (const bad of ['0', '-1', '1000', 'week', String(LINK_LIFETIMES['1 year'] + 1)])
+      expect((await make('lifetimes', cookies, { 'x-expires-in': bad })).status).toBe(400);
+    expect((await make('lifetimes', cookies, { 'x-once': 'yes' })).status).toBe(400);
+  });
+
+  test("a link's sealed key is 61 bytes, or 60 from a page before passwords", async () => {
+    const cookies = await claimed('keysizes');
+    for (const [n, status] of [
+      [60, 200],
+      [61, 200],
+      [59, 400],
+      [62, 400]
+    ])
+      expect((await make('keysizes', cookies, { 'x-share-key': b64(n) })).status).toBe(status);
+  });
+
+  test("an expired link is 404, and lists don't show it", async () => {
+    const cookies = await claimed('expired');
+    const hour = LINK_LIFETIMES['1 hour'];
+    const { id } = await make('expired', cookies, { 'x-expires-in': String(hour) });
+    expect((await read('expired', id)).status).toBe(200);
+    later(hour);
+    expect((await read('expired', id)).status).toBe(404);
+  });
+
+  test('a link that opens once is 409 until opened, then gone', async () => {
+    const cookies = await claimed('opensonce');
+    const { id } = await make('opensonce', cookies, { 'x-once': '1' });
+    expect((await read('opensonce', id)).status).toBe(409);
+    expect((await read('opensonce', id)).status).toBe(409);
+    const opened = await read('opensonce', id, { 'x-open': 'once' });
+    expect(opened.status).toBe(200);
+    expect(new Uint8Array(await opened.res!.arrayBuffer())).toEqual(new Uint8Array(10));
+    expect((await read('opensonce', id, { 'x-open': 'once' })).status).toBe(404);
+    expect((await read('opensonce', id)).status).toBe(404);
+  });
+
+  test('a link that opens once, refused by the meter, is still there', async () => {
+    const cookies = await claimed('meteredonce');
+    const { id } = await make('meteredonce', cookies, { 'x-once': '1' });
+    const address = '203.0.113.30';
+    let status = 0;
+    for (let i = 0; i <= OPEN.burst / OPEN.floor && status !== 429; i++)
+      status = (await read('meteredonce', b64(16), {}, address)).status;
+    expect(status).toBe(429);
+    expect((await read('meteredonce', id, { 'x-open': 'once' }, address)).status).toBe(429);
+    expect((await read('meteredonce', id, { 'x-open': 'once' })).status).toBe(200);
+  });
+
+  test('the list says when a link expires and whether it opens once', async () => {
+    const cookies = await claimed('linksof');
+    const padId = b64(32);
+    const week = LINK_LIFETIMES['1 week'];
+    await make('linksof', cookies, { 'x-pad-id': padId, 'x-expires-in': String(week) });
+    later(1);
+    await make('linksof', cookies, { 'x-pad-id': padId, 'x-once': '1' });
+    const res = await call(padShares.GET, { params: { root: 'linksof', id: padId }, cookies });
+    const { shares } = await res.res!.json();
+    expect(
+      shares.map((s: { expiresAt: number | null; once: boolean; createdAt: number }) => [
+        s.expiresAt === null ? null : s.expiresAt - s.createdAt,
+        s.once
+      ])
+    ).toEqual([
+      [week, false],
+      [null, true]
+    ]);
   });
 });

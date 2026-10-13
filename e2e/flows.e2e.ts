@@ -143,6 +143,62 @@ test.describe('a root with a pad under it', () => {
     );
   });
 
+  test.describe('a link that opens once', () => {
+    // Its 409 before the click, and its 404 once spent.
+    test.use({ allowedErrors: [/\/shares\/[A-Za-z0-9_-]{22}: .* status of 40[49]/] });
+
+    test('a link with a password that opens once', async ({ page, newContext }) => {
+      const root = await claimNew(page);
+      await editor(page).fill('secret');
+      await expect(status(page)).toHaveText('saved');
+
+      await page.getByRole('button', { name: 'share', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: 'read-only links' });
+      await expect(dialog.getByRole('combobox', { name: 'lasts' })).toHaveValue('1 week');
+      await dialog.getByRole('checkbox', { name: "opens once, then it's gone" }).check();
+      await dialog.getByLabel('password, if it needs one').fill('short');
+      await dialog.getByRole('button', { name: 'new link', exact: true }).click();
+      await expect(dialog.getByRole('alert')).toContainText('at least 8');
+      await dialog.getByLabel('password, if it needs one').fill('correct horse');
+      await dialog.getByRole('button', { name: 'new link', exact: true }).click();
+      await expect(dialog.getByRole('button', { name: 'copied', exact: true })).toBeVisible();
+      await expect(dialog.getByText(/, until .*, opens once, password$/)).toBeVisible();
+      await expectAccessible(page, 'share dialog, a link with a password');
+      const url = await page.evaluate(() => navigator.clipboard.readText());
+      expect(url).toMatch(new RegExp(`/_/${root}/s/[A-Za-z0-9_-]{22}#![A-Za-z0-9_-]{43}$`));
+
+      // Its password asked, then a click before it's spent; a wrong password
+      // after that can be tried again, the copy kept in the page.
+      const reader = await (await newContext()).newPage();
+      await reader.goto(url);
+      const password = reader.getByLabel('this link needs a password');
+      await password.fill('wrong password');
+      await password.press('Enter');
+      await expect(reader.getByText(/^this link opens once/)).toBeVisible();
+      await expectAccessible(reader, 'a link that opens once');
+      await reader.getByRole('button', { name: 'open it' }).click();
+      await expect(reader.getByRole('alert')).toHaveText(
+        '► wrong password, or the link was cut short'
+      );
+      await password.fill('correct horse');
+      await password.press('Enter');
+      await expect(reader.locator('pre')).toHaveText('secret');
+
+      // Spent: for the next reader, and gone from the owner's list.
+      const late = await (await newContext()).newPage();
+      await late.goto(url);
+      await late.getByLabel('this link needs a password').fill('correct horse');
+      await late.getByLabel('this link needs a password').press('Enter');
+      await expect(late.getByRole('alert')).toHaveText(
+        '► this link expired, was revoked, or never was'
+      );
+      await dialog.getByRole('button', { name: 'close', exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await page.getByRole('button', { name: 'share', exact: true }).click();
+      await expect(dialog.getByText('no links yet.')).toBeVisible();
+    });
+  });
+
   test("saving a pad that exists doesn't change the root's list", async ({ page }) => {
     const root = await claimNew(page);
     await editor(page).fill('top');

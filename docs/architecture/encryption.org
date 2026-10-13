@@ -75,6 +75,8 @@ A link is =/_/<root>/s/<id>#<key>=; its pages within it add =~= and the path und
 + The root's owners list the pad's links, open each =key= with the root's content key, and so can show and copy the links again.
 + Revoking deletes the row. Someone who read the copy before still has what they read.
 + The copy is sealed under its own key, not the root's: a link opens that one copy, nothing else in the root.
++ A link with a password is =#!<key>=, =!= also outside base64's alphabet. Its copy is sealed under HKDF-SHA256 of =key=, salted with Argon2id of the password (salt ="pad share password\n<id>"=, 19 MiB, 2 passes, 1 lane), not under =key=: the link alone doesn't open it, nor the password alone. The cost is fixed, not the root's: the reader has no root to ask. The sealed key the root keeps starts with a byte, 1 for a password, so the owners' copy of the link has its =!=; the server sees the same 61 bytes either way and doesn't learn which links have one. A wrong password after the copy is fetched can be tried again: the page keeps it.
++ The server learns how long a link lasts and whether it opens once: it enforces both (=docs/api/http.org=).
 + Deflating first means the server learns the copy's compressed size rather than its size, to its Padmé step.
 
 * What it doesn't protect against

@@ -5,6 +5,7 @@ import {
   fromPassword,
   openName,
   openRootKey,
+  linkKey,
   openShareKey,
   openShare,
   openText,
@@ -50,8 +51,9 @@ export class Refused extends Error {
   }
 }
 
-async function call(url: string, init: RequestInit = {}) {
-  const res = await fetch(url, init);
+const call = async (url: string, init: RequestInit = {}) => check(await fetch(url, init));
+
+async function check(res: Response) {
   // 304 is an answer too: what was asked about hasn't changed.
   if (!res.ok && res.status !== 304) {
     const message = (await res.json().catch(() => null))?.message;
@@ -270,18 +272,39 @@ export async function setTheme(root: string, keys: Keys, { bg, fg, ink }: Theme)
   });
 }
 
-export type Share = { id: string; url: string; createdAt: number };
+export type Share = {
+  id: string;
+  url: string;
+  createdAt: number;
+  /** Null: never. */
+  expiresAt: number | null;
+  once: boolean;
+  password: boolean;
+};
 
-/** The link's own page, with its key where the server never sees it. */
-const shareUrl = (root: string, id: string, key: Uint8Array) =>
-  `${location.origin}${base(root)}/s/${id}#${toBase64(key)}`;
+/** How a new link is made: milliseconds it lasts (LINK_LIFETIMES) or null, and its password, if any. */
+export type LinkOptions = { lifetime: number | null; once: boolean; password: string };
+
+/**
+ * The link's own page, with its key where the server never sees it: `#<key>`,
+ * or `#!<key>` if it has a password too (`!` is outside base64's alphabet).
+ */
+const shareUrl = (root: string, id: string, key: Uint8Array, password: boolean) =>
+  `${location.origin}${base(root)}/s/${id}#${password ? '!' : ''}${toBase64(key)}`;
 
 /** A read-only link to a copy of the pad and those under it, as they are now. */
-export async function share(root: string, keys: Keys, path: string, pads: Pad[], theme: Theme) {
+export async function share(
+  root: string,
+  keys: Keys,
+  path: string,
+  pads: Pad[],
+  theme: Theme,
+  { lifetime, once, password }: LinkOptions
+) {
   const id = toBase64(random(16));
   const key = random(32);
   const plain = await deflate(utf8.encode(JSON.stringify({ path, pads, theme } satisfies Shared)));
-  const body = await sealShare(key, id, plain);
+  const body = await sealShare(password ? await linkKey(key, password, id) : key, id, plain);
   if (body.length > MAX_SHARE)
     throw new Error(
       `/${path} and its pads come to ${Math.ceil(body.length / 1024)} KiB compressed, over the ${MAX_SHARE / 1024} KiB a link holds`
@@ -292,25 +315,46 @@ export async function share(root: string, keys: Keys, path: string, pads: Pad[],
     headers: {
       'content-type': 'application/octet-stream',
       'x-pad-id': await padId(keys, path),
-      'x-share-key': toBase64(await sealShareKey(keys, id, key))
+      'x-share-key': toBase64(await sealShareKey(keys, id, key, !!password)),
+      ...(lifetime === null ? {} : { 'x-expires-in': String(lifetime) }),
+      ...(once ? { 'x-once': '1' } : {})
     }
   });
   const { createdAt } = await res.json();
-  return { id, url: shareUrl(root, id, key), createdAt } satisfies Share;
+  return {
+    id,
+    url: shareUrl(root, id, key, !!password),
+    createdAt,
+    expiresAt: lifetime === null ? null : createdAt + lifetime,
+    once,
+    password: !!password
+  } satisfies Share;
 }
 
 /** The pad's links, oldest first. */
 export async function shares(root: string, keys: Keys, path: string) {
   const res = await call(`${base(root)}/pads/${await padId(keys, path)}/shares`);
   const { shares } = (await res.json()) as {
-    shares: { id: string; sealedKey: string; createdAt: number }[];
+    shares: {
+      id: string;
+      sealedKey: string;
+      createdAt: number;
+      expiresAt: number | null;
+      once: boolean;
+    }[];
   };
   return Promise.all(
-    shares.map(async ({ id, sealedKey, createdAt }) => ({
-      id,
-      url: shareUrl(root, id, await openShareKey(keys, id, fromBase64(sealedKey))),
-      createdAt
-    }))
+    shares.map(async ({ id, sealedKey, createdAt, expiresAt, once }) => {
+      const { key, password } = await openShareKey(keys, id, fromBase64(sealedKey));
+      return {
+        id,
+        url: shareUrl(root, id, key, password),
+        createdAt,
+        expiresAt,
+        once,
+        password
+      } satisfies Share;
+    })
   );
 }
 
@@ -320,14 +364,37 @@ export const revoke = (root: string, id: string) =>
 export const revokeAll = async (root: string, keys: Keys, path: string) =>
   call(`${base(root)}/pads/${await padId(keys, path)}/shares`, { method: 'DELETE' });
 
-/** A link's copy, opened with the key from its `#`. */
-export async function readShare(root: string, id: string, key: string) {
-  const res = await call(`${base(root)}/shares/${id}`);
-  const plain = await openShare(fromBase64(key), id, new Uint8Array(await res.arrayBuffer()));
-  const shared: Shared = JSON.parse(utf8Decode.decode(await inflate(plain)));
+/** What a link's `#` holds: its key, and whether it has a password too. Null if it's no key. */
+export function linkFragment(fragment: string) {
+  const password = fragment.startsWith('!');
+  const key = password ? fragment.slice(1) : fragment;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(key)) return null;
+  return { key: fromBase64(key), password };
+}
+
+/**
+ * A link's sealed copy; 'once' if it opens once and `once` wasn't said: asked
+ * again with it, the server deletes it as it sends it.
+ */
+export async function fetchShare(root: string, id: string, once = false) {
+  const res = await fetch(`${base(root)}/shares/${id}`, {
+    headers: once ? { 'x-open': 'once' } : {}
+  });
+  if (res.status === 409 && !once) return 'once';
+  await check(res);
   return {
-    ...shared,
-    theme: parseTheme(shared.theme),
+    data: new Uint8Array(await res.arrayBuffer()),
     createdAt: Number(res.headers.get('x-created-at'))
   };
+}
+
+/** A link's copy, opened with its key, or the key its password gives (`linkKey`). */
+export async function openShared(
+  id: string,
+  key: Uint8Array<ArrayBuffer>,
+  data: Uint8Array<ArrayBuffer>
+) {
+  const plain = await openShare(key, id, data);
+  const shared: Shared = JSON.parse(utf8Decode.decode(await inflate(plain)));
+  return { ...shared, theme: parseTheme(shared.theme) };
 }

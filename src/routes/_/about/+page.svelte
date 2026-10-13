@@ -121,7 +121,11 @@
         <span class="text-ink">new link</span> makes one: a copy of the pad and every pad under it
         as they are then, which anyone with the link can read but not change. later edits don't
         reach it; make a new link to share them. its page shows the pad and the pads under it, and
-        <span class="text-ink">edit</span> goes to the real pad, for those with the password.
+        <span class="text-ink">edit</span> goes to the real pad, for those with the password. a new
+        link lasts a week unless you pick otherwise, from an hour to a year or until revoked. it can
+        open once: its page asks for a click, then the server deletes the copy as it sends it. it
+        can have a password, which the reader is asked for; the server never sees it, nor which
+        links have one, but it knows how long a link lasts and whether it opens once.
         <span class="text-ink">revoke</span> deletes the copy and the link stops working;
         <span class="text-ink">revoke all</span>, pressed twice, does it for every link to the pad.
         emptying a pad leaves its links. a link holds {size(data.linkBytes)} once compressed, and a root

@@ -3,6 +3,16 @@
 /** A read-only link's copy, deflated and sealed: the server takes bodies of 1 MiB. */
 export const MAX_SHARE = 1024 * 1024;
 
+const HOUR = 60 * 60 * 1000;
+/** How long a new link may last, in milliseconds: the dialog offers these, the server takes no other. */
+export const LINK_LIFETIMES = {
+  '1 hour': HOUR,
+  '1 day': 24 * HOUR,
+  '1 week': 7 * 24 * HOUR,
+  '1 month': 30 * 24 * HOUR,
+  '1 year': 365 * 24 * HOUR
+} as const;
+
 export const MAX_PATH = 255;
 export const MAX_SEGMENT = 64;
 export const MAX_DEPTH = 10;

@@ -145,3 +145,15 @@ test('a purge zeroes what it deletes, and the WAL keeps no old pages', () => {
   expect(pragma('secure_delete')).toBe(1);
   expect(pragma('journal_size_limit')).toBe(0);
 });
+
+test('a purge deletes expired links', () => {
+  claim('lapsed', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
+  const made = addShare('lapsed', link('z'), id('a'), bytes(61), bytes(10), {
+    lifetime: 1000,
+    once: false
+  }) as number;
+  purge(made + 999);
+  expect(getShare('lapsed', link('z'), made)).not.toBeNull();
+  purge(made + 1000);
+  expect(getShare('lapsed', link('z'), made)).toBeNull();
+});

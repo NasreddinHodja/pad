@@ -124,7 +124,9 @@ each.
 - **The first save claims a root.** Whoever saves under an unclaimed root
   first sets its password.
 - **A read-only link is a bearer secret.** Anyone with the whole link reads
-  its copy; revoking stops new reads, not what was already read.
+  its copy, unless it has a password; revoking or expiry stops new reads,
+  not what was already read. A link that opens once can be opened by
+  whoever gets it first, a script that clicks included.
 - **Keys in the browser.** Unlocked keys sit in IndexedDB as non-extractable
   `CryptoKey`s: a script injected into the page could use them while it runs,
   though not read them out. The CSP is what keeps other scripts off the page.

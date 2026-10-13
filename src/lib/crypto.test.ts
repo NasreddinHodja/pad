@@ -3,6 +3,7 @@ import {
   checkPassword,
   fromBase64,
   fromPassword,
+  linkKey,
   openName,
   openRootKey,
   openShare,
@@ -87,7 +88,44 @@ test("a link's pads open with its key, for its id, and its key with the root's",
   expect(await openShare(key, 'link', sealed)).toEqual(plain);
   await expect(openShare(random(32), 'link', sealed)).rejects.toThrow();
   await expect(openShare(key, 'other', sealed)).rejects.toThrow();
-  expect(await openShareKey(keys, 'link', await sealShareKey(keys, 'link', key))).toEqual(key);
+  for (const password of [false, true])
+    expect(
+      await openShareKey(keys, 'link', await sealShareKey(keys, 'link', key, password))
+    ).toEqual({ key, password });
+
+  // A key sealed before links had passwords: the key alone.
+  const iv = random(12);
+  const old = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode('pad share key\nlink') },
+      keys.content,
+      key
+    )
+  );
+  expect(await openShareKey(keys, 'link', new Uint8Array([...iv, ...old]))).toEqual({
+    key,
+    password: false
+  });
+});
+
+test('a link with a password opens with both its key and the password, and only for its id', async () => {
+  const key = random(32);
+  const plain = new TextEncoder().encode('{"path":"a","pads":[]}');
+  const sealed = await sealShare(await linkKey(key, 'correct horse', 'link'), 'link', plain);
+  expect(await openShare(await linkKey(key, 'correct horse', 'link'), 'link', sealed)).toEqual(
+    plain
+  );
+  await expect(openShare(key, 'link', sealed)).rejects.toThrow();
+  await expect(
+    openShare(await linkKey(key, 'correct hors', 'link'), 'link', sealed)
+  ).rejects.toThrow();
+  await expect(
+    openShare(await linkKey(random(32), 'correct horse', 'link'), 'link', sealed)
+  ).rejects.toThrow();
+  // The id salts the password: the same password and key give another link's key elsewhere.
+  expect(await linkKey(key, 'correct horse', 'other')).not.toEqual(
+    await linkKey(key, 'correct horse', 'link')
+  );
 });
 
 test("a theme opens only with its root's keys, and isn't a pad's text", async () => {

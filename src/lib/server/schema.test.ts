@@ -86,7 +86,16 @@ test('a database from before migrations keeps its rows', () => {
     { token_hash: key, root: 'a', last_seen: 6 }
   ]);
   expect(db.query('SELECT * FROM shares').all()).toEqual([
-    { id: 's', root: 'a', pad: 'p', sealed_key: key, data: key, created_at: 7 }
+    {
+      id: 's',
+      root: 'a',
+      pad: 'p',
+      sealed_key: key,
+      data: key,
+      created_at: 7,
+      expires_at: null,
+      once: 0
+    }
   ]);
 });
 
@@ -118,7 +127,7 @@ test('a purged root takes everything of its own with it', () => {
     db.query(`INSERT INTO sealed VALUES (?1, 'p', 'n', ?2, 3, NULL)`).run(root, key);
     db.query(`INSERT INTO unlocks VALUES (?2, ?1, 4, 5)`).run(root, key);
     db.query(`INSERT INTO devices VALUES (?2, ?1, 6)`).run(root, key);
-    db.query(`INSERT INTO shares VALUES (?1, ?1, 'p', ?2, ?2, 7)`).run(root, key);
+    db.query(`INSERT INTO shares VALUES (?1, ?1, 'p', ?2, ?2, 7, NULL, 0)`).run(root, key);
   }
   db.run(`DELETE FROM roots WHERE name = 'a'`);
   for (const table of ['sealed', 'unlocks', 'devices', 'shares'])
@@ -166,7 +175,13 @@ test("a root's counts follow every write, as a recount gives them", () => {
     () => put.run('b', 'n', blob(100)),
     () => put.run('a', 'nnnn', blob(3)),
     () => db.run("UPDATE sealed SET deleted_at = 1 WHERE id = 'b'"),
-    () => db.query(`INSERT INTO shares VALUES ('s', 'r', 'a', ?1, ?2, 0)`).run(blob(1), blob(50)),
+    () =>
+      db
+        .query(
+          `INSERT INTO shares (id, root, pad, sealed_key, data, created_at)
+           VALUES ('s', 'r', 'a', ?1, ?2, 0)`
+        )
+        .run(blob(1), blob(50)),
     () => db.run("DELETE FROM sealed WHERE id = 'b'"),
     () => db.run("DELETE FROM shares WHERE id = 's'")
   ];

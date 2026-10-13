@@ -207,10 +207,42 @@ export const sealShare = async (key: Bytes, id: string, plain: Bytes) =>
 export const openShare = async (key: Bytes, id: string, data: Bytes) =>
   (await openPadded(await shareKey(key, 'decrypt'), data, `pad share tree\n${id}`)).plain;
 
-export const sealShareKey = (keys: Keys, id: string, key: Bytes) =>
-  seal(keys.content, key, `pad share key\n${id}`);
-export const openShareKey = (keys: Keys, id: string, sealed: Bytes) =>
-  open(keys.content, sealed, `pad share key\n${id}`);
+// The root keeps a byte before the key: 1 if the link has a password, so its
+// owners get the link back as it was made. Keys from before have no byte.
+export const sealShareKey = (keys: Keys, id: string, key: Bytes, password: boolean) =>
+  seal(keys.content, Uint8Array.of(password ? 1 : 0, ...key), `pad share key\n${id}`);
+export async function openShareKey(keys: Keys, id: string, sealed: Bytes) {
+  const plain = await open(keys.content, sealed, `pad share key\n${id}`);
+  return plain.length === 32
+    ? { key: plain, password: false }
+    : { key: plain.subarray(1), password: plain[0] === 1 };
+}
+
+/**
+ * A link with a password is sealed under this, not the key in its `#`: both
+ * are needed. Argon2id of the password, salted with the link's id, at
+ * ARGON2's cost as it was when links got passwords (19 MiB, 2, 1): raising it
+ * would need the link to say which cost it was made at.
+ */
+export async function linkKey(key: Bytes, password: string, id: string) {
+  const { argon2id } = await import('hash-wasm');
+  const stretched = await argon2id({
+    password: password.normalize('NFC'),
+    salt: utf8.encode(`pad share password\n${id}`),
+    iterations: 2,
+    parallelism: 1,
+    memorySize: 19 * 1024,
+    hashLength: 32,
+    outputType: 'binary'
+  });
+  const base = await crypto.subtle.importKey('raw', key, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { ...hkdf('pad share password'), salt: new Uint8Array(stretched) },
+    base,
+    256
+  );
+  return new Uint8Array(bits);
+}
 
 // The keys stay in this browser between visits, in IndexedDB, as keys it
 // can use but not export: a script on the page could decrypt with them while

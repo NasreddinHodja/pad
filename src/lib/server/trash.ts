@@ -12,6 +12,7 @@
 
 import { config } from './config.ts';
 import { db } from './db.ts';
+import { removeExpired } from './shares.ts';
 
 export const GRACE = config.grace;
 /** 0: roots are kept until deleted. */
@@ -84,12 +85,13 @@ export function purgeRoot(root: string) {
   purgeRootStmt.run(root);
 }
 
-/** What's been marked longer than GRACE; and marks roots unused for RETENTION. */
+/** What's been marked longer than GRACE, and expired links; and marks roots unused for RETENTION. */
 export const purge = db.transaction((now: number, retention = RETENTION) => {
   if (retention > 0) for (const { name } of unusedStmt.all(now - retention)) deleteRoot(name);
   const before = now - GRACE;
   purgeRootsStmt.run(before);
   purgePadsStmt.run(before);
+  removeExpired(now);
 });
 
 let lastPurge = 0;

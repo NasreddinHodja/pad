@@ -111,22 +111,26 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** GET /_/<root>/pads/<id>/shares
 
-/Unlocked./ The pad's links, oldest first.
+/Unlocked./ The pad's links, oldest first; expired and opened ones aren't there.
 
-=200= ={"shares": [{"id": "<link>", "sealedKey": 60 bytes, "createdAt": <ms>}]}=.
+=200= ={"shares": [{"id": "<link>", "sealedKey": 61 bytes (60 if made before links had passwords), "createdAt": <ms>, "expiresAt": <ms> or null, "once": <bool>}]}=.
 
 ** PUT /_/<root>/shares/<link>
 
 /Unlocked, metered, quota./ Makes a link.
 
 + Body: the copy, deflated and sealed under the link's key, at most 1 MiB; over: =413=.
-+ =X-Pad-Id=: the pad's id. =X-Share-Key=: the link's key sealed under the root's, 60 bytes.
++ =X-Pad-Id=: the pad's id. =X-Share-Key=: a byte saying whether the link has a password, then the link's key, sealed under the root's: 61 bytes (60, the key alone, is still taken).
++ =X-Expires-In=: milliseconds, one of 1 hour, 1 day, 1 week, 1 month (30 days), 1 year (365 days) (=LINK_LIFETIMES= in =src/lib/limits.ts=); absent, it lasts until revoked. Anything else: =400=.
++ =X-Once: 1=: the link opens once. Anything but =1=: =400=.
 
-=200= ={"createdAt": <ms>}=. =409= if the root has 1000 links, or the id is taken.
+=200= ={"createdAt": <ms>}=. =409= if the root has 1000 links (expired ones don't count), or the id is taken.
 
 ** GET /_/<root>/shares/<link>
 
-/Open./ Anyone with the link may. =200=, =application/octet-stream=: the sealed copy, with =X-Created-At= in Unix milliseconds. =404= if it was revoked or never made, or its root deleted.
+/Open./ Anyone with the link may. =200=, =application/octet-stream=: the sealed copy, with =X-Created-At= in Unix milliseconds. =404= if it expired, was revoked or opened once already, or never made, or its root deleted.
+
+A link that opens once is =409= without =X-Open: once=; with it, the copy is deleted as it's sent, so a second read is =404=. A script that only loads its page doesn't spend it. The meter runs before: a =429= leaves it there. An expired link is =404= at once; the hourly purge deletes its row.
 
 ** DELETE /_/<root>/pads/<id>/shares
 

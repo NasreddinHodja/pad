@@ -12,7 +12,9 @@ export const GET: RequestHandler = (event) => {
   const shares = listShares(root, padIdParam(event.params.id)).map((s) => ({
     id: s.id,
     sealedKey: Buffer.from(s.sealed_key).toString('base64url'),
-    createdAt: s.created_at
+    createdAt: s.created_at,
+    expiresAt: s.expires_at,
+    once: s.once === 1
   }));
   return json({ shares }, { headers: { 'cache-control': 'no-store' } });
 };

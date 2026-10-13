@@ -198,7 +198,14 @@ const MIGRATIONS: (string | ((db: Database) => void))[] = [
   (db) => {
     db.run('ALTER TABLE roots ADD COLUMN used_at INTEGER NOT NULL DEFAULT 0');
     db.run('UPDATE roots SET used_at = ?', [Date.now()]);
-  }
+  },
+
+  // 6. A link may expire, or open once (shares.ts). The links before do neither.
+  `
+  ALTER TABLE shares ADD COLUMN expires_at INTEGER;
+  ALTER TABLE shares ADD COLUMN once INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX shares_expiring ON shares (expires_at) WHERE expires_at IS NOT NULL;
+  `
 ];
 
 /**

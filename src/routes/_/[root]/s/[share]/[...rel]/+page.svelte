@@ -1,8 +1,10 @@
 <script lang="ts">
   import { browser } from '$app/env';
   import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import { page } from '$app/state';
   import * as api from '#lib/api.ts';
+  import { linkKey } from '#lib/crypto.ts';
   import { message, when } from '#lib/format.ts';
   import { href } from '#lib/href.ts';
   import { canonical } from '#lib/limits.ts';
@@ -15,9 +17,19 @@
   // is after the `#`, which never reaches the server, so this opens in the
   // browser only. So is where in the copy this is: `#<key>~a/b`, the `~`
   // being outside base64's alphabet.
+  //
+  // A link with a password (`#!<key>`) asks for it first. One that opens once
+  // asks for a click before its copy is fetched, which deletes it on the
+  // server; the copy stays in this page, so a mistyped password can be tried
+  // again.
   let shared = $state<api.Shared & { createdAt: number }>();
   let problem = $state('');
   let key = $state('');
+  /** What's asked of the reader before the copy opens. */
+  let asking = $state<'password' | 'once' | null>(null);
+  let password = $state('');
+  let busy = $state(false);
+  let sealed: { data: Uint8Array<ArrayBuffer>; createdAt: number } | null = null;
 
   const root = $derived(page.params.root!);
   const id = $derived(page.params.share!);
@@ -55,22 +67,57 @@
     `/_/${encodeURIComponent(root)}/s/${id}#${key}` +
     (parts.length ? '~' + parts.map(encodeURIComponent).join('/') : '');
 
-  $effect(() => {
-    void id;
-    const hash = location.hash.slice(1).split('~')[0];
-    key = hash;
-    shared = undefined;
-    problem = '';
-    if (!hash) {
-      problem = 'this link is missing its key, the part after the #';
+  let run = 0;
+
+  /** As far as it goes without the reader: `once` once they've clicked open. */
+  async function step(once = false) {
+    const mine = run;
+    const fragment = api.linkFragment(key);
+    if (!fragment) {
+      problem = 'this link is missing its key, the part after the #, or it was cut short';
       return;
     }
-    let current = true;
-    api.readShare(root, id, hash).then(
-      (s) => current && (shared = s),
-      (e) => current && (problem = message(e, "couldn't open the link"))
-    );
-    return () => (current = false);
+    if (fragment.password && !password) return (asking = 'password');
+    asking = null;
+    busy = true;
+    problem = '';
+    try {
+      if (!sealed) {
+        const got = await api.fetchShare(root, id, once);
+        if (mine !== run) return;
+        if (got === 'once') return (asking = 'once');
+        sealed = got;
+      }
+      const opened = await api
+        .openShared(
+          id,
+          fragment.password ? await linkKey(fragment.key, password, id) : fragment.key,
+          sealed.data
+        )
+        .catch((e) => {
+          if (!fragment.password) throw e;
+          password = '';
+          asking = 'password';
+          throw new Error('wrong password, or the link was cut short');
+        });
+      if (mine === run) shared = { ...opened, createdAt: sealed.createdAt };
+    } catch (e) {
+      if (mine === run) problem = message(e, "couldn't open the link");
+    } finally {
+      busy = false;
+    }
+  }
+
+  $effect(() => {
+    void id;
+    key = location.hash.slice(1).split('~')[0];
+    run++;
+    shared = undefined;
+    sealed = null;
+    password = '';
+    problem = '';
+    // What step reads isn't what this runs on: typing a password mustn't start over.
+    untrack(() => step());
   });
 
   const relParts = $derived(rel ? rel.split('/') : []);
@@ -122,7 +169,7 @@
       {/if}
     </nav>
     <span class="ml-auto text-dim">
-      {shared ? `read-only, as of ${when(shared.createdAt)}` : problem ? '' : 'opening…'}
+      {shared ? `read-only, as of ${when(shared.createdAt)}` : problem || asking ? '' : 'opening…'}
     </span>
     {#if path}
       <!-- The pad itself, for those with the password. -->
@@ -132,6 +179,36 @@
 
   {#if problem}
     <p class="panel p-3 text-ink" role="alert">► {problem}</p>
+  {/if}
+  {#if asking === 'password'}
+    <form
+      class="flex max-w-xl flex-col gap-3 panel p-3"
+      onsubmit={(e) => {
+        e.preventDefault();
+        void step();
+      }}
+    >
+      <label class="flex flex-col gap-1">
+        <span class="text-dim">this link needs a password</span>
+        <input
+          class="h-8 border border-ink bg-bg px-2 text-fg pointer-coarse:h-10"
+          type="password"
+          autocomplete="off"
+          required
+          maxlength="256"
+          bind:value={password}
+          {@attach (el) => el.focus()}
+        />
+      </label>
+      <div><Button variant="primary" type="submit" disabled={busy}>open</Button></div>
+    </form>
+  {:else if asking === 'once'}
+    <div class="flex max-w-xl flex-col gap-3 panel p-3">
+      <p>this link opens once: after it opens here, it's gone, for everyone who has it.</p>
+      <div>
+        <Button variant="primary" disabled={busy} onclick={() => step(true)}>open it</Button>
+      </div>
+    </div>
   {:else if shared && !found}
     <p class="panel p-3 text-ink" role="alert">► there's no /{path} in this link</p>
   {:else if shared}
