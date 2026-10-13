@@ -37,9 +37,14 @@ export function setCeiling(bytes: number) {
 }
 setCeiling(SERVER_BYTES);
 
+/** The database's bytes in use, and the ceiling they stop growing at. */
+export function used() {
+  return { bytes: usedStmt.get()!.pages * pageSize, ceiling };
+}
+
 /** Whether the database has reached its ceiling. */
 export function full() {
-  return usedStmt.get()!.pages * pageSize >= ceiling;
+  return used().bytes >= ceiling;
 }
 
 const getStmt = db.query<{ data: Uint8Array; updated_at: number }, [string, string]>(

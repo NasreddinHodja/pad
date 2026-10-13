@@ -16,6 +16,7 @@ import {
 } from '#lib/server/auth.ts';
 import { argon2 } from '#lib/limits.ts';
 import { failed, meterOpen, meterWrite, owedWait, succeeded } from '#lib/server/limits.ts';
+import { wrongPassword } from '#lib/server/signals.ts';
 import { deleteRoot, reclaimRoot } from '#lib/server/trash.ts';
 import type { RequestEvent, RequestHandler } from './$types';
 
@@ -31,6 +32,7 @@ function attempt(event: RequestEvent, root: string, auth: Uint8Array) {
   const sealedKey = verify(root, auth);
   if (!sealedKey) {
     failed(keys);
+    wrongPassword();
     error(401, 'wrong password');
   }
   succeeded(keys);

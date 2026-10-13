@@ -113,7 +113,11 @@ A proxy that logs keeps that list on disk. Nothing in pad stops an operator from
 
 What pad and Caddy write. Both write to standard error; on pad.nassu.online that's journald, which on its Ubuntu keeps it on disk (=/var/log/journal=):
 
-+ Pad: =Listening on …= at start, and a configuration error that stops it. Nothing per request: unmatched paths, wrong methods and malformed bodies wrote nothing (the build, probed with =curl=). An unexpected error prints its stack (SvelteKit's default =handleError=), without the request.
++ Pad: =Listening on …= at start, and a configuration error that stops it. Nothing per request: unmatched paths, wrong methods and malformed bodies wrote nothing (the build, probed with =curl=). An unexpected error prints its stack (SvelteKit's default =handleError=), without the request. At most once an hour, and only if something happened, a line of counts since the last (=src/lib/server/signals.ts=): no address, root or path.
+  #+begin_example
+  last 60 min: 3 refused (429), 0 failed (5xx), 12 wrong passwords; database 812 MiB of 5120 MiB (16%)
+  #+end_example
+  Past 90% of =serverBytes= it starts =warning: database nearly full;= and is written every hour there are requests. Refusals are rate limits and backoffs; failures are pad's own errors (a 507 when full among them), not Caddy's 502s. Requests set it off, as they do the purge, so the hour's first request writes the hour before. =docker logs pad= shows it.
 + Caddy, with no =log= directive: no access log. It still logs a request it couldn't serve (=http.log.error=), with the address, the URL and the headers: a 502 while pad restarts does it. =deploy/Caddyfile= turns that logger off (=exclude http.log.error=); after, the same 502 wrote nothing (a throwaway Caddy v2.11.7 on the VPS). Left: start, stop and certificate renewals.
 
 * Floods

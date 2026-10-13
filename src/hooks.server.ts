@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit/hooks';
 import { requestWait } from '#lib/server/limits.ts';
+import { count, reportDue } from '#lib/server/signals.ts';
 import { purgeDue } from '#lib/server/trash.ts';
 
 // From the app, so a server without deploy/Caddyfile's proxy has them too. The
@@ -45,6 +46,7 @@ const HEADERS = {
 const INDEXED = new Set(['/', '/_/about']);
 
 function secure(response: Response, path: string) {
+  count(response.status);
   for (const [name, value] of Object.entries(HEADERS)) response.headers.set(name, value);
   // A root's or a link's address names the root; only the home page and the
   // about page, which name none, are for search engines. A header, so it holds
@@ -66,5 +68,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     );
   // Before anything reads a root, so none is seen past its purge.
   purgeDue();
+  reportDue();
   return secure(await resolve(event), event.url.pathname);
 };
