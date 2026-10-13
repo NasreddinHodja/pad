@@ -1,4 +1,5 @@
-// Every limit the server keeps, in one place. Why each number is what it is:
+// Every limit the server keeps, in one place; the ones an operator can change
+// come from config.ts. Why each number is what it is:
 // docs/architecture/capacity.org.
 //
 // Only claiming, unlocking, locking and reading a link are open to anyone;
@@ -10,35 +11,30 @@
 
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { MAX_DEPTH, MAX_PATH, MAX_SEGMENT, normalizePath } from '../limits.ts';
+import { address } from './address.ts';
+import { config, type Bucket } from './config.ts';
 
 export { MAX_DEPTH, MAX_PATH, MAX_SEGMENT, normalizePath };
 
-const KiB = 1024;
-const MiB = 1024 * KiB;
-const GiB = 1024 * MiB;
-const DAY = 24 * 60 * 60 * 1000;
+const MiB = 1024 * 1024;
 
-export const MAX_BYTES = 512 * KiB;
+export const MAX_BYTES = config.padBytes;
 /** A pad's text once sealed: AES-GCM adds a 12-byte nonce and a 16-byte tag. */
 export const MAX_SEALED = MAX_BYTES + 28;
 /** A sealed path, in base64: 255 characters of up to 4 bytes, sealed. */
 export const MAX_SEALED_NAME = 1400;
 /** `{"bg":"#rrggbb","fg":"#rrggbb","ink":"#rrggbb"}` is 45 bytes; sealed, 73. */
 export const MAX_THEME = 256;
-/** Links a root can have at once. Their bytes count toward ROOT_BYTES. */
-export const MAX_SHARES = 1000;
+export const MAX_SHARES = config.linksPerRoot;
 
-/** The database's size past which no pad or link grows. */
-export const SERVER_BYTES = 5 * GiB;
+export const SERVER_BYTES = config.serverBytes;
 /**
  * Room above SERVER_BYTES for unlocks, devices and roots, so a full server
  * still lets people in. SQLite refuses any write past it (db.ts).
  */
 export const SERVER_SLACK = 64 * MiB;
-/** A root's pads (sealed text and path, emptied ones too until purged) and links. */
-export const ROOT_BYTES = 16 * MiB;
-/** A root's pads, emptied ones too: the list (db.ts) returns at most this many. */
-export const ROOT_PADS = 5000;
+export const ROOT_BYTES = config.rootBytes;
+export const ROOT_PADS = config.rootPads;
 
 /**
  * Most keys a meter remembers, about 400 bytes each; past it, the least
@@ -70,8 +66,6 @@ export function lru<V>(max = MAX_KEYS) {
   };
 }
 
-type Bucket = { burst: number; perSecond: number; floor: number };
-
 /**
  * A token bucket per key: `burst` to start with, refilled at `perSecond`;
  * each request costs its bytes, never less than `floor`, so a flood of empty
@@ -95,24 +89,10 @@ export function meter({ burst, perSecond, floor }: Bucket, max = MAX_KEYS) {
   };
 }
 
-/** Writes to a root, by anyone unlocked there. */
-export const WRITES: Bucket = { burst: 16 * MiB, perSecond: 1 * MiB, floor: 16 * KiB };
-/** What anyone may do without a password: claim, unlock, lock, read a link. */
-export const OPEN: Bucket = { burst: 16 * MiB, perSecond: 1 * MiB, floor: 16 * KiB };
-/**
- * New bytes an address adds to pads and links, across every root: 1 GiB a
- * day, but at most 64 MiB at once, or a few fresh addresses could fill the
- * server in seconds.
- */
-export const GROWTH: Bucket = { burst: 64 * MiB, perSecond: GiB / (DAY / 1000), floor: 0 };
-
-/**
- * Every request an address sends, counted not weighed. A tab polls 0.2 a
- * second and saves at most 1.7, so 200 is a thousand people's; the VPS takes
- * about 1,900 a second, so one address can't take it alone. 5000 at once
- * lets an export read a full root.
- */
-export const REQUESTS: Bucket = { burst: 5000, perSecond: 200, floor: 1 };
+export const WRITES: Bucket = config.writes;
+export const OPEN: Bucket = config.open;
+export const GROWTH: Bucket = config.growth;
+export const REQUESTS: Bucket = config.requests;
 
 const writes = meter(WRITES);
 const open = meter(OPEN);
@@ -129,8 +109,8 @@ function refuse(event: RequestEvent, wait: number, message: string) {
 }
 
 /** Seconds the request's address must wait before another request, or 0. */
-export function requestWait(address: string) {
-  return Math.ceil(requests.take(limitKey(address), 1) / 1000);
+export function requestWait(event: RequestEvent) {
+  return Math.ceil(requests.take(limitKey(address(event)), 1) / 1000);
 }
 
 /** Meters a write to `root`. */
@@ -140,22 +120,22 @@ export function meterWrite(event: RequestEvent, root: string, bytes = 0) {
 
 /** Meters a request anyone may send. */
 export function meterOpen(event: RequestEvent, bytes = 0) {
-  refuse(event, open.take(limitKey(event.getClientAddress()), bytes), 'too many requests');
+  refuse(event, open.take(limitKey(address(event)), bytes), 'too many requests');
 }
 
 /** Meters `bytes` of new data from the request's address. */
 export function meterGrowth(event: RequestEvent, bytes: number) {
   if (bytes <= 0) return;
-  const key = limitKey(event.getClientAddress());
+  const key = limitKey(address(event));
   refuse(event, growth.take(key, bytes), 'this address has written too much today');
 }
 
 // Failed password attempts back off, per device or per address (auth.ts's
-// attemptKeys): a few free, then a wait that doubles up to 15 minutes. In
+// attemptKeys): a few free, then a wait that doubles up to BACKOFF_MAX. In
 // memory: a restart forgets the counts, which costs an attacker a restart
 // they can't cause.
-export const BACKOFF_FREE = 5;
-export const BACKOFF_MAX = 15 * 60 * 1000;
+export const BACKOFF_FREE = config.backoff.free;
+export const BACKOFF_MAX = config.backoff.maxWait;
 const failures = lru<{ count: number; until: number }>();
 
 /** Milliseconds `keys` must still wait before another try, if any. */

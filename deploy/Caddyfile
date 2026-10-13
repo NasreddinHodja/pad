@@ -13,8 +13,10 @@ pad.nassu.online {
     Referrer-Policy no-referrer
     # A page this one opens can't reach back into it through window.opener.
     Cross-Origin-Opener-Policy same-origin
-    # The Content-Security-Policy is the app's own (vite.config.ts): it needs
-    # a fresh nonce per page.
+    Cross-Origin-Resource-Policy same-origin
+    # The app sets these too (hooks.server.ts), but not on the files it
+    # serves from static/ and the build. The Content-Security-Policy is the
+    # app's alone (vite.config.ts): it needs a fresh nonce per page.
     -Server
   }
   reverse_proxy 127.0.0.1:5512

@@ -1,6 +1,6 @@
-# Draws static/og.png, the link preview: the domain in a box of box-drawing
+# Draws static/og.png, the link preview: PAD in a box of box-drawing
 # characters in the VGA font, over the background texture, as nassu.online's.
-# python3 scripts/og.py (Pillow).
+# No domain, so every instance can use it. python3 scripts/og.py (Pillow).
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 W, H = 1200, 630
 SCALE = 6
 INK = (0xFF, 0x8F, 0xC8)
-TEXT = "PAD.NASSU.ONLINE"
+TEXT = "PAD"
 LINES = [
     "╔" + "═" * (len(TEXT) + 2) + "╗",
     "║ " + TEXT + " ║",

@@ -7,10 +7,10 @@
 // purges it first. Whatever is still marked after GRACE is purged: the sealed
 // pads, their links and, for a root, its password, unlocks and devices.
 
+import { config } from './config.ts';
 import { db } from './db.ts';
 
-const DAY = 24 * 60 * 60 * 1000;
-export const GRACE = 30 * DAY;
+export const GRACE = config.grace;
 /** How often a request may set off a purge. */
 const PURGE_EVERY = 60 * 60 * 1000;
 

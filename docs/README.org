@@ -4,6 +4,7 @@
 * Guide
 
 + [[file:guide/use.org][Using pad]]: paths, passwords, the subpad finder, locking
++ [[file:guide/install.org][Installing pad]]: HTTPS, the proxy, environment variables, limits
 
 * Architecture
 

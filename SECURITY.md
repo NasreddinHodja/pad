@@ -47,21 +47,24 @@ which would let anyone lock its owners out. The numbers and why:
 The app sets a Content-Security-Policy with a nonce per page
 (`vite.config.ts`): only its own scripts run, plus WebAssembly for Argon2id,
 and it connects only to itself. HSTS, `X-Content-Type-Options`,
-`Referrer-Policy: no-referrer` and `Cross-Origin-Opener-Policy` come from the
-proxy (`deploy/Caddyfile`), not the app: another proxy needs to set them.
+`Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy` and
+`Cross-Origin-Resource-Policy` come from the app on pages and API answers
+(`src/hooks.server.ts`); files from `static/` and the build skip the app's
+hooks, so the proxy sets them there (`deploy/Caddyfile`).
 
 ## Reverse proxies
 
-Rate limits and wrong-password counts go by the client's address, which the
-app takes from the header named by `ADDRESS_HEADER`, `XFF_DEPTH` hops from the
-right (adapter-bun's settings; `deploy/pad.service` sets them for Caddy).
-Unset behind a proxy, every visitor shares the proxy's address and its limits.
+Rate limits and wrong-password counts go by the client's address: the peer's,
+or, from an address in `PAD_TRUSTED_PROXIES`, the rightmost `X-Forwarded-For`
+hop that isn't a trusted proxy (`src/lib/server/address.ts`). Unset behind a
+proxy, every visitor shares the proxy's address and its limits.
 
 ## Where to look
 
 `src/lib/crypto.ts` (everything derived and sealed in the browser),
 `src/lib/server/auth.ts` (unlocking, cookies, the cross-site check),
-`src/lib/server/limits.ts` (meters, quotas, backoff), `src/hooks.server.ts`,
+`src/lib/server/limits.ts` (meters, quotas, backoff),
+`src/lib/server/address.ts` (the client's address), `src/hooks.server.ts`,
 `src/lib/server/shares.ts` and `src/lib/server/trash.ts`, with tests beside
 each.
 

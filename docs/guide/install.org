@@ -1,0 +1,55 @@
+#+TITLE: Installing pad
+#+OPTIONS: ^:{}
+
+* HTTPS
+
+The browser derives keys and encrypts with Web Crypto, which only runs on HTTPS or on =localhost=. Served over plain HTTP from anywhere else, pad's page can't unlock or save anything. Put HTTPS in front, as =deploy/Caddyfile= does.
+
+* Behind a reverse proxy
+
+Tell the server which proxy to believe with =PAD_TRUSTED_PROXIES=, and bind it where only the proxy reaches it (=HOST=127.0.0.1=). From a trusted address, the client is the rightmost =X-Forwarded-For= hop that isn't itself a trusted proxy; from any other, the peer is the client and its =X-Forwarded-For= is ignored (=src/lib/server/address.ts=).
+
+Without =PAD_TRUSTED_PROXIES= behind a proxy, every visitor is the proxy's address: one person's requests use up everyone's 200 a second, one person's new bytes count toward everyone's 1 GiB a day, and wrong passwords from browsers that never unlocked a root back off for all of them. Trusting an address that isn't your proxy lets whoever sends from it pick any address, and a fresh set of meters with it.
+
+adapter-bun's =ADDRESS_HEADER= and =XFF_DEPTH= aren't used: with =ADDRESS_HEADER= set the server refuses to start.
+
+The proxy should also set the headers the app can't put on the files it serves from =static/= and the build: =deploy/Caddyfile= has them. Pages and API answers carry them from the app (=src/hooks.server.ts=).
+
+* Environment variables
+
+| Variable              | Default         | Description                                                                                                             |
+|-----------------------+-----------------+-------------------------------------------------------------------------------------------------------------------------|
+| =PAD_DB=              | =data/pad.db=   | The SQLite database; its directory is created if missing                                                                |
+| =PAD_CONFIG=          | unset           | A JSON file of limits, see [[*Limits][Limits]]                                                                                    |
+| =PAD_TRUSTED_PROXIES= | unset           | Proxy addresses and CIDR ranges, comma-separated, see [[*Behind a reverse proxy][Behind a reverse proxy]]                                          |
+| =HOST=                | every interface | Address to listen on (adapter-bun's)                                                                                    |
+| =PORT=                | =3000=          | Port to listen on (adapter-bun's)                                                                                       |
+| =BODY_SIZE_LIMIT=     | =512K=          | Largest request body (adapter-bun's). Set =1M=: a full pad is =padBytes= plus 28, a link's copy up to 1 MiB              |
+| =PROTOCOL_HEADER=     | unset (=https=) | Header naming the request's scheme (adapter-bun's); without it every request is taken as HTTPS                          |
+| =HOST_HEADER=         | unset (=Host=)  | Header naming the request's host (adapter-bun's)                                                                        |
+
+The site's origin is the request's =Host= over =https=: adapter-bun has no =ORIGIN= variable (=node_modules/@sveltejs/adapter-bun/src/handler.js=, =get_origin=). The site's name in titles and link previews is that host too.
+
+* Limits
+
+=PAD_CONFIG= names a JSON file whose keys are =GET /_/limits='s; any left out keep their defaults. Sizes in bytes, times in milliseconds. An unknown key, or a value that isn't a number of 0 or more, stops the server on start. Why each default is what it is: [[file:../architecture/capacity.org][Capacity and limits]].
+
+#+begin_src json
+{ "serverBytes": 21474836480, "rootBytes": 67108864, "writes": { "perSecond": 2097152 } }
+#+end_src
+
+| Key            | Default                        | What it limits                                                                              |
+|----------------+--------------------------------+---------------------------------------------------------------------------------------------|
+| =padBytes=     | 524288 (512 KiB)               | A pad's text. Past 1 MiB minus 28, raise =BODY_SIZE_LIMIT= with it                          |
+| =serverBytes=  | 5368709120 (5 GiB)             | The database, past which no pad or link grows                                               |
+| =rootBytes=    | 16777216 (16 MiB)              | A root's pads and links, emptied pads included until purged                                 |
+| =rootPads=     | 5000                           | A root's pads, emptied ones included                                                        |
+| =linksPerRoot= | 1000                           | Read-only links a root has at once                                                          |
+| =writes=       | 16 MiB burst, 1 MiB/s, 16 KiB  | Writes to a root by anyone unlocked there: ={"burst", "perSecond", "floor"}=, in bytes      |
+| =open=         | 16 MiB burst, 1 MiB/s, 16 KiB  | Claims, unlocks, locks and link reads, per address                                          |
+| =growth=       | 64 MiB burst, 1 GiB a day, 0   | New bytes an address adds to pads and links, across every root                              |
+| =requests=     | 5000 burst, 200/s, 1           | Every request an address sends, counted not weighed                                         |
+| =backoff=      | 5 free, 900000 (15 min)        | Wrong passwords: ={"free", "maxWait"}=; past =free=, a wait that doubles up to =maxWait=    |
+| =grace=        | 2592000000 (30 days)           | How long an emptied pad or a deleted root waits before it's purged                          |
+
+Every request costs its body's bytes, never less than the bucket's =floor=. =burst= and =perSecond= must be more than 0, as must =padBytes=, =serverBytes=, =rootBytes= and =rootPads=.

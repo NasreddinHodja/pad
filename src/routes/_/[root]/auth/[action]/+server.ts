@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { address } from '#lib/server/address.ts';
 import { body, bytes, ours, rootParam, unlocked } from '#lib/server/api.ts';
 import {
   attemptKeys,
@@ -22,7 +23,7 @@ import type { RequestEvent, RequestHandler } from './$types';
  * its address's.
  */
 function attempt(event: RequestEvent, root: string, auth: Uint8Array) {
-  const keys = attemptKeys(event.cookies, root, event.getClientAddress());
+  const keys = attemptKeys(event.cookies, root, address(event));
   const wait = owedWait(keys);
   if (wait) error(429, `too many wrong passwords, wait ${Math.ceil(wait / 1000)}s`);
   const sealedKey = verify(root, auth);

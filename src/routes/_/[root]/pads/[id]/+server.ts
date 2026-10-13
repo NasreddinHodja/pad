@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { allowGrowth, ours, padIdParam, readCapped, rootParam, unlocked } from '#lib/server/api.ts';
 import { getSealed, padSize, padVersion, putSealed } from '#lib/server/db.ts';
-import { MAX_SEALED, MAX_SEALED_NAME, meterWrite } from '#lib/server/limits.ts';
+import { MAX_BYTES, MAX_SEALED, MAX_SEALED_NAME, meterWrite } from '#lib/server/limits.ts';
 import { markPad } from '#lib/server/trash.ts';
 import type { RequestEvent, RequestHandler } from './$types';
 
@@ -50,7 +50,7 @@ export const PUT: RequestHandler = async (event) => {
   const name = event.request.headers.get('x-pad-name') ?? '';
   if (!/^[A-Za-z0-9_-]+$/.test(name) || name.length > MAX_SEALED_NAME)
     error(400, 'malformed pad name');
-  const data = await readCapped(event.request, MAX_SEALED, 'pad is over 512 KiB');
+  const data = await readCapped(event.request, MAX_SEALED, `pad is over ${MAX_BYTES / 1024} KiB`);
   const size = data.length + name.length;
   meterWrite(event, root, size);
   const before = padSize(root, id);

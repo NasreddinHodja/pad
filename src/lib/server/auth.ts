@@ -192,8 +192,8 @@ export function lock(cookies: Cookies, root: string) {
 
 /**
  * Whether a write carrying our cookie was sent by our own page. SameSite
- * keeps other sites' requests from carrying it, but not other nassu.online
- * subdomains': they're the same site. `Sec-Fetch-Site` is set by the browser;
+ * keeps other sites' requests from carrying it, but not those of other
+ * subdomains of the same domain: they're the same site. `Sec-Fetch-Site` is set by the browser;
  * browsers too old to send it are judged by `Origin`.
  */
 export function sameOrigin({ request, url }: RequestEvent) {

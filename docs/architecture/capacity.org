@@ -1,7 +1,7 @@
 #+TITLE: Capacity and limits
 #+OPTIONS: ^:{}
 
-What one pad server can carry, every limit it keeps and the estimate behind each number. The limits are in one module, =src/lib/server/limits.ts=; a running server lists the ones in effect at =GET /_/limits= ([[file:../api/http.org][HTTP]]).
+What one pad server can carry, every limit it keeps and the estimate behind each number. The limits are in one module, =src/lib/server/limits.ts=; the ones an operator can change come from =PAD_CONFIG= (=src/lib/server/config.ts=, [[file:../guide/install.org::*Limits][install guide]]), and a running server lists the ones in effect at =GET /_/limits= ([[file:../api/http.org][HTTP]]).
 
 * Scale
 

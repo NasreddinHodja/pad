@@ -250,13 +250,20 @@ describe('batch reads', () => {
 });
 
 describe('meters', () => {
+  const ok = new Response('');
+  /** The hook's answer to a request from `peer`, saying it forwards for `forwarded`. */
+  const send = async (peer: string, forwarded?: string) =>
+    await handle({
+      event: {
+        getClientAddress: () => peer,
+        request: new Request('http://pad.test/', {
+          headers: forwarded ? { 'x-forwarded-for': forwarded } : {}
+        })
+      } as RequestEvent,
+      resolve: async () => ok
+    });
+
   test('every request counts toward its address, and a refusal says when to come back', async () => {
-    const ok = new Response('');
-    const send = async (address: string) =>
-      await handle({
-        event: { getClientAddress: () => address } as RequestEvent,
-        resolve: async () => ok
-      });
     for (let i = 0; i < REQUESTS.burst; i++) expect(await send('198.51.100.200')).toBe(ok);
     const refused = await send('198.51.100.200');
     expect(refused.status).toBe(429);
@@ -264,6 +271,12 @@ describe('meters', () => {
     expect(await send('198.51.100.201')).toBe(ok);
     later(1000);
     expect(await send('198.51.100.200')).toBe(ok);
+  });
+
+  test("a client's own X-Forwarded-For doesn't give it a fresh meter", async () => {
+    for (let i = 0; i < REQUESTS.burst; i++)
+      expect(await send('198.51.100.210', `203.0.113.${i % 250}`)).toBe(ok);
+    expect((await send('198.51.100.210', '203.0.113.251')).status).toBe(429);
   });
 
   test('a root writing past its burst is 429, with Retry-After', async () => {

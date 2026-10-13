@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { href } from '#lib/href.ts';
   import Button from '#lib/ui/Button.svelte';
 
@@ -13,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>pad.nassu.online</title>
+  <title>{page.url.host}</title>
   <meta name="description" content="a notepad at every url" />
   <meta property="og:title" content="pad" />
 </svelte:head>

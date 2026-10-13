@@ -14,7 +14,8 @@ The routes under =/_/= that the page calls (=src/lib/api.ts=). Everything sent i
 + Routes marked /metered/ draw on a bucket per root; those marked /open/, on one per address (IPv6 per /64). Each request costs its body's bytes, at least 16 KiB. Out of it: =429= with =Retry-After= in seconds.
 + Routes marked /quota/ add to the root's bytes and pads and the address's new bytes for the day. Past the root's: =413=; past the address's: =429=; the server past its ceiling: =507=. A write that adds nothing always passes.
 + The numbers, and why: [[file:../architecture/capacity.org][Capacity and limits]], and =GET /_/limits=.
-+ Behind Caddy the client's address is the last =X-Forwarded-For= hop (=ADDRESS_HEADER=, =XFF_DEPTH= in =deploy/pad.service=). Bodies are capped at 1 MiB (=BODY_SIZE_LIMIT=).
++ The client's address is the peer's, or from a proxy in =PAD_TRUSTED_PROXIES= the rightmost =X-Forwarded-For= hop that isn't one ([[file:../guide/install.org::*Behind a reverse proxy][install guide]]). Bodies are capped at 1 MiB (=BODY_SIZE_LIMIT=).
++ Pages and API answers carry HSTS, =X-Content-Type-Options: nosniff=, =Referrer-Policy: no-referrer=, =Cross-Origin-Opener-Policy= and =Cross-Origin-Resource-Policy: same-origin= (=src/hooks.server.ts=).
 
 * Auth
 
@@ -130,9 +131,9 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** GET /_/limits
 
-Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open= and =growth= are buckets of ={"burst", "perSecond", "floor"}=.
+Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, =growth= and =requests= are buckets of ={"burst", "perSecond", "floor"}=. =padBytes= is the text before encryption, which adds 28 bytes. The operator sets them with =PAD_CONFIG= ([[file:../guide/install.org::*Limits][install guide]]).
 
-=200= ={"padBytes": 524316, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
+=200= ={"padBytes": 524288, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
 
 ** GET /_/<root>/usage
 

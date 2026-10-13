@@ -1,13 +1,15 @@
 import { json } from '@sveltejs/kit';
 import * as limits from '#lib/server/limits.ts';
 import { MAX_SHARE } from '#lib/limits.ts';
+import { GRACE } from '#lib/server/trash.ts';
 import type { RequestHandler } from './$types';
 
 // Every limit in effect, for a client or an operator to ask rather than read
-// the source. Sizes in bytes, times in milliseconds.
+// the source. Sizes in bytes, times in milliseconds. The ones an operator can
+// change are PAD_CONFIG's keys (config.ts).
 export const GET: RequestHandler = () =>
   json({
-    padBytes: limits.MAX_SEALED,
+    padBytes: limits.MAX_BYTES,
     padNameChars: limits.MAX_SEALED_NAME,
     pathChars: limits.MAX_PATH,
     segmentChars: limits.MAX_SEGMENT,
@@ -22,5 +24,6 @@ export const GET: RequestHandler = () =>
     open: limits.OPEN,
     growth: limits.GROWTH,
     requests: limits.REQUESTS,
-    backoff: { free: limits.BACKOFF_FREE, maxWait: limits.BACKOFF_MAX }
+    backoff: { free: limits.BACKOFF_FREE, maxWait: limits.BACKOFF_MAX },
+    grace: GRACE
   });
