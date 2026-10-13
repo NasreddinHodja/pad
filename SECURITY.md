@@ -92,6 +92,11 @@ each.
 - **A password change keeps the root key.** It signs every other browser
   out, but someone who knew the old password and kept the key can still read
   any sealed pad they get later, from the server or a copy of the database.
+- **The server can serve old or fewer pads.** Each seal is bound to its
+  root or its pad's id, so the server can't pass one pad, name or root key
+  off as another's (`src/lib/api.test.ts`, `src/lib/crypto.test.ts`). But it
+  can serve an older sealed version of a pad, which opens like the current
+  one, or leave pads out of a root's list, and the browser doesn't notice.
 - **The first save claims a root.** Whoever saves under an unclaimed root
   first sets its password.
 - **A read-only link is a bearer secret.** Anyone with the whole link reads
