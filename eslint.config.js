@@ -18,7 +18,30 @@ export default defineConfig(
   {
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: {
-      'no-undef': 'off'
+      'no-undef': 'off',
+      // XSS (CONTRIBUTING.org): no string becomes HTML or code. Trusted Types
+      // refuses these at run time, on the paths the tests reach; this, on all.
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'AssignmentExpression > MemberExpression.left[property.name=/^(innerHTML|outerHTML|srcdoc)$/]',
+          message: 'No HTML from strings: build nodes, or use Svelte markup.'
+        },
+        {
+          selector:
+            'CallExpression[callee.property.name=/^(insertAdjacentHTML|setHTMLUnsafe|createContextualFragment)$/]',
+          message: 'No HTML from strings: build nodes, or use Svelte markup.'
+        },
+        {
+          selector:
+            'CallExpression[callee.object.name="document"][callee.property.name=/^(write|writeln)$/]',
+          message: 'No HTML from strings: build nodes, or use Svelte markup.'
+        }
+      ]
     }
   },
   {

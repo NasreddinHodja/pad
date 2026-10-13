@@ -58,6 +58,14 @@ Commit messages follow [[https://www.conventionalcommits.org][Conventional Commi
 
 Docs and the pages say what pad does and doesn't, with the numbers: never "most secure", "zero knowledge" or the like.
 
+* XSS
+
+A script running in pad's page can use the root's keys. What keeps others' off it:
+
++ No string becomes HTML or code: no ={@html}=, =innerHTML=, =outerHTML=, =insertAdjacentHTML=, =document.write=, =eval= or =new Function=. Lint refuses them (=eslint.config.js=); Trusted Types refuses them at run time (=e2e/xss.e2e.ts=). Text goes in through Svelte markup, which escapes it.
++ The CSP has no exceptions for scripts: =script-src= stays ='self' 'wasm-unsafe-eval'= and the page's nonce, never ='unsafe-inline'=, ='unsafe-eval'=, =blob:=, =data:= or another host (=vite.config.ts=; =e2e/xss.e2e.ts= checks it). A library that needs one doesn't come in.
++ =trusted-types= names one policy, Svelte's own =svelte-trusted-html=, which its compiled templates use. No other policy is added: a policy that passes strings through is an exception by another name.
+
 * Tests
 
 =bun test= runs every =*.test.ts= under =src/=. =src/test-setup.ts= (preloaded by =bunfig.toml=) gives them an in-memory database and stands in for =$app/env=, since they run outside SvelteKit.

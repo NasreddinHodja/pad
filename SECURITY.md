@@ -47,7 +47,11 @@ which would let anyone lock its owners out. The numbers and why:
 
 The app sets a Content-Security-Policy with a nonce per page
 (`vite.config.ts`): only its own scripts run, plus WebAssembly for Argon2id,
-and it connects only to itself. HSTS, `X-Content-Type-Options`,
+and it connects only to itself. Trusted Types are enforced: a string given to
+`innerHTML` or the like throws, except through Svelte's own template policy.
+`Permissions-Policy` refuses the camera, microphone, location and the other
+device features pad never uses (`src/hooks.server.ts`). The rules:
+CONTRIBUTING.org, XSS. HSTS, `X-Content-Type-Options`,
 `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy` and
 `Cross-Origin-Resource-Policy` come from the app on pages and API answers
 (`src/hooks.server.ts`); files from `static/` and the build skip the app's

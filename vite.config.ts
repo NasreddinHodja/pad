@@ -52,6 +52,10 @@ export default defineConfig({
       // them: only our own scripts run. konigslibrary's policy, less GitHub.
       // - 'wasm-unsafe-eval': Argon2id is hash-wasm's WebAssembly.
       // - style-src 'unsafe-inline': app.html's style attribute.
+      // - Trusted Types: a string given to innerHTML and the like throws,
+      //   unless it went through Svelte's own policy, which its compiled
+      //   templates use; {@html} of a string throws too.
+      // Rules for what may change here: CONTRIBUTING.org, XSS.
       csp: {
         mode: 'auto',
         directives: {
@@ -63,7 +67,9 @@ export default defineConfig({
           'object-src': ['none'],
           'base-uri': ['none'],
           'form-action': ['self'],
-          'frame-ancestors': ['none']
+          'frame-ancestors': ['none'],
+          'require-trusted-types-for': ['script'],
+          'trusted-types': ['svelte-trusted-html']
         }
       }
     })

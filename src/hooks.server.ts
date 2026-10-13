@@ -16,7 +16,30 @@ const HEADERS = {
   // A page this one opens can't reach back into it through window.opener.
   'cross-origin-opener-policy': 'same-origin',
   // Other sites can't load the API's answers as images or scripts.
-  'cross-origin-resource-policy': 'same-origin'
+  'cross-origin-resource-policy': 'same-origin',
+  // What a page could ask the browser for that pad never does, refused for
+  // it and any frame (developer.mozilla.org, Permissions-Policy). The
+  // clipboard, which pad writes links to, isn't among them.
+  'permissions-policy': [
+    'accelerometer',
+    'bluetooth',
+    'browsing-topics',
+    'camera',
+    'display-capture',
+    'geolocation',
+    'gyroscope',
+    'hid',
+    'idle-detection',
+    'local-fonts',
+    'magnetometer',
+    'microphone',
+    'midi',
+    'payment',
+    'serial',
+    'usb'
+  ]
+    .map((feature) => `${feature}=()`)
+    .join(', ')
 };
 
 const INDEXED = new Set(['/', '/_/about']);
