@@ -1,0 +1,260 @@
+{
+  "base": "http://localhost:5633",
+  "root": "bigroot",
+  "typingMs": 7705,
+  "status": "exported",
+  "dumps": 11,
+  "peakDump": 7,
+  "rendererTotalMiB": {
+    "before": 168.84,
+    "peak": 242.98,
+    "after": 234.69
+  },
+  "allocators": {
+    "partition_alloc": {
+      "before": 15.72,
+      "peak": 38.94,
+      "after": 30.1
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 10.66,
+      "peak": 31.59,
+      "after": 23.55
+    },
+    "v8": {
+      "before": 27.29,
+      "peak": 44.64,
+      "after": 47.56
+    },
+    "malloc": {
+      "before": 33.71,
+      "peak": 46.84,
+      "after": 45.84
+    },
+    "blink_objects": {
+      "before": 32.1,
+      "peak": 44.1,
+      "after": 42.28
+    },
+    "v8/main/heap/new_space": {
+      "before": 14.5,
+      "peak": 25.7,
+      "after": 28.07
+    },
+    "blink_gc": {
+      "before": 38.56,
+      "peak": 48.87,
+      "after": 49.25
+    },
+    "v8/main/heap/old_space": {
+      "before": 8.75,
+      "peak": 11.75,
+      "after": 12.25
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 5.07,
+      "peak": 7.35,
+      "after": 6.54
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.5,
+      "peak": 0.75,
+      "after": 0.75
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.25,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "parkable_strings": {
+      "before": 0.8,
+      "peak": 0.8,
+      "after": 0.8
+    },
+    "web_cache": {
+      "before": 0.98,
+      "peak": 0.98,
+      "after": 0.98
+    },
+    "shared_memory": {
+      "before": 9.98,
+      "peak": 9.12,
+      "after": 9.19
+    },
+    "cc": {
+      "before": 8.84,
+      "peak": 7.84,
+      "after": 7.84
+    }
+  },
+  "pssKiB": [
+    {
+      "pid": 65901,
+      "type": "browser",
+      "first": {
+        "pss": 155360,
+        "anon": 52776,
+        "file": 95594,
+        "shmem": 6990
+      },
+      "peak": {
+        "pss": 218154,
+        "anon": 115764,
+        "file": 96574,
+        "shmem": 5816
+      }
+    },
+    {
+      "pid": 66029,
+      "type": "renderer",
+      "first": {
+        "pss": 107533,
+        "anon": 60649,
+        "file": 41060,
+        "shmem": 5823
+      },
+      "peak": {
+        "pss": 227641,
+        "anon": 179565,
+        "file": 42671,
+        "shmem": 5403
+      }
+    },
+    {
+      "pid": 66012,
+      "type": "renderer",
+      "first": {
+        "pss": 32230,
+        "anon": 12454,
+        "file": 19466,
+        "shmem": 309
+      },
+      "peak": {
+        "pss": 32539,
+        "anon": 12774,
+        "file": 19447,
+        "shmem": 317
+      }
+    },
+    {
+      "pid": 65993,
+      "type": "renderer",
+      "first": {
+        "pss": 63300,
+        "anon": 34000,
+        "file": 29035,
+        "shmem": 265
+      },
+      "peak": {
+        "pss": 72793,
+        "anon": 43532,
+        "file": 28992,
+        "shmem": 269
+      }
+    },
+    {
+      "pid": 65935,
+      "type": "GPU",
+      "first": {
+        "pss": 57176,
+        "anon": 17530,
+        "file": 33714,
+        "shmem": 5932
+      },
+      "peak": {
+        "pss": 58737,
+        "anon": 17702,
+        "file": 33712,
+        "shmem": 7322
+      }
+    },
+    {
+      "pid": 65937,
+      "type": "network.mojom.NetworkService",
+      "first": {
+        "pss": 34052,
+        "anon": 19364,
+        "file": 14301,
+        "shmem": 386
+      },
+      "peak": {
+        "pss": 34392,
+        "anon": 19660,
+        "file": 14310,
+        "shmem": 422
+      }
+    },
+    {
+      "pid": 65975,
+      "type": "storage.mojom.StorageService",
+      "first": {
+        "pss": 8225,
+        "anon": 4087,
+        "file": 4003,
+        "shmem": 134
+      },
+      "peak": {
+        "pss": 8306,
+        "anon": 4167,
+        "file": 4002,
+        "shmem": 136
+      }
+    },
+    {
+      "pid": 66066,
+      "type": "tracing.mojom.TracingService",
+      "first": {
+        "pss": 13400,
+        "anon": 8437,
+        "file": 3076,
+        "shmem": 1886
+      },
+      "peak": {
+        "pss": 60282,
+        "anon": 54585,
+        "file": 3080,
+        "shmem": 2616
+      }
+    },
+    {
+      "pid": 66099,
+      "type": "chrome.mojom.FileUtilService",
+      "first": {
+        "pss": 7444,
+        "anon": 4285,
+        "file": 3043,
+        "shmem": 114
+      },
+      "peak": {
+        "pss": 9136,
+        "anon": 5977,
+        "file": 3043,
+        "shmem": 114
+      }
+    }
+  ],
+  "overTime": [168.84, 182.03, 195.64, 214.55, 241.56, 209.39, 226, 242.98, 210.54, 226.14, 234.69],
+  "jsAllocatedMiB": 135.81,
+  "topJsAllocators": [
+    ["(V8 API) :0", 45.76],
+    ["next :0", 28.72],
+    ["deflate C0Vn67Lt.js:671", 13.85],
+    ["open C0Vn67Lt.js:603", 6.89],
+    ["add 4.Cbwi-pKG.js:364", 3.7],
+    ["from :0", 3.63],
+    ["padId C0Vn67Lt.js:634", 2.76],
+    ["Map :0", 2.52],
+    ["toBase64 C0Vn67Lt.js:550", 2.18],
+    ["head 4.Cbwi-pKG.js:370", 2.02],
+    ["(anonymous) :0", 1.89],
+    ["replaceAll :0", 1.69],
+    ["Set :0", 1.63],
+    ["#process DGmgzbu3.js:1034", 1.42],
+    ["(anonymous) 4.Cbwi-pKG.js:470", 1.39]
+  ]
+}

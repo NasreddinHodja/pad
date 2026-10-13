@@ -1,0 +1,97 @@
+{
+  "base": "http://localhost:5632",
+  "root": "avgroot",
+  "typingMs": 80082,
+  "dumps": 17,
+  "peakDump": 8,
+  "rendererTotalMiB": {
+    "before": 166.52,
+    "peak": 187.87,
+    "after": 177.63
+  },
+  "allocators": {
+    "blink_gc": {
+      "before": 51.08,
+      "peak": 65.81,
+      "after": 81.07
+    },
+    "malloc": {
+      "before": 27.93,
+      "peak": 30.57,
+      "after": 20.13
+    },
+    "blink_objects": {
+      "before": 42.54,
+      "peak": 43.99,
+      "after": 31.23
+    },
+    "shared_memory": {
+      "before": 12.99,
+      "peak": 13.75,
+      "after": 14.53
+    },
+    "cc": {
+      "before": 11.84,
+      "peak": 12.59,
+      "after": 13.34
+    },
+    "partition_alloc": {
+      "before": 14.53,
+      "peak": 15.06,
+      "after": 11.3
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 14.52,
+      "peak": 15.05,
+      "after": 10.54
+    },
+    "v8": {
+      "before": 4.03,
+      "peak": 4.52,
+      "after": 4.45
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.25,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.27,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 0.01,
+      "peak": 0.01,
+      "after": 0.77
+    },
+    "v8/main/heap/old_space": {
+      "before": 1.25,
+      "peak": 1.25,
+      "after": 1.25
+    }
+  },
+  "jsAllocatedWhileTypingMiB": 7.33,
+  "topJsAllocators": [
+    ["hr Dov4jlXj.js:1", 1.64],
+    ["Map :0", 0.85],
+    ["Set :0", 0.75],
+    ["#_ Dov4jlXj.js:1", 0.72],
+    ["(anonymous) Dov4jlXj.js:3", 0.47],
+    ["#g Dov4jlXj.js:1", 0.42],
+    ["ensure Dov4jlXj.js:1", 0.36],
+    ["O Dov4jlXj.js:1", 0.28],
+    ["i Dov4jlXj.js:1", 0.25],
+    ["flush Dov4jlXj.js:1", 0.23],
+    ["values :0", 0.22],
+    ["tr Dov4jlXj.js:1", 0.2],
+    ["#v Dov4jlXj.js:1", 0.2],
+    ["push :0", 0.14],
+    ["next :0", 0.14]
+  ]
+}

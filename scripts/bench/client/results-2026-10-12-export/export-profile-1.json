@@ -1,0 +1,104 @@
+{
+  "base": "http://localhost:5632",
+  "root": "bigroot",
+  "typingMs": 6516,
+  "status": "exported",
+  "dumps": 10,
+  "peakDump": 7,
+  "rendererTotalMiB": {
+    "before": 164.77,
+    "peak": 232.16,
+    "after": 223.45
+  },
+  "allocators": {
+    "v8": {
+      "before": 26.69,
+      "peak": 45.63,
+      "after": 45.92
+    },
+    "partition_alloc": {
+      "before": 15.37,
+      "peak": 32.86,
+      "after": 23.64
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 10.56,
+      "peak": 26.12,
+      "after": 17.72
+    },
+    "malloc": {
+      "before": 33.84,
+      "peak": 46.28,
+      "after": 45.59
+    },
+    "blink_gc": {
+      "before": 37.51,
+      "peak": 49.45,
+      "after": 51.08
+    },
+    "v8/main/heap/new_space": {
+      "before": 14.43,
+      "peak": 25.87,
+      "after": 25.87
+    },
+    "blink_objects": {
+      "before": 30.96,
+      "peak": 39.33,
+      "after": 38.62
+    },
+    "v8/main/heap/old_space": {
+      "before": 7.75,
+      "peak": 12,
+      "after": 12.5
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 4.8,
+      "peak": 6.74,
+      "after": 5.92
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.5,
+      "peak": 0.75,
+      "after": 0.75
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.75,
+      "peak": 0.75,
+      "after": 0.5
+    },
+    "shared_memory": {
+      "before": 9.98,
+      "peak": 9.19,
+      "after": 9.19
+    },
+    "cc": {
+      "before": 8.84,
+      "peak": 7.84,
+      "after": 7.84
+    }
+  },
+  "overTime": [164.77, 197.86, 231.42, 199.71, 223.99, 220.18, 211.85, 232.16, 206.26, 223.45],
+  "jsAllocatedMiB": 135.19,
+  "topJsAllocators": [
+    ["(V8 API) :0", 48.59],
+    ["next :0", 26.84],
+    ["Oe y7GYoJjO.js:1", 13.98],
+    ["z y7GYoJjO.js:1", 6.64],
+    ["add 4.CYpP6CZA.js:7", 3.67],
+    ["from :0", 3.62],
+    ["F y7GYoJjO.js:1", 2.32],
+    ["B y7GYoJjO.js:1", 2.25],
+    ["Map :0", 2.19],
+    ["c 4.CYpP6CZA.js:7", 1.96],
+    ["(anonymous) :0", 1.93],
+    ["Set :0", 1.92],
+    ["(anonymous) 4.CYpP6CZA.js:7", 1.38],
+    ["he y7GYoJjO.js:1", 1.36],
+    ["replaceAll :0", 1.33]
+  ]
+}

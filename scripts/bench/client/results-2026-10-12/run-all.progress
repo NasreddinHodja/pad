@@ -1,0 +1,47 @@
+== 01:39:19 floor 0 1
+== 01:39:24 floor 0 2
+== 01:39:28 floor 0 3
+== 01:39:32 floor 249000 1
+== 01:39:37 floor 249000 2
+== 01:39:41 floor 249000 3
+== 01:39:46 floor 524224 1
+== 01:39:50 floor 524224 2
+== 01:39:55 floor 524224 3
+== 01:40:00 floor-cpu 249000
+== 01:43:28 floor-cpu 524224
+== 01:47:29 typing-path insert spell
+== 01:49:06 typing-path insert nospell
+== 01:50:43 typing-path keys spell
+== 01:50:51 typing-path keys nospell
+== 01:50:59 cpu old avg
+== 01:54:20 cpu cheap avg
+== 01:57:23 cpu native avg
+== 02:00:21 cpu old max
+== 02:04:24 cpu cheap max
+== 02:07:51 cpu native max
+== 02:11:12 drive old avg-type
+== 02:12:39 drive cheap avg-type
+== 02:14:11 drive native avg-type
+== 02:15:38 drive old max-type
+== 02:17:31 drive cheap max-type
+== 02:19:48 drive native max-type
+== 02:21:37 typing-profile old
+== 02:23:04 typing-profile cheap
+== 02:24:37 typing-profile native
+== 02:26:04 typing-profile floor
+== 02:27:28 typing-profile floor-read
+== 02:28:53 costs avg
+== 02:30:31 costs max
+== 02:30:47 sites http://localhost:5601/
+== 02:31:17 sites http://localhost:5601/avgroot
+== 02:31:46 sites https://news.ycombinator.com/
+== 02:32:16 sites https://lite.duckduckgo.com/lite/
+== 02:32:46 sites https://text.npr.org/
+== 02:33:17 sites https://sr.ht/
+== 02:33:47 sites https://privatebin.net/
+== 02:34:21 sites https://dontpad.com/
+== 02:34:52 sites https://en.wikipedia.org/wiki/Notepad
+== 02:35:22 sites https://github.com/NasreddinHodja/pad.nassu.online
+== 02:35:53 sites https://www.youtube.com/
+== 02:36:24 sites https://www.google.com/
+== 02:36:54 done

@@ -1,0 +1,97 @@
+{
+  "base": "http://localhost:5632",
+  "root": "avgroot",
+  "typingMs": 80543,
+  "dumps": 17,
+  "peakDump": 15,
+  "rendererTotalMiB": {
+    "before": 168.07,
+    "peak": 191.33,
+    "after": 183.83
+  },
+  "allocators": {
+    "blink_gc": {
+      "before": 51.68,
+      "peak": 80.74,
+      "after": 81.51
+    },
+    "shared_memory": {
+      "before": 12.99,
+      "peak": 15.27,
+      "after": 14.53
+    },
+    "cc": {
+      "before": 11.84,
+      "peak": 14.09,
+      "after": 13.34
+    },
+    "v8": {
+      "before": 4.04,
+      "peak": 4.48,
+      "after": 4.53
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.25,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.29,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 0.01,
+      "peak": 0.01,
+      "after": 0.77
+    },
+    "v8/main/heap/old_space": {
+      "before": 1.25,
+      "peak": 1.25,
+      "after": 1.25
+    },
+    "partition_alloc": {
+      "before": 14.79,
+      "peak": 13.55,
+      "after": 13.06
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 14.78,
+      "peak": 13.54,
+      "after": 12.29
+    },
+    "blink_objects": {
+      "before": 43.56,
+      "peak": 41.07,
+      "after": 35.74
+    },
+    "malloc": {
+      "before": 27.6,
+      "peak": 20.55,
+      "after": 19.55
+    }
+  },
+  "jsAllocatedWhileTypingMiB": 6.84,
+  "topJsAllocators": [
+    ["hr Dov4jlXj.js:1", 2.1],
+    ["Map :0", 0.67],
+    ["#_ Dov4jlXj.js:1", 0.61],
+    ["Set :0", 0.59],
+    ["(anonymous) Dov4jlXj.js:3", 0.38],
+    ["#g Dov4jlXj.js:1", 0.33],
+    ["O Dov4jlXj.js:1", 0.28],
+    ["ensure Dov4jlXj.js:1", 0.27],
+    ["next :0", 0.2],
+    ["values :0", 0.2],
+    ["i Dov4jlXj.js:1", 0.19],
+    ["#v Dov4jlXj.js:1", 0.17],
+    ["(V8 API) :0", 0.17],
+    ["flush Dov4jlXj.js:1", 0.14],
+    ["tr Dov4jlXj.js:1", 0.09]
+  ]
+}

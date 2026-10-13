@@ -22,6 +22,11 @@ export default defineConfig(
     }
   },
   {
+    // The client benchmarks speak Chromium's DevTools protocol, whose messages are untyped JSON.
+    files: ['scripts/bench/client/**/*.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' }
+  },
+  {
     files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
     languageOptions: {
       parserOptions: {

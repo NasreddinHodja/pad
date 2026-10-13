@@ -1,0 +1,312 @@
+#+TITLE: The browser's side: memory and CPU
+
+What pad costs the browser that opens it, measured on 2026-10-11, against two references: a bare page with a plain =<textarea>= holding the same text (the floor: what Chromium itself needs to show it), and other sites, light and ordinary, loaded the same way. Goal (AUDIT.org section 17): the least memory and CPU the features allow, on desktop and on phones.
+
+* How it's measured
++ Chromium 153 (Arch package), headless unless a table says otherwise, on the author's desktop. "Mobile" is Chromium's emulation: a Pixel 7's viewport and user agent, touch, the CPU slowed 4×. It is not Android: a phone's memory pressure, which makes the collector run sooner, isn't reproduced.
++ Memory is PSS (each process's private pages plus its share of shared ones), read from =/proc/<pid>/smaps_rollup=, summed over Chromium's processes of a kind (the renderers, which run the page; the GPU process; the browser process). "Above blank" is minus the same profile's renderers on =about:blank=, measured first in each run.
++ "At rest": 1.5 s after the action, two forced garbage collections, then read. What a tab keeps while you look at it.
++ "Peak": the highest of the renderers' PSS, sampled every 20 ms from the action's start (a submit, a click, the first key) until its result shows.
++ Each run is a fresh profile. One run per cell unless the table says otherwise: differences under ~10 MiB are within noise.
++ The roots, seeded through pad's own =api.ts= (=scripts/bench/client/seed.ts=), so their pads are sealed as a browser seals them:
+  + /average/: 186 pads, 477,255 bytes of text, shaped like the author's own root (=capacity.org=: half under 437 bytes, 90% under 2,992), its root pad 249,000 characters (6,388 lines).
+  + /max/: the quota, 5,000 pads, 15.3 MB of text, its root pad 524,224 characters (512 KiB).
++ Scripts: =scripts/bench/client/= (=drive.ts= memory, =cpu.ts= CPU, =floor.ts= the bare textarea, =sites.ts= other sites, =typing-profile.ts= where typing's memory goes, =costs.ts= requests and paint). Raw results: =memory-results.jsonl= there (2026-10-11), =results-2026-10-12/= (the night run below) and =results-2026-10-12-evening/= (the evening run, with its =run.sh=) and =results-2026-10-12-export/= (Export).
++ The 2026-10-12 run (=run-all.sh=, 01:39–02:37, headless only, one run per cell) compares three builds: /old/, the caret as committed (=requestAnimationFrame= every frame); /cheap/, the per-line caret of the working tree forced on, which is what Firefox and Safari ran (since removed, see Typing); /native/, the working tree as is, where Chromium draws the block caret itself (=caret-shape: block=). =load.log= has the load every 15 s: the 1-minute load passed 2 only from 02:18:53 to 02:19:54 (peak 3.56), during /cheap/'s max-root typing, its busiest process the benchmark's own Chromium.
++ Keys are sent as a keyboard sends them (=Input.dispatchKeyEvent=), not =Input.insertText=: 100 characters at the end of the 512 KiB bare textarea took 94.8 s with =insertText=, 5.6 s with key events, spellcheck on or off (=typing-path.ts=). The slow path is CDP's, not Chromium's editing.
++ The 2026-10-12 evening run (21:49–22:14, headless) compares /head/, the last commit, with /now/, the working tree: the poll's ETag and the batch export, the JS caret already gone (Chromium draws its own). Both against copies of one fresh seed, same counts as above. =costs.ts= two runs each, alternating; the near-target cells three runs each on /now/. The 1-minute load stayed at or under 0.92.
+
+* The references
+** The floor: a bare =<textarea>=
+=floor.ts=: a page with nothing but a full-window =<textarea>=, filled with the same generator's text, focused, caret at the start. Three runs each (headless); renderers above blank, in MiB.
+
+| Text in the textarea | Run 1 | Run 2 | Run 3 | DOM nodes |
+|----------------------+-------+-------+-------+-----------|
+| none                 |   4.7 |   4.6 |   4.7 |        10 |
+| 249,000 chars        |  24.4 |  23.7 |  23.9 |     12500 |
+| 524,224 chars        |  40.9 |  40.9 |  41.1 |     26284 |
+
+Mobile emulation, 249,000 chars, one run: 26.9.
+
+So most of what an open pad holds is Chromium's: a textarea keeps two DOM nodes a line (a text node and a =<br>=), and its text is laid out. Emptying pad's textarea drops its page from 13,063 nodes to 289.
+
+The 2026-10-12 run, same three sizes, three runs each: 5.2 / 5.2 / 5.1, 28.7 / 28.9 / 27.9, 44.6 / 45.9 / 44.6. 4–5 MiB above the 2026-10-11 runs at 249,000 and 524,224 characters, unexplained; the tables below compare within one run only.
+
+** Other sites
+=sites.ts=: each page loaded in a fresh profile, left idle, never typed into. Renderers above blank (MiB), the page's DOM nodes, what it transferred, and the renderer's CPU while idle (share of one core). Targets: the light sites. Control: the ordinary ones.
+
+| Page                         | Above blank | Nodes | Transferred, KiB | Idle CPU, % |
+|------------------------------+-------------+-------+------------------+-------------|
+| sourcehut (sr.ht)            |         3.8 |    22 |              1.9 |         0.0 |
+| lite.duckduckgo.com          |         5.0 |    68 |             11.2 |         0.1 |
+| text.npr.org                 |         5.4 |   181 |              2.8 |         0.1 |
+| Hacker News                  |        10.5 |  1320 |             11.1 |        -0.1 |
+| pad, password page           |        12.3 |   187 |            223.8 |        -0.2 |
+| pad, landing page            |        13.3 |   135 |            158.4 |         1.6 |
+| PrivateBin                   |        20.1 |  1271 |            282.8 |         0.2 |
+| google.com                   |        33.1 |   462 |            790.2 |         0.2 |
+| Wikipedia, "Notepad"         |        39.3 |  4902 |            445.5 |        -0.1 |
+| dontpad                      |        62.1 |   165 |           1075.7 |         0.1 |
+| pad's GitHub page            |        71.3 |  2922 |           2151.2 |        -0.1 |
+| YouTube                      |       130.0 |  6070 |           4044.9 |         0.8 |
+
++ Pad's empty pages sit between Hacker News and PrivateBin: 2–3 MiB over the ≤ 10 proposed, 7–9 over the text-only sites.
++ Three runs each, the evening run (/now/): the landing page 12.2 / 12.2 / 13.8, the password page 14.2 / 12.2 / 12.5, Hacker News 11.6 / 13.5 / 10.9. Pad is Hacker News within noise.
++ Negative idle CPU: =sites.ts= sums the CPU time of the renderers alive at each of its two reads, 20 s apart; likely a renderer that exits in between takes its time out of the sum. Under 1% either way, the column only says these pages are idle.
++ The landing page's 1.6% idle is the only one above 1 among the light pages: not looked into.
+
+* Memory at rest
+Renderers above blank, MiB, except the blank page itself (absolute).
+
+| Mode     | Blank | Password page | Claimed, empty pad | Average root open | Average, second visit | Max root open |
+|----------+-------+---------------+--------------------+-------------------+-----------------------+---------------|
+| headless |  77.8 |          11.9 |               17.0 |              38.0 |                  40.9 |          61.3 |
+| headed   |  79.0 |          10.8 |               14.3 |              33.3 |                  36.4 |          58.3 |
+| mobile   |  74.3 |          15.0 |               24.0 |              42.0 |                  44.0 |          64.4 |
+
+The same pages' DOM nodes, and V8's heap after collection (MiB):
+
+| Mode     | Nodes, average root | Nodes, max root | JS heap, average root | JS heap, max root |
+|----------+---------------------+-----------------+-----------------------+-------------------|
+| headless |               13229 |           26597 |                  1.44 |              1.46 |
+| headed   |               13295 |           26597 |                  1.44 |              1.45 |
+| mobile   |               13363 |           26599 |                  1.47 |              1.49 |
+
+Against the floor (headless): an empty pad is +17.0 where an empty textarea is +4.7, so pad's page itself (code, CSS, the VGA font, the background texture, the header and finder) is about +12. The average root is +38.0 where its text alone is +24: +14 for pad. The max root is +61.3 against +41: +20 for pad, the extra being 5,000 decrypted names.
+
+| What         | Now (headless) | Floor | Pad's own share | Target                                        |
+|--------------+----------------+-------+-----------------+-----------------------------------------------|
+| Empty pad    |           17.0 |   4.7 |            12.3 | from the light sites (pending); ≤ 10 proposed |
+| Average root |           38.0 |  24.0 |            14.0 | floor + ≤ 10                                  |
+| Max root     |           61.3 |  41.0 |            20.3 | floor + ≤ 10                                  |
+
+The evening run, three runs each (/now/, headless, =drive.ts= and =floor.ts=): the average root open is 44.2 / 44.0 / 44.9, its floor 27.6 / 29.4 / 29.2, so +15.6 for pad, over the target by about 5. The night run's /native/ (one run) gave +12.3: about 3 MiB between sessions. The empty textarea: 5.2 / 5.3 / 5.2. The max root isn't repeated.
+
+Closed, 2026-10-12: the empty pages are Hacker News (12.2–14.2 against 10.9–13.5, Other sites), and what's left on the average root is within what one build moves between sessions (3 MiB). The targets become what's measured:
+
+| What         | Target                     | Now (evening, 3 runs) |
+|--------------+----------------------------+-----------------------|
+| Empty pages  | level with Hacker News     | met                   |
+| Average root | floor + ≤ 16               | met: +15.6            |
+| Max root     | parked (Parked, below)     | +20.3 (one run)       |
+
+* Memory peaks
+Renderers above blank, MiB.
+
+| Mode     | Claim (Argon2id) | Unlock, average | Unlock, max | Second visit, average | Second visit, max |
+|----------+------------------+-----------------+-------------+-----------------------+-------------------|
+| headless |             36.7 |            78.5 |       124.2 |                  84.6 |             149.4 |
+| headed   |             33.9 |            76.0 |       136.3 |                  80.8 |              80.1 |
+| mobile   |             39.4 |            72.2 |       111.3 |                  70.6 |             172.9 |
+
+Export of the max root (16 MiB):
+
+| Mode     |  Peak | Seconds |
+|----------+-------+---------|
+| headless | 232.2 |    16.4 |
+| headed   | 223.1 |    17.4 |
+| mobile   | 229.7 |   163.9 |
+
++ Claim: Argon2id's 19 MiB is OWASP's minimum for it (=crypto.ts:14=); cutting it weakens every password. It runs once per unlock or claim; a second visit takes the keys from IndexedDB and skips it, yet peaks as high: the peak there is loading the pad and the names, not Argon2.
++ Export held every decrypted pad and the zip at once (2026-10-11; since batched, see Export). Mobile took 10× desktop's time under a 4× slower CPU: unexplained.
+
+| What                   | Now (headless) | Target                       |
+|------------------------+----------------+------------------------------|
+| Claim                  |           36.7 | at rest + ≤ 25               |
+| Unlock / open, average |           78.5 | at rest + ≤ 25               |
+| Export, 16 MiB root    |          232.2 | ≤ 100 (was ≤ 40, see Export) |
+
++ Claim: Argon2id's 19 MiB plus its WASM, freed right after.
++ Unlock: the same, plus one copy of the text in flight.
++ Export: one pad at a time into the zip, so the zip (≤ 16 MiB, less deflated) and one pad's text are all it holds at once.
+
+** Export (2026-10-12, evening)
+Max root, the page's renderer and the browser process, PSS above the moment before the click, sampled every 50 ms by =export-pss.ts= (no tracing: memory-infra dumps added 46 MiB in Chromium's tracing service and more in the page). Three runs each, each build with its own copy of the seed:
+
+| Build                              | Renderer         | Browser        | Seconds |
+|------------------------------------+------------------+----------------+---------|
+| /now/: batches, deflated           | +105.2 to +111.3 | +22.8 to +26.4 | 4.6–4.9 |
+| /fix/: /now/ with fewer copies     | +94.5 to +100.4  | +24.1 to +24.5 |     4.7 |
+| /store/: /fix/, stored, no deflate | +79.9 to +97.1   | +27.7 to +28.3 |     0.8 |
+| /nozip/: /fix/, fetch and decrypt  | +63.7 to +70.8   | +10.7 to +12.5 |     0.8 |
+
++ Fetching and decrypting 16 MB a batch at a time is most of it, +64–71, before any zip: the ≤ 40 target isn't reachable this way. It becomes ≤ 100, met by /fix/.
++ /fix/: =loadMany= hands export the decrypted bytes (no string and back), as views of the batch, the zip takes them uncopied, and =crc32= walks them by index. V8's sampled JS allocation over the export: 135.8 → 113.7 MiB, the builtin =next= 28.7 → 8.3 (=crc32='s =for…of=).
++ Deflating is most of the time: one =CompressionStream= a file, 3.9 of 4.7 s. Storing instead would export in 0.8 s, in a zip as big as the text (15.3 MB against deflated; the deflated size isn't measured).
++ The browser process holds the finished zip for the download.
+
+* Typing
+2,000 characters into the root pad, one every 30 ms (about 70 s), autosaving as it goes. "Pad" is the build as shipped; "no caret" is a build with =blockCaret= turned off (=caret.ts=), run back to back against copies of the same database. Renderers in MiB, absolute; "+" is the peak above the open pad.
+
+| Mode     | Pad     |  Open |  Peak |     + | After, collected | No caret: open |  Peak |     + | After, collected |
+|----------+---------+-------+-------+-------+------------------+----------------+-------+-------+------------------|
+| headless | 249 KB  | 115.9 | 200.5 |  84.6 |            106.2 |          113.8 | 169.6 |  55.8 |             97.8 |
+| headless | 512 KiB | 139.7 | 285.3 | 145.6 |            129.7 |          138.7 | 244.4 | 105.7 |            125.4 |
+| headed   | 249 KB  | 112.3 | 197.4 |  85.1 |             98.5 |          114.6 | 166.6 |  52.0 |             95.8 |
+| headed   | 512 KiB | 141.4 | 197.5 |  56.1 |            128.1 |          132.9 | 233.5 | 100.6 |            115.3 |
+| mobile   | 249 KB  | 118.5 | 244.3 | 125.8 |            111.3 |          115.5 | 172.7 |  57.2 |            102.8 |
+| mobile   | 512 KiB | 140.2 | 320.7 | 180.5 |            137.0 |          136.0 | 277.6 | 141.6 |            130.9 |
+
++ The caret costs 30–70 MiB of the peak in five pairs out of six; the headed 512 KiB pair goes the other way (56 with it, 101 without), unexplained with one run each.
++ After a forced collection every run is back at or under its open pad: the peak is garbage not yet collected, not memory kept.
+
+** Where typing's memory goes
+=typing-profile.ts=: Chromium's memory-infra dumps of the page's renderer, by allocator, before typing, at the peak, and 1.5 s after (no forced collection); and V8's sampling heap profile over the run, collected objects included. 249 KB text, headless, one run each; MiB, each cell before → peak → after. Blink's GC heap holds the DOM and editing's objects; its string buffers hold strings such as =textarea.value='s.
+
+| Page                                  | Blink GC heap        | String buffers    | V8 heap         | JS allocated |
+|---------------------------------------+----------------------+-------------------+-----------------+--------------|
+| Floor: bare =<textarea>=              | 39.0 → 75.1 → 73.4   | 2.5 → 2.6 → 2.2   | 2.8 → 2.8 → 2.8 |          0.0 |
+| Floor, reading =.value= on each input | 39.2 → 45.6 → 48.0   | 4.5 → 6.9 → 3.4   | 2.5 → 3.0 → 3.0 |          0.1 |
+| Pad, no caret                         | 52.3 → 69.7 → 72.7   | 9.5 → 19.2 → 6.3  | 3.9 → 4.5 → 4.4 |          5.4 |
+| Pad as shipped                        | 57.1 → 107.4 → 107.4 | 8.8 → 18.1 → 18.1 | 4.3 → 4.6 → 4.6 |          7.8 |
+
++ Chromium's own editing of a 6,388-line textarea makes most of the garbage: +36 MiB in the bare page, which Blink collects late.
++ Pad's caret: +50 against +17 without it. Each caret move puts new text nodes in its hidden mirror (=caret.ts:80=).
++ Pad's string copies: Blink's string buffers grow ~10 MiB in pad and ~0–2.5 in the floor: =bind:value='s reads of =textarea.value= and each save's encode and seal.
++ JS: 5–8 MiB allocated over 2,000 keys. Not where the memory goes.
++ The floor that reads =.value= grew less than the one that doesn't: with one run each, likely when the collector ran. Needs repeats.
+
+| What (249 KB, headless)                   | Pad as shipped | No caret | Floor | Target      |
+|-------------------------------------------+----------------+----------+-------+-------------|
+| Blink's GC heap, peak above before typing |           50.3 |     17.4 |  36.1 | ≤ floor     |
+| Blink's string buffers, peak above before |            9.3 |      9.7 |   0.1 | ≤ floor + 2 |
+
+The renderers' PSS peak for the floor isn't measured yet (only its allocators): until it is, the typing target is set on the allocators.
+
+** Three carets (2026-10-12)
+=drive.ts=, the same 2,000 characters, each build against its own copy of the seeded database. Renderers above blank, MiB; "+ open" is the peak above the open pad.
+
+| Root    | Build  | Open | Nodes | Typing peak | + open | After, collected |
+|---------+--------+------+-------+-------------+--------+------------------|
+| average | old    | 41.6 | 13049 |       113.6 |   72.0 |             28.4 |
+| average | cheap  | 54.7 | 25774 |       193.1 |  138.4 |             46.4 |
+| average | native | 40.8 | 13039 |        89.1 |   48.3 |             24.2 |
+| max     | old    | 65.3 | 26239 |       188.5 |  123.2 |             53.6 |
+| max     | cheap  | 90.9 | 52154 |       371.6 |  280.7 |             86.5 |
+| max     | native | 65.4 | 26229 |       167.6 |  102.2 |             49.5 |
+
+=typing-profile.ts= on the same builds (249 KB, as above; MiB, before → peak → after):
+
+| Page                                  | Blink GC heap        | String buffers    | V8 heap            | JS allocated |
+|---------------------------------------+----------------------+-------------------+--------------------+--------------|
+| Floor: bare =<textarea>=              | 33.1 → 60.4 → 71.2   | 2.2 → 2.6 → 1.9   | 2.6 → 2.6 → 2.5    |          0.0 |
+| Floor, reading =.value= on each input | 39.4 → 60.9 → 60.9   | 7.5 → 7.7 → 7.7   | 2.5 → 3.0 → 3.0    |          0.1 |
+| old                                   | 54.2 → 92.5 → 92.7   | 12.2 → 14.8 → 6.3 | 4.3 → 4.8 → 4.7    |         10.4 |
+| cheap                                 | 99.1 → 145.4 → 151.6 | 7.5 → 12.3 → 5.2  | 15.4 → 25.7 → 25.7 |        946.4 |
+| native                                | 49.8 → 81.2 → 81.2   | 8.7 → 16.5 → 16.5 | 4.2 → 4.5 → 4.5    |          7.4 |
+
++ /native/ is the floor plus pad's page: its Blink GC heap grows +31 against the floor's +27, and its peak above the open pad is the lowest of the three.
++ /cheap/ is the worst for memory: twice the DOM nodes (one =<div>= a line in its mirror), +13 to +26 at rest, and nearly twice /old/'s peak. 946 MiB of JS over 2,000 keys, the top allocators the bundled caret function (409), =split= (286) and =next= (243): =caret.ts:84= splits the whole text on every update.
++ /native/'s string buffers grow +7.8 where the floor's grow +0.4, and the floor reading =.value= +0.2: something other than reading =.value= keeps them; not measured which.
++ /cheap/ forced on in Chromium stands in for Firefox and Safari; neither is measured.
++ =caret.ts:84= rewritten to split only the lines an edit touches: the average root's typing peak went from 193.8 to 176.4 above blank (one =drive.ts= run each, the evening's builds), its 25,742 nodes unchanged. Not enough for what the mirror costs: the JS caret is gone, Firefox and Safari get their own caret in ink.
+
+The evening run, three runs each, /now/ against the floor (=typing-profile.ts=, 249 KB; MiB, peak above before typing):
+
+| Run | Blink GC heap, /now/ | Blink GC heap, floor | String buffers, /now/ | String buffers, floor |
+|-----+----------------------+----------------------+-----------------------+-----------------------|
+|   1 |                 20.6 |                 24.0 |                   7.1 |                  -0.3 |
+|   2 |                 14.7 |                 42.9 |                   0.5 |                   0.0 |
+|   3 |                 29.1 |                 25.4 |                  -1.2 |                   0.0 |
+
++ Blink's GC heap: pad grows no more than the floor; the "≤ floor" target is met.
++ String buffers: the night's +7.8 doesn't repeat; two runs out of three meet "≤ floor + 2". Before typing, though, pad already holds 7.7–14.8 MiB of them against the floor's 2.5: not measured what.
++ =drive.ts=: typing's peak above the open pad 50.1 / 57.1 / 57.2; the unlock's 15 above it.
+
+* The whole browser
+Absolute MiB, the average root's run. On =about:blank=, by process kind ("others": the network and storage services):
+
+| Mode     | Renderers |  GPU | Browser process | Others | Total |
+|----------+-----------+------+-----------------+--------+-------|
+| headless |      77.9 | 29.1 |            73.3 |   28.1 | 208.4 |
+| headed   |      79.0 | 60.0 |            96.2 |   26.7 | 262.0 |
+| mobile   |      76.5 | 29.6 |            73.1 |   25.6 | 204.8 |
+
+Then with pad:
+
+| Mode     | Total, blank | Total, average root open | GPU added by the pad | Total at export's peak (max root) |
+|----------+--------------+--------------------------+----------------------+-----------------------------------|
+| headless |        208.4 |                    265.5 |                  3.6 |                             479.2 |
+| headed   |        262.0 |                    315.3 |                  4.3 |                             536.6 |
+| mobile   |        204.8 |                    264.6 |                  3.1 |                             474.7 |
+
+The GPU process barely moves with pad (+3–4 MiB): pad's cost is in the renderer.
+
+* Network and time
+Transferred, KiB:
+
+| Mode     | Password page | Average root, second visit | Max root, second visit |
+|----------+---------------+----------------------------+------------------------|
+| headless |         222.1 |                      275.7 |                 1114.8 |
+| headed   |         222.1 |                      277.7 |                 1114.8 |
+| mobile   |         222.1 |                      279.6 |                 1114.8 |
+
+Time, ms:
+
+| Mode     | Claim | Unlock, average | Unlock, max | Second visit, average | Second visit, max |
+|----------+-------+-----------------+-------------+-----------------------+-------------------|
+| headless |    99 |             223 |         424 |                   209 |               408 |
+| headed   |    87 |             196 |         432 |                   213 |               168 |
+| mobile   |   219 |             698 |        1458 |                   534 |              2103 |
+
+Times are from submitting (or navigating) until the text is in the textarea, on localhost: no network latency. The max root's second visit transfers 1.1 MB: 5,000 sealed names, all decrypted though only the direct children are shown.
+
+** Requests, 2026-10-12
+=costs.ts=, against /old/ (the builds don't differ here):
++ Idle, the tab visible, nothing unsaved: 12 =GET= of the root pad in 60 s, 3,045,024 bytes. 2.9 MiB a minute for the average root, about 174 MiB an hour per open tab (=Pad.svelte:134=).
++ Typing 50 characters into the average root (11.5 s): 5 =PUT=, 675 bytes, and one =GET= of the whole pad (253,742 bytes).
++ Moving to a sub-pad and back: one =GET= of the names (22,992 bytes) each way, and the root pad again (253,752 bytes) on the way back: 88 and 142 ms.
++ Export of the max root: 5,003 requests, the list (613,009 bytes) then one =GET= per pad (17,822,042 bytes in all); 10.6 s, the renderers peaking at 350.2 MiB (absolute). The batch route in the working tree came after these builds: not measured.
++ The read-only link page: 221.2 KiB, 13 JS files, the Argon2 chunk among them (37,309 bytes).
++ Paint while typing, background texture on against off: the same (Layout 2,353 against 2,362 ms, Paint 152 against 156). The dialog's checker: raster 17.7 against 4.2 ms. Neither is worth cutting.
+
+** Requests, /head/ against /now/ (evening)
+=costs.ts=, two runs each:
+
+| What                              | /head/                       | /now/                         |
+|-----------------------------------+------------------------------+-------------------------------|
+| Idle 60 s, average root           | 12 =GET=, 2,991,024 bytes    | 12 =GET=, 0 bytes (all 304)   |
+| The =GET= after a save            | 249,242 bytes                | 0 bytes                       |
+| Back from a sub-pad: the root pad | 249,252 bytes                | 249,275 bytes                 |
+| Export of the max root: requests  | 5,003                        | 51                            |
+| Export: bytes                     | 17,908,753                   | 16,043,405                    |
+| Export: seconds                   | 11.0, 10.5                   | 4.1, 4.1                      |
+| Export: renderers' peak, absolute | 386.2, 383.3 MiB             | 390.9, 408.1 MiB              |
+
++ The poll costs nothing while the pad is current.
++ The batch export: a hundredth of the requests, under half the time, the same memory. It already zips a batch at a time; where its memory goes is under Export, above.
++ Each move between pads fetches the list and the pad again, the way back included: the editor remounts per pad by design (Known costs, below).
+
+* CPU
+=cpu.ts= (pad) and =floor-cpu.ts= (the bare textarea), 2026-10-12: per phase, Chromium's own counters (=Performance.getMetrics=) and the renderers' CPU time as a share of one core. Idle phases last 20 s. Typing is 500 keys at the end of the root pad, one every 30 ms: 15 s of keys, plus CDP's round trips.
+
+| Root    | Page   | Idle, focused | Style recalcs, idle focused | Typing: seconds | Renderer CPU | Layout, s | Finder idle | Hidden tab |
+|---------+--------+---------------+-----------------------------+-----------------+--------------+-----------+-------------+------------|
+| average | floor  |           0.4 |                           1 |            20.5 |           31 |       1.4 |             |        0.0 |
+| average | old    |           3.3 |                        1209 |            47.4 |          107 |      29.3 |         2.7 |        0.0 |
+| average | cheap  |           0.8 |                          44 |            30.8 |           58 |       4.8 |         0.7 |        0.0 |
+| average | native |           0.4 |                           2 |            25.0 |           30 |       1.4 |         0.2 |        0.0 |
+| max     | floor  |           0.7 |                           1 |            28.5 |           50 |       3.0 |             |        0.3 |
+| max     | old    |           4.7 |                        1208 |            78.0 |          109 |      47.1 |         3.4 |        0.9 |
+| max     | cheap  |           1.0 |                          45 |            38.3 |           94 |       9.6 |         0.7 |        0.2 |
+| max     | native |           0.4 |                           2 |            32.9 |           49 |       2.5 |         0.4 |        0.0 |
+
+(CPU columns: % of one core.)
+
++ /old/ can't keep up: over a core while typing, 500 keys taking 47 s and 78 s where the floor takes 20.5 and 28.5. Keys queue: on a long pad, the committed build lags behind the typist. Its 1,209 style recalcs in 20 s of focused idle are the =requestAnimationFrame= loop (=caret.ts:113-129= as committed), there in the finder's field too.
++ /native/ is at the floor: same layout time, same CPU, 4.5 s more over the 500 keys, idle the same.
++ /cheap/ moves only on events: idle drops to 0.8–1.0%, but typing still costs 3–4× the floor's layout, 94% of a core on the max root.
++ Unlock: 0.2 s (average) and 0.4–0.5 s (max) for every build, about a core for that time.
++ Export of the max root: 12.3 s (/old/), 16.3 (/cheap/), 15.3 (/native/), 82–97% of a core; one run each, the builds export the same way.
+
+* Known costs, from reading the code
+Checked against the code (AUDIT.org section 17 has the full list, with what's still to measure):
++ =Pad.svelte:134=: every 5 s the whole pad is downloaded and decrypted, while the tab is visible and nothing is unsaved; the server sends =no-store= and no ETag. Measured: 2.9 MiB a minute on the average root (Requests, above). Fixed in the working tree: the version is the ETag, 304 while current, and the poll slows to 30 s with the window in the background (=Pad.svelte:35=).
++ =caret.ts:113-129=: a =requestAnimationFrame= loop every frame while a field has focus. Gone with the JS caret.
++ The Argon2 chunk (37 KB, =hash-wasm=) is loaded by the read-only link page, which never derives a password.
++ =theme.ts:76=: a PNG data URL kept for every colour pair the picker passes through.
++ =[...path]/+page.svelte=: every move between pads unmounted and remounted the editor twice, loading the pad and every name twice (found by the e2e tests). Fixed by 8595472: one list and one pad a move (=costs.ts=). The editor still remounts once per pad (={#key path}=, so nothing typed in one shows in the next), so a move fetches the list again (22,992 bytes on the average root, 613,009 on the max) and the pad, though nothing changed.
+
+* Parked
++ Pad's string buffers before typing: 7.7–14.8 MiB against the floor's 2.5 (Typing). Small next to export; not measured what holds them.
++ The max root at rest, +20.3 over its floor: its 5,000 decrypted names, which the finder searches. Cutting it changes how search works.

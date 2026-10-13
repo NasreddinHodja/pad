@@ -1,0 +1,97 @@
+{
+  "base": "http://localhost:5601",
+  "root": "avgroot",
+  "typingMs": 79604,
+  "dumps": 17,
+  "peakDump": 11,
+  "rendererTotalMiB": {
+    "before": 164.48,
+    "peak": 218.31,
+    "after": 176.86
+  },
+  "allocators": {
+    "blink_gc": {
+      "before": 54.21,
+      "peak": 92.5,
+      "after": 92.65
+    },
+    "blink_objects": {
+      "before": 38.36,
+      "peak": 45.5,
+      "after": 23.31
+    },
+    "partition_alloc": {
+      "before": 12.22,
+      "peak": 14.82,
+      "after": 7.05
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 12.21,
+      "peak": 14.81,
+      "after": 6.29
+    },
+    "malloc": {
+      "before": 28.89,
+      "peak": 31.24,
+      "after": 19.7
+    },
+    "shared_memory": {
+      "before": 12.99,
+      "peak": 14.51,
+      "after": 14.53
+    },
+    "cc": {
+      "before": 11.87,
+      "peak": 13.34,
+      "after": 13.34
+    },
+    "v8": {
+      "before": 4.34,
+      "peak": 4.81,
+      "after": 4.7
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.25,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.27,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 0.01,
+      "peak": 0.01,
+      "after": 0.77
+    },
+    "v8/main/heap/old_space": {
+      "before": 1.5,
+      "peak": 1.5,
+      "after": 1.5
+    }
+  },
+  "jsAllocatedWhileTypingMiB": 10.38,
+  "topJsAllocators": [
+    ["c B_ekfxw-.js:1", 2.28],
+    ["hr Dov4jlXj.js:1", 2.06],
+    ["Set :0", 0.81],
+    ["Map :0", 0.74],
+    ["(anonymous) Dov4jlXj.js:3", 0.6],
+    ["#_ Dov4jlXj.js:1", 0.44],
+    ["(V8 API) :0", 0.39],
+    ["#g Dov4jlXj.js:1", 0.33],
+    ["join :0", 0.33],
+    ["d B_ekfxw-.js:3", 0.28],
+    ["ensure Dov4jlXj.js:1", 0.25],
+    ["next :0", 0.25],
+    ["tr Dov4jlXj.js:1", 0.22],
+    ["#v Dov4jlXj.js:1", 0.22],
+    ["i Dov4jlXj.js:1", 0.17]
+  ]
+}
