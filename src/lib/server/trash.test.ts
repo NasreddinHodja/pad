@@ -1,6 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { expect, test } from 'bun:test';
 import { randomBytes } from 'node:crypto';
+import { ARGON2 } from '../limits.ts';
 import { access, claim, unlock, verify } from './auth.ts';
 import { db, getSealed, listSealed, putSealed, usage } from './db.ts';
 import { addShare, getShare } from './shares.ts';
@@ -19,7 +20,7 @@ const id = (c: string) => c.repeat(43);
 const link = (c: string) => c.repeat(22);
 
 test('an emptied pad drops out, its links stay, and saving it again brings it back', () => {
-  claim('empty', bytes(16), bytes(32), bytes(60));
+  claim('empty', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
   putSealed('empty', id('a'), 'name', bytes(10));
   addShare('empty', link('w'), id('a'), bytes(60), bytes(10));
   markPad('empty', id('a'));
@@ -31,7 +32,7 @@ test('an emptied pad drops out, its links stay, and saving it again brings it ba
 });
 
 test("an emptied pad's text and name leave at once; it still counts as a pad", () => {
-  claim('drop', bytes(16), bytes(32), bytes(60));
+  claim('drop', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
   putSealed('drop', id('a'), 'name', bytes(10));
   markPad('drop', id('a'));
   expect(
@@ -42,7 +43,7 @@ test("an emptied pad's text and name leave at once; it still counts as a pad", (
 
 test('a deleted root signs everyone out, and its password reclaims what was deleted with it', () => {
   const auth = bytes(32);
-  claim('gone', bytes(16), auth, bytes(60));
+  claim('gone', { salt: bytes(16), argon2: ARGON2, auth, sealedKey: bytes(60) });
   const browser = jar();
   unlock(browser, 'gone');
   putSealed('gone', id('a'), 'name', bytes(10));
@@ -60,11 +61,13 @@ test('a deleted root signs everyone out, and its password reclaims what was dele
 
 test('claiming a deleted root anew purges it first', () => {
   const old = bytes(32);
-  claim('anew', bytes(16), old, bytes(60));
+  claim('anew', { salt: bytes(16), argon2: ARGON2, auth: old, sealedKey: bytes(60) });
   putSealed('anew', id('a'), 'name', bytes(10));
   addShare('anew', link('x'), id('a'), bytes(60), bytes(10));
   deleteRoot('anew');
-  expect(claim('anew', bytes(16), bytes(32), bytes(60))).toBe(true);
+  expect(
+    claim('anew', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) })
+  ).toBe(true);
   expect(verify('anew', old)).toBeNull();
   expect(deletedAt('anew')).toBeNull();
   reclaimRoot('anew');
@@ -73,10 +76,10 @@ test('claiming a deleted root anew purges it first', () => {
 });
 
 test('a purge takes only what has been marked longer than the grace', () => {
-  claim('old', bytes(16), bytes(32), bytes(60));
+  claim('old', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
   putSealed('old', id('a'), 'name', bytes(10));
   deleteRoot('old');
-  claim('kept', bytes(16), bytes(32), bytes(60));
+  claim('kept', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
   putSealed('kept', id('a'), 'name', bytes(10));
   putSealed('kept', id('b'), 'name', bytes(10));
   addShare('kept', link('y'), id('b'), bytes(60), bytes(10));

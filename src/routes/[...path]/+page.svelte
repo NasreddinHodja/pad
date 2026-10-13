@@ -93,12 +93,12 @@
     {path}
     root={data.root}
     mode={data.state === 'open' || data.state === 'deleted' ? 'claim' : 'unlock'}
-    salt={data.salt}
+    kdf={data.kdf}
     purgeAt={data.purgeAt}
     {onunlock}
   />
 {:else if page.url.searchParams.has('password')}
-  <Gate {path} root={data.root} mode="password" salt={data.salt} {onunlock} />
+  <Gate {path} root={data.root} mode="password" kdf={data.kdf} {onunlock} />
 {:else}
   <!-- A fresh editor per pad, so nothing typed in one leaks into the next. -->
   {#key path}

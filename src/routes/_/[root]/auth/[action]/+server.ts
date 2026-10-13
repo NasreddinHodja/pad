@@ -6,6 +6,7 @@ import {
   AUTH_BYTES,
   claim,
   lock,
+  type NewPassword,
   rememberDevice,
   SALT_BYTES,
   SEALED_KEY_BYTES,
@@ -13,6 +14,7 @@ import {
   unlock,
   verify
 } from '#lib/server/auth.ts';
+import { argon2 } from '#lib/limits.ts';
 import { failed, meterOpen, meterWrite, owedWait, succeeded } from '#lib/server/limits.ts';
 import { deleteRoot, reclaimRoot } from '#lib/server/trash.ts';
 import type { RequestEvent, RequestHandler } from './$types';
@@ -36,9 +38,12 @@ function attempt(event: RequestEvent, root: string, auth: Uint8Array) {
   return sealedKey;
 }
 
-function newPassword(data: Record<string, unknown>) {
+function newPassword(data: Record<string, unknown>): NewPassword {
+  const cost = argon2(data.argon2);
+  if (!cost) error(400, 'malformed body: argon2 is missing, or outside what pad accepts');
   return {
     salt: bytes(data.salt, SALT_BYTES),
+    argon2: cost,
     auth: bytes(data.auth, AUTH_BYTES),
     sealedKey: bytes(data.sealedKey, SEALED_KEY_BYTES)
   };
@@ -55,7 +60,7 @@ export const POST: RequestHandler = async (event) => {
   switch (event.params.action) {
     case 'claim': {
       const next = newPassword(await body(event.request));
-      if (!claim(root, next.salt, next.auth, next.sealedKey))
+      if (!claim(root, next))
         error(409, `someone just claimed /${root}, ask them for the password`);
       unlock(cookies, root);
       rememberDevice(cookies, root);

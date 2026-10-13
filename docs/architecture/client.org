@@ -110,7 +110,7 @@ Export of the max root (16 MiB):
 | headed   | 223.1 |    17.4 |
 | mobile   | 229.7 |   163.9 |
 
-+ Claim: Argon2id's 19 MiB is OWASP's minimum for it (=crypto.ts:14=); cutting it weakens every password. It runs once per unlock or claim; a second visit takes the keys from IndexedDB and skips it, yet peaks as high: the peak there is loading the pad and the names, not Argon2.
++ Claim: Argon2id's 19 MiB is OWASP's minimum for it (=limits.ts=, =ARGON2=); cutting it weakens every password. It runs once per unlock or claim; a second visit takes the keys from IndexedDB and skips it, yet peaks as high: the peak there is loading the pad and the names, not Argon2.
 + Export held every decrypted pad and the zip at once (2026-10-11; since batched, see Export). Mobile took 10× desktop's time under a 4× slower CPU: unexplained.
 
 | What                   | Now (headless) | Target                       |

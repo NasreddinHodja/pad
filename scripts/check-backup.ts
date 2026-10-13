@@ -24,9 +24,20 @@ if (!file || !root) {
 }
 
 const db = new Database(file, { readonly: true });
-type Root = { salt: Uint8Array; sealed_key: Uint8Array; theme: Uint8Array | null };
+type Root = {
+  salt: Uint8Array;
+  memory: number;
+  iterations: number;
+  parallelism: number;
+  sealed_key: Uint8Array;
+  theme: Uint8Array | null;
+};
 const row = db
-  .query<Root, [string]>('SELECT salt, sealed_key, theme FROM roots WHERE name = ?')
+  .query<Root, [string]>(
+    `SELECT salt, argon2_memory AS memory, argon2_iterations AS iterations,
+       argon2_parallelism AS parallelism, sealed_key, theme
+     FROM roots WHERE name = ?`
+  )
   .get(root);
 if (!row) {
   console.error(`no root ${root} in ${file}`);
@@ -40,7 +51,7 @@ for await (const line of console) {
   break;
 }
 
-const { wrap } = await fromPassword(password, row.salt);
+const { wrap } = await fromPassword(password, row.salt, row);
 const rootKey = await openRootKey(wrap, row.sealed_key, root);
 if (!rootKey) {
   console.error('wrong password, or the root key was changed');

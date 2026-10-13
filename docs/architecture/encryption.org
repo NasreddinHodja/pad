@@ -13,6 +13,7 @@ root key (random, one per root) ─HKDF─┬─► content key: AES-GCM over te
 #+end_example
 
 + Argon2id at OWASP's minimum: 19 MiB, 2 iterations, 1 lane (hash-wasm). Passwords are NFC-normalised, 8 to 256 characters.
++ Argon2id's cost is kept per root, with its salt (=src/lib/limits.ts=, =ARGON2=): a new password takes today's, and raising it later leaves every root on the one it was claimed with until its next password change. The browser refuses a cost under that floor, or over 256 MiB, 8 iterations or 4 lanes: a server serving a cheaper one would get an =auth= it can guess the password from cheaply, and a dearer one would hang the tab (256 MiB at 8 iterations is about 2 s on the author's laptop). The server refuses the same from a browser.
 + The root key is random and never changes: a password change seals the same key under the new password, so no pad is re-encrypted. It also means a change signs the old password's holders out but doesn't take the key from one who kept it: with a sealed pad from the server or a copy of the database, they can still open it.
 + Every seal is AES-256-GCM with a random 12-byte nonce, bound by its associated data to where it belongs: the root key to its root's name, a pad's text and name to its id. The server can't move a sealed key to another root, or swap two pads' texts or names, without the browser refusing them.
 + The root's theme is sealed under the content key too, bound to =pad theme=.
@@ -21,7 +22,7 @@ root key (random, one per root) ─HKDF─┬─► content key: AES-GCM over te
 
 * What the server keeps
 
-Per root: the salt (public: the gate needs it before the password), SHA-256 of =auth=, the sealed root key and the sealed theme. =auth= carries Argon2id's cost already, so a fast hash is enough. A copy of the database gives an attacker the salts and hashes to guess passwords against at Argon2id's cost, and nothing else. It does show how many pads a root has, and each one's size to its Padmé step: on the author's root, 42 sizes among 180 pads, 12 of them unique.
+Per root: the salt and Argon2id's cost (public: the gate needs them before the password), SHA-256 of =auth=, the sealed root key and the sealed theme. =auth= carries Argon2id's cost already, so a fast hash is enough. A copy of the database gives an attacker the salts and hashes to guess passwords against at Argon2id's cost, and nothing else. It does show how many pads a root has, and each one's size to its Padmé step: on the author's root, 42 sizes among 180 pads, 12 of them unique.
 
 * Padding
 

@@ -7,7 +7,8 @@ import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
 import * as batch from '../../routes/_/[root]/pads/batch/+server.ts';
 import * as pads from '../../routes/_/[root]/pads/+server.ts';
-import { BATCH_PADS } from '../limits.ts';
+import { ARGON2, BATCH_PADS } from '../limits.ts';
+import { kdfOf } from './auth.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import { db, padVersion, setCeiling, usage } from './db.ts';
 import {
@@ -68,7 +69,7 @@ async function call(handler: unknown, c: Call) {
 /** A claimed root and a browser unlocked at it. */
 async function claimed(root: string) {
   const cookies = jar();
-  const body = JSON.stringify({ salt: b64(16), auth: b64(32), sealedKey: b64(60) });
+  const body = JSON.stringify({ salt: b64(16), argon2: ARGON2, auth: b64(32), sealedKey: b64(60) });
   const { status } = await call(auth.POST, {
     method: 'POST',
     params: { root, action: 'claim' },
@@ -125,9 +126,32 @@ describe('requests', () => {
     const { status } = await call(auth.POST, {
       method: 'POST',
       params: { root: 'taken', action: 'claim' },
-      body: JSON.stringify({ salt: b64(16), auth: b64(32), sealedKey: b64(60) })
+      body: JSON.stringify({ salt: b64(16), argon2: ARGON2, auth: b64(32), sealedKey: b64(60) })
     });
     expect(status).toBe(409);
+  });
+
+  test("a claim's Argon2 cost is kept for its root, and one outside pad's bounds is 400", async () => {
+    const claim = (root: string, argon2: unknown) =>
+      call(auth.POST, {
+        method: 'POST',
+        params: { root, action: 'claim' },
+        body: JSON.stringify({ salt: b64(16), argon2, auth: b64(32), sealedKey: b64(60) })
+      });
+    for (const argon2 of [
+      undefined,
+      { ...ARGON2, memory: ARGON2.memory - 1 },
+      { ...ARGON2, iterations: 1 },
+      { ...ARGON2, memory: 256 * 1024 + 1 },
+      { ...ARGON2, iterations: 2.5 },
+      { ...ARGON2, parallelism: '1' }
+    ])
+      expect((await claim('weak', argon2)).status).toBe(400);
+    expect(kdfOf('weak')).toBeNull();
+
+    const strong = { memory: 64 * 1024, iterations: 3, parallelism: 1 };
+    expect((await claim('strong', strong)).status).toBe(204);
+    expect(kdfOf('strong')!.argon2).toEqual(strong);
   });
 });
 

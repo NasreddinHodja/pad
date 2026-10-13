@@ -24,7 +24,7 @@ import {
 } from './crypto.ts';
 import { deflate, inflate } from './deflate.ts';
 import type { Pad } from './export.ts';
-import { BATCH_PADS, MAX_SHARE } from './limits.ts';
+import { ARGON2, BATCH_PADS, MAX_SHARE, type Argon2 } from './limits.ts';
 import { parseTheme, type Theme } from './theme.ts';
 
 const utf8 = new TextEncoder();
@@ -72,12 +72,16 @@ const post = (url: string, data: unknown) =>
     headers: { 'content-type': 'application/json' }
   });
 
-/** A fresh salt, and the root key sealed under the password it gives. */
+/** What the browser derives a root's password with: the root's own, from the server. */
+export type Kdf = { salt: string; argon2: Argon2 };
+
+/** A fresh salt, and the root key sealed under the password it gives at today's cost. */
 async function seal(password: string, root: string, rootKey: Uint8Array<ArrayBuffer>) {
   const salt = random(16);
-  const { auth, wrap } = await fromPassword(password, salt);
+  const { auth, wrap } = await fromPassword(password, salt, ARGON2);
   return {
     salt: toBase64(salt),
+    argon2: ARGON2,
     auth: toBase64(auth),
     sealedKey: toBase64(await sealRootKey(wrap, rootKey, root))
   };
@@ -90,8 +94,8 @@ export async function claim(root: string, password: string) {
 }
 
 /** The root key, after checking the password with the server. */
-async function rootKey(root: string, password: string, salt: string) {
-  const { auth, wrap } = await fromPassword(password, fromBase64(salt));
+async function rootKey(root: string, password: string, kdf: Kdf) {
+  const { auth, wrap } = await fromPassword(password, fromBase64(kdf.salt), kdf.argon2);
   const res = await post(`${base(root)}/auth/unlock`, { auth: toBase64(auth) });
   const key = await openRootKey(wrap, fromBase64((await res.json()).sealedKey), root);
   // The server said yes to a password its own sealed key doesn't open under.
@@ -99,13 +103,13 @@ async function rootKey(root: string, password: string, salt: string) {
   return { key, auth };
 }
 
-export async function unlock(root: string, password: string, salt: string) {
-  return padKeys((await rootKey(root, password, salt)).key);
+export async function unlock(root: string, password: string, kdf: Kdf) {
+  return padKeys((await rootKey(root, password, kdf)).key);
 }
 
 /** The same root key, sealed under the new password: no pad changes. */
-export async function changePassword(root: string, current: string, next: string, salt: string) {
-  const { key, auth } = await rootKey(root, current, salt);
+export async function changePassword(root: string, current: string, next: string, kdf: Kdf) {
+  const { key, auth } = await rootKey(root, current, kdf);
   await post(`${base(root)}/auth/password`, {
     current: toBase64(auth),
     ...(await seal(next, root, key))

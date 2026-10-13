@@ -18,7 +18,7 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 | =/_/limits=                                             | every limit                                     |
 | =/_/about=                                              | how to use pad, with this server's limits       |
 
-A pad's address has its root in the path and the rest after the =#= (=src/lib/href.ts=), which browsers don't send: the server learns which root is open, not which pad under it. =/<root>='s load (=+page.server.ts=) normalises the root (redirecting an address from before, =/a/b=, to =/a#b=) and returns only the root's state: =open=, =locked= or =unlocked=, and its salt. The page then shows:
+A pad's address has its root in the path and the rest after the =#= (=src/lib/href.ts=), which browsers don't send: the server learns which root is open, not which pad under it. =/<root>='s load (=+page.server.ts=) normalises the root (redirecting an address from before, =/a/b=, to =/a#b=) and returns only the root's state: =open=, =locked= or =unlocked=, and its salt and Argon2id cost. The page then shows:
 
 + =Gate.svelte= to claim or unlock the root, when the server or the browser lacks what it needs: an unlock cookie on one side, the keys in IndexedDB on the other;
 + =Gate.svelte= in =password= mode, for =?password=;
@@ -39,7 +39,7 @@ What every screen uses is in =src/lib/ui/=, which imports nothing from the app, 
 =src/lib/server/schema.ts= makes the tables: numbered migrations, the last applied kept in =PRAGMA user_version=, each in a transaction; a database from a newer release is refused. =db.ts=, =auth.ts=, =shares.ts= and =theme.ts= read and write them; =trash.ts= marks, reclaims and purges. =PAD_DB= names the file (=data/pad.db= in dev). WAL mode, foreign keys on: every other table's =root= refers to =roots=, and goes with it.
 
 + =sealed= :: one row per pad: its root, =id= (the HMAC of its path), =name= (its path, encrypted), =data= (its text, encrypted), =updated_at=, =deleted_at= (when it was emptied or its root deleted).
-+ =roots= :: one row per claimed root: salt, SHA-256 of =auth=, the encrypted root key, =deleted_at=, =theme= (its colours, encrypted; null until one is picked).
++ =roots= :: one row per claimed root: salt, Argon2id's cost, SHA-256 of =auth=, the encrypted root key, =deleted_at=, =theme= (its colours, encrypted; null until one is picked).
 + =unlocks= :: one row per browser per root it unlocked: SHA-256 of the cookie's token, when it was made, when it was last used.
 + =devices= :: one row per browser per root it has ever unlocked: SHA-256 of the device cookie's token, when it was last seen there. Kept through locking; gone after 180 days unseen.
 + =shares= :: one row per read-only link: its random =id=, root, =pad= (the pad's id; the pad needn't be saved, if pads under it are), =sealed_key= (the link's key, encrypted under the root's), =data= (the copy, encrypted under the link's key), =created_at=.

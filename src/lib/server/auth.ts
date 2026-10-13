@@ -8,8 +8,8 @@
 // server gets is `auth`, 32 bytes the browser derives from it with Argon2id,
 // and keeps only its SHA-256: auth is as hard to guess as the password is
 // through Argon2id, so a slow hash here would add nothing. It also keeps the
-// salt, which anyone may have, and the root key sealed under the password,
-// which only an unlocked browser gets.
+// salt and Argon2id's cost, which anyone may have, and the root key sealed
+// under the password, which only an unlocked browser gets.
 //
 // Unlocking gives the browser one opaque token in an HttpOnly cookie; the
 // database keeps only its SHA-256, per root it unlocks, so a copy of the file
@@ -24,6 +24,7 @@
 import { dev } from '$app/env';
 import type { Cookies, RequestEvent } from '@sveltejs/kit';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import type { Argon2 } from '../limits.ts';
 import { db } from './db.ts';
 import { limitKey } from './limits.ts';
 import { purgeRoot } from './trash.ts';
@@ -48,19 +49,26 @@ const DEVICE_IDLE = 180 * DAY;
 
 type Root = {
   salt: Uint8Array;
+  argon2_memory: number;
+  argon2_iterations: number;
+  argon2_parallelism: number;
   auth_hash: Uint8Array;
   sealed_key: Uint8Array;
   deleted_at: number | null;
 };
 const rootStmt = db.query<Root, [string]>(
-  'SELECT salt, auth_hash, sealed_key, deleted_at FROM roots WHERE name = ?'
+  `SELECT salt, argon2_memory, argon2_iterations, argon2_parallelism, auth_hash, sealed_key,
+     deleted_at FROM roots WHERE name = ?`
 );
 const claimStmt = db.query(
-  `INSERT OR IGNORE INTO roots (name, salt, auth_hash, sealed_key, created_at)
-   VALUES (?, ?, ?, ?, ?)`
+  `INSERT OR IGNORE INTO roots (name, salt, argon2_memory, argon2_iterations, argon2_parallelism,
+     auth_hash, sealed_key, created_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 );
 const setPasswordStmt = db.query(
-  'UPDATE roots SET salt = ?, auth_hash = ?, sealed_key = ? WHERE name = ?'
+  `UPDATE roots SET salt = ?, argon2_memory = ?, argon2_iterations = ?, argon2_parallelism = ?,
+     auth_hash = ?, sealed_key = ?
+   WHERE name = ?`
 );
 const unlockedStmt = db.query<{ last_seen: number }, [Uint8Array, string, number]>(
   `SELECT last_seen FROM unlocks
@@ -89,18 +97,43 @@ export const rootOf = (path: string) => path.split('/')[0];
 const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest();
 const tokenHash = sha256;
 
+/** What a browser sends for a new password: the browser derives `auth` and the seal. */
+export type NewPassword = {
+  salt: Uint8Array;
+  argon2: Argon2;
+  auth: Uint8Array;
+  sealedKey: Uint8Array;
+};
+
 /** What the browser needs to turn a password into keys; public. */
-export function saltOf(root: string) {
-  return rootStmt.get(root)?.salt ?? null;
+export function kdfOf(root: string) {
+  const row = rootStmt.get(root);
+  if (!row) return null;
+  const argon2: Argon2 = {
+    memory: row.argon2_memory,
+    iterations: row.argon2_iterations,
+    parallelism: row.argon2_parallelism
+  };
+  return { salt: row.salt, argon2 };
 }
 
 /** Sets the root's password unless someone already has. A deleted root is purged first. */
-export const claim = db.transaction(
-  (root: string, salt: Uint8Array, auth: Uint8Array, sealedKey: Uint8Array) => {
-    if (rootStmt.get(root)?.deleted_at != null) purgeRoot(root);
-    return claimStmt.run(root, salt, sha256(auth), sealedKey, Date.now()).changes === 1;
-  }
-);
+export const claim = db.transaction((root: string, next: NewPassword) => {
+  if (rootStmt.get(root)?.deleted_at != null) purgeRoot(root);
+  const { memory, iterations, parallelism } = next.argon2;
+  return (
+    claimStmt.run(
+      root,
+      next.salt,
+      memory,
+      iterations,
+      parallelism,
+      sha256(next.auth),
+      next.sealedKey,
+      Date.now()
+    ).changes === 1
+  );
+});
 
 /** The sealed root key, if `auth` is the root's. */
 export function verify(root: string, auth: Uint8Array) {
@@ -110,13 +143,18 @@ export function verify(root: string, auth: Uint8Array) {
 }
 
 /** Signs every other browser out of the root. */
-export function setPassword(
-  root: string,
-  next: { salt: Uint8Array; auth: Uint8Array; sealedKey: Uint8Array },
-  keep: Cookies
-) {
+export function setPassword(root: string, next: NewPassword, keep: Cookies) {
+  const { memory, iterations, parallelism } = next.argon2;
   db.transaction(() => {
-    setPasswordStmt.run(next.salt, sha256(next.auth), next.sealedKey, root);
+    setPasswordStmt.run(
+      next.salt,
+      memory,
+      iterations,
+      parallelism,
+      sha256(next.auth),
+      next.sealedKey,
+      root
+    );
     revokeOthersStmt.run(root, tokenHash(keep.get(COOKIE) ?? ''));
   })();
 }

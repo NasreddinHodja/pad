@@ -10,14 +10,14 @@
     path,
     root,
     mode,
-    salt,
+    kdf,
     purgeAt = null,
     onunlock
   }: {
     path: string;
     root: string;
     mode: 'claim' | 'unlock' | 'password';
-    salt: string | null;
+    kdf: api.Kdf | null;
     /** A deleted root's purge: until then, claiming it offers to reclaim it. */
     purgeAt?: number | null;
     onunlock: (keys: Keys) => void;
@@ -45,9 +45,9 @@
     problem = '';
     try {
       if (form === 'claim') onunlock(await api.claim(root, next));
-      else if (form === 'unlock') onunlock(await api.unlock(root, current, salt!));
+      else if (form === 'unlock') onunlock(await api.unlock(root, current, kdf!));
       else {
-        await api.changePassword(root, current, next, salt!);
+        await api.changePassword(root, current, next, kdf!);
         await goto(href(path.split('/')), { invalidateAll: true });
       }
     } catch (e) {

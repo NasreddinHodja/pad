@@ -62,7 +62,11 @@ test('a database from before migrations keeps its rows', () => {
       theme: key,
       // Its pad's text and name, 3 + 1, and its link's copy, 3.
       bytes: 7,
-      pads: 1
+      pads: 1,
+      // What every root before migration 4 was derived with.
+      argon2_memory: 19 * 1024,
+      argon2_iterations: 2,
+      argon2_parallelism: 1
     }
   ]);
   expect(db.query('SELECT * FROM sealed').all()).toEqual([
@@ -100,7 +104,10 @@ test('a purged root takes everything of its own with it', () => {
   db.run('PRAGMA foreign_keys = ON');
   const key = new Uint8Array([1]);
   for (const root of ['a', 'b']) {
-    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0)`).run(root, key);
+    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0, 19456, 2, 1)`).run(
+      root,
+      key
+    );
     db.query(`INSERT INTO sealed VALUES (?1, 'p', 'n', ?2, 3, NULL)`).run(root, key);
     db.query(`INSERT INTO unlocks VALUES (?2, ?1, 4, 5)`).run(root, key);
     db.query(`INSERT INTO devices VALUES (?2, ?1, 6)`).run(root, key);

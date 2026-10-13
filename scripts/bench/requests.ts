@@ -9,6 +9,7 @@
 //   bun scripts/bench/requests.ts http://127.0.0.1:5597
 //
 // Results are in docs/architecture/capacity.org.
+import { ARGON2 } from '../../src/lib/limits.ts';
 
 const base = process.argv[2];
 const b64 = (n: number) =>
@@ -27,7 +28,7 @@ async function fresh() {
       'x-forwarded-for': ip,
       'content-type': 'application/json'
     },
-    body: JSON.stringify({ salt: b64(16), auth: b64(32), sealedKey: b64(60) })
+    body: JSON.stringify({ salt: b64(16), argon2: ARGON2, auth: b64(32), sealedKey: b64(60) })
   });
   if (res.status !== 204) throw new Error(`claim: ${res.status} ${await res.text()}`);
   const cookie = res.headers

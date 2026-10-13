@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import { href } from '#lib/href.ts';
-import { access, saltOf } from '#lib/server/auth.ts';
+import { access, kdfOf } from '#lib/server/auth.ts';
 import { normalizePath } from '#lib/server/limits.ts';
 import { deletedAt, GRACE } from '#lib/server/trash.ts';
 import type { PageServerLoad } from './$types';
@@ -15,12 +15,12 @@ export const load: PageServerLoad = ({ params, cookies }) => {
   if (path !== params.path || path.includes('/')) redirect(308, href(path.split('/')));
   const root = path;
   const state = access(cookies, root);
-  const salt = saltOf(root);
+  const kdf = kdfOf(root);
   const deleted = deletedAt(root);
   return {
     root,
     state,
-    salt: salt && Buffer.from(salt).toString('base64url'),
+    kdf: kdf && { salt: Buffer.from(kdf.salt).toString('base64url'), argon2: kdf.argon2 },
     /** A deleted root's: when it's purged, unless its password reclaims it first. */
     purgeAt: deleted === null ? null : deleted + GRACE
   };

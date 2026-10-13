@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { randomBytes } from 'node:crypto';
+import { ARGON2 } from '../limits.ts';
 import { claim } from './auth.ts';
 import { addShare, getShare, listShares, removeShare, removeShares } from './shares.ts';
 
@@ -7,7 +8,12 @@ const bytes = (n: number) => new Uint8Array(n).fill(1);
 const pad = 'p'.repeat(43);
 
 for (const root of ['linked', 'ours', 'taken', 'all', 'else'])
-  claim(root, randomBytes(16), randomBytes(32), randomBytes(60));
+  claim(root, {
+    salt: randomBytes(16),
+    argon2: ARGON2,
+    auth: randomBytes(32),
+    sealedKey: randomBytes(60)
+  });
 
 test('a link is listed under its pad, read by its id and gone once revoked', () => {
   const made = addShare('linked', 'a'.repeat(22), pad, bytes(60), bytes(10));

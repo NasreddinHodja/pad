@@ -6,13 +6,13 @@
 //   root key (random, one per root) ─HKDF─┬─► content key: AES-GCM over text and names
 //                                          └─► name key: HMAC of a path, its id in the DB
 //
-// The server keeps the salt, a hash of auth and the sealed root key. A
-// password change re-seals the same root key, so no pad is re-encrypted.
+// The server keeps the salt, Argon2id's cost, a hash of auth and the sealed
+// root key. A password change re-seals the same root key, so no pad is
+// re-encrypted.
 
+import { argon2, type Argon2 } from './limits.ts';
 import { padded } from './padme.ts';
 
-// OWASP's minimum for Argon2id.
-const ARGON2 = { iterations: 2, parallelism: 1, memorySize: 19 * 1024 } as const;
 const IV = 12;
 /**
  * Sealed text is padded to at least this, names to at least the other (all
@@ -55,15 +55,24 @@ function hkdf(info: string) {
   return { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(), info: utf8.encode(info) };
 }
 
-/** What a password gives: the proof for the server, and the key that seals the root key. */
-export async function fromPassword(password: string, salt: Bytes) {
+/**
+ * What a password gives: the proof for the server, and the key that seals the
+ * root key. A cost under the floor is refused: a server asking for one would
+ * get an `auth` it can guess the password from cheaply.
+ */
+export async function fromPassword(password: string, salt: Bytes, cost: Argon2) {
+  const checked = argon2(cost);
+  if (!checked)
+    throw new Error('the server asks for a password hash pad refuses: too weak, or too slow');
   // Loaded here, not with the page: only a password needs it, and a second
   // visit (keys from IndexedDB) or a read-only link has none.
   const { argon2id } = await import('hash-wasm');
   const master = await argon2id({
     password: password.normalize('NFC'),
     salt,
-    ...ARGON2,
+    iterations: checked.iterations,
+    parallelism: checked.parallelism,
+    memorySize: checked.memory,
     hashLength: 32,
     outputType: 'binary'
   });

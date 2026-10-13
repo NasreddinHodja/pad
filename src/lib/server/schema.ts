@@ -181,6 +181,15 @@ const MIGRATIONS: (string | ((db: Database) => void))[] = [
   CREATE TRIGGER shares_removed AFTER DELETE ON shares BEGIN
     UPDATE roots SET bytes = bytes - length(OLD.data) WHERE name = OLD.root;
   END;
+  `,
+
+  // 4. Argon2id's cost, per root: raising it for new passwords leaves the
+  // roots before on theirs. Every root until now was derived at 19 MiB, 2
+  // passes, 1 lane.
+  `
+  ALTER TABLE roots ADD COLUMN argon2_memory INTEGER NOT NULL DEFAULT ${19 * 1024};
+  ALTER TABLE roots ADD COLUMN argon2_iterations INTEGER NOT NULL DEFAULT 2;
+  ALTER TABLE roots ADD COLUMN argon2_parallelism INTEGER NOT NULL DEFAULT 1;
   `
 ];
 

@@ -15,6 +15,7 @@
 // line of JSON, for scripts/bench/graphs.ts. Results are in
 // docs/architecture/capacity.org.
 import { appendFileSync } from 'node:fs';
+import { ARGON2 } from '../../src/lib/limits.ts';
 
 const [base, results, build] = process.argv.slice(2);
 const b64 = (n: number) =>
@@ -34,7 +35,7 @@ const claim = await fetch(`${base}/_/${root}/auth/claim`, {
     'x-forwarded-for': ip(),
     'content-type': 'application/json'
   },
-  body: JSON.stringify({ salt: b64(16), auth: b64(32), sealedKey: b64(60) })
+  body: JSON.stringify({ salt: b64(16), argon2: ARGON2, auth: b64(32), sealedKey: b64(60) })
 });
 if (claim.status !== 204) throw new Error(`claim: ${claim.status}`);
 

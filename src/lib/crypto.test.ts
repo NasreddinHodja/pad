@@ -20,6 +20,7 @@ import {
   sealTheme,
   toBase64
 } from './crypto.ts';
+import { ARGON2 } from './limits.ts';
 import { padded } from './padme.ts';
 
 test('base64url round-trips without padding', () => {
@@ -38,13 +39,28 @@ test('passwords are counted in characters', () => {
 test('the root key opens only with its password, for its root', async () => {
   const salt = random(16);
   const rootKey = random(32);
-  const { wrap, auth } = await fromPassword('correct horse', salt);
+  const { wrap, auth } = await fromPassword('correct horse', salt, ARGON2);
   const sealed = await sealRootKey(wrap, rootKey, 'a');
   expect(await openRootKey(wrap, sealed, 'a')).toEqual(rootKey);
   expect(await openRootKey(wrap, sealed, 'b')).toBeNull();
-  const wrong = await fromPassword('wrong horse', salt);
+  const wrong = await fromPassword('wrong horse', salt, ARGON2);
   expect(await openRootKey(wrong.wrap, sealed, 'a')).toBeNull();
   expect(wrong.auth).not.toEqual(auth);
+});
+
+test("a root's own Argon2 cost derives its keys; one outside pad's bounds is refused", async () => {
+  const salt = random(16);
+  const stronger = { ...ARGON2, iterations: ARGON2.iterations + 1 };
+  const a = await fromPassword('correct horse', salt, ARGON2);
+  const b = await fromPassword('correct horse', salt, stronger);
+  expect(b.auth).not.toEqual(a.auth);
+  // A server serving a cheaper cost would get an auth it can guess from cheaply.
+  for (const cost of [
+    { ...ARGON2, memory: ARGON2.memory / 2 },
+    { ...ARGON2, iterations: 1 },
+    { ...ARGON2, memory: 1024 * 1024 }
+  ])
+    await expect(fromPassword('correct horse', salt, cost)).rejects.toThrow('refuses');
 });
 
 test('text and names open only under the id they were sealed for', async () => {

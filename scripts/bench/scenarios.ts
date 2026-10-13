@@ -10,7 +10,8 @@
 //     BODY_SIZE_LIMIT=1M bun build/index.js
 //   bun scripts/bench/scenarios.ts [importing|nat|fill|flood|pages|neighbour] http://127.0.0.1:5597
 //
-// Results are in docs/architecture/capacity.org.
+// Results are in docs/architecture/capacity.org.import { ARGON2 } from '../../src/lib/limits.ts';
+
 const base = process.argv[2];
 const only = process.argv[3];
 const b64 = (n: number) =>
@@ -25,7 +26,7 @@ async function claim(root: string, ip: string) {
   const res = await fetch(`${base}/_/${root}/auth/claim`, {
     method: 'POST',
     headers: h(ip, { 'content-type': 'application/json' }),
-    body: JSON.stringify({ salt: b64(16), auth: b64(32), sealedKey: b64(60) })
+    body: JSON.stringify({ salt: b64(16), argon2: ARGON2, auth: b64(32), sealedKey: b64(60) })
   });
   if (res.status !== 204) throw new Error(`claim ${root}: ${res.status} ${await res.text()}`);
   return res.headers

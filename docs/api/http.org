@@ -25,9 +25,10 @@ The routes under =/_/= that the page calls (=src/lib/api.ts=). Everything sent i
 
 Sets a free root's password and unlocks it for this browser. A deleted root counts as free: it's purged first.
 
-Body: ={"salt": 16 bytes, "auth": 32 bytes, "sealedKey": 60 bytes}=.
+Body: ={"salt": 16 bytes, "argon2": {"memory": KiB, "iterations": n, "parallelism": n}, "auth": 32 bytes, "sealedKey": 60 bytes}=. =argon2= is what =auth= was derived with, within =src/lib/limits.ts='s bounds.
 
 + =204=, with the unlock cookie.
++ =400= for an =argon2= outside the bounds, or missing.
 + =409= if the root was claimed meanwhile.
 
 ** POST /_/<root>/auth/unlock
@@ -41,7 +42,7 @@ A successful claim, unlock or password change also sets the device cookie, =__Ho
 
 ** POST /_/<root>/auth/password
 
-/Unlocked./ Body: ={"current": 32 bytes, "salt": 16 bytes, "auth": 32 bytes, "sealedKey": 60 bytes}=: the current =auth=, then the new password's. =current= is checked and backed off as in unlock.
+/Unlocked./ Body: ={"current": 32 bytes, "salt": 16 bytes, "argon2": {…}, "auth": 32 bytes, "sealedKey": 60 bytes}=: the current =auth=, then the new password's, as in claim. =current= is checked and backed off as in unlock.
 
 + =204=. Every other browser's unlock of the root is revoked.
 
