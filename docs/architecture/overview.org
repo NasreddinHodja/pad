@@ -47,4 +47,4 @@ Rate limits and wrong-password counts are in memory (=limits.ts=, =auth.ts=): a 
 
 * Deployment
 
-=deploy/pad.service= runs the build as a sandboxed systemd service on =127.0.0.1:5512=, behind Caddy (=deploy/Caddyfile=), which sets HSTS, =nosniff=, =Referrer-Policy: no-referrer= and =Cross-Origin-Opener-Policy=, and keeps no access log. The app sets the =Content-Security-Policy= itself (=vite.config.ts=), with a nonce per page. =deploy.sh= lints, checks, tests, builds, uploads and restarts.
+The =Dockerfile= builds once, on the builder's platform, and copies the build onto Bun's distroless image for amd64 and arm64. pad.nassu.online runs it on =127.0.0.1:5512= with a read-only root and no capabilities, behind Caddy (=deploy/Caddyfile=), which sets HSTS, =nosniff=, =Referrer-Policy: no-referrer= and =Cross-Origin-Opener-Policy=, and keeps no access log; =deploy/pad-update= moves it to each release. The app sets the =Content-Security-Policy= itself (=vite.config.ts=), with a nonce per page.

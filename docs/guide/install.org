@@ -1,7 +1,74 @@
 #+TITLE: Installing pad
 #+OPTIONS: ^:{}
 
-Pad is one Bun process and one SQLite file. It needs [[*HTTPS][HTTPS]] in front, and a proxy to put it there: Caddy in the examples, from =deploy/Caddyfile=, pad.nassu.online's.
+Pad is one Bun process and one SQLite file, shipped as a Docker image. It needs [[*HTTPS][HTTPS]] in front, and a proxy to put it there: Caddy in the examples, from =deploy/Caddyfile=, pad.nassu.online's.
+
+* Docker
+
+Each release publishes =ghcr.io/nasreddinhodja/pad= for amd64 and arm64, tagged with its version and =latest=: Bun on a distroless base (no shell), running as user 65532, listening on port 5512, with the database in =/data=. With Compose, beside a Caddy on the same host:
+
+#+begin_src yaml
+services:
+  pad:
+    image: ghcr.io/nasreddinhodja/pad:latest
+    # Caddy reaches it on 127.0.0.1, and pad sees Caddy's address as the peer.
+    network_mode: host
+    environment:
+      HOST: 127.0.0.1
+      PAD_TRUSTED_PROXIES: 127.0.0.1,::1
+    volumes:
+      - ./data:/data
+      - ./backups:/backups
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    restart: unless-stopped
+#+end_src
+
+Create =./data= and =./backups= before the first start, mode 0700 and owned by 65532; or add =user: '<uid>:<gid>'= with an owner of yours. The image sets =PAD_DB=/data/pad.db= and =BODY_SIZE_LIMIT=1M=; the rest is in [[*Environment variables][Environment variables]]. A =PAD_CONFIG= file goes in with another read-only volume.
+
+=read_only=, =cap_drop= and =no-new-privileges= cost nothing measured, with Docker's default seccomp profile left on. On a laptop (Docker 29.9, 16 threads), the home page from 64 connections at once, three runs of 8 s each:
+
+| Pad run                                          | Requests a second      |
+|--------------------------------------------------+------------------------|
+| =bun build/index.js= on the host                 | 12,132, 12,039, 12,225 |
+| The image, Docker's defaults                     | 12,203, 12,206, 12,374 |
+| The image, =read_only=, =cap_drop=, no-new-privs | 12,037, 12,180, 12,274 |
+| The same, =seccomp=unconfined=                   | 12,408, 12,498, 12,450 |
+
+Two load clients at once shared the same total (5,976 and 5,964), so the ceiling is pad's one thread, not the client's. With all three set, every end-to-end test passed against the container (=e2e/=, 15), and a backup of a 210 MB database ran (=VACUUM INTO= needs no =/tmp=). Bun exits on =docker stop='s SIGTERM as PID 1 (133 ms, exit 0): no =init= needed. =MemoryDenyWriteExecute= and other W^X switches turn off Bun's JIT: none here.
+
+The same with Podman (not tested here, the flags are the same):
+
+#+begin_src sh
+podman run -d --name pad --network host -e HOST=127.0.0.1 -e PAD_TRUSTED_PROXIES=127.0.0.1,::1 \
+  --read-only --cap-drop ALL --security-opt no-new-privileges \
+  -v ./data:/data:Z -v ./backups:/backups:Z ghcr.io/nasreddinhodja/pad:latest
+#+end_src
+
+To build the image yourself: =docker build .= (needs BuildKit, for =$BUILDPLATFORM=).
+
+* Updating
+
+Pull the new image and recreate the container, with a [[*Backups][backup]] first: =docker compose pull && docker compose up -d=. Pinning a version (=:0.1.0=) instead of =latest= makes it a choice.
+
+pad.nassu.online runs =deploy/pad-update= daily from =pad-update.timer=, as root: it takes the latest release's image by digest, runs it only if its attestation says this repo's =release.yml= built it from that tag ([[*Verifying a release][Verifying a release]]), backs the database up, and goes back to the previous image when the new one doesn't answer =/_/limits= within 15 s (kept stopped as =pad-failed=). =pad-update --rollback= goes back by hand. It needs Docker, =curl= and the GitHub CLI, and an =/etc/pad.env= with the host's variables.
+
+* Verifying a release
+
+The image has a signed attestation that this repo's release workflow built it:
+
+#+begin_src sh
+gh attestation verify oci://ghcr.io/nasreddinhodja/pad:latest --repo NasreddinHodja/pad.nassu.online
+#+end_src
+
+Each release also lists the files every page loads, with their hashes (=client-files.sha256=, attested the same way). The same tag builds the same bytes: the release build sets =SOURCE_DATE_EPOCH= to the commit's time (=vite.config.ts=), and a build in the image at =/src= matched one on a laptop's checkout, all 119 files. Anyone can check that an instance serves them:
+
+#+begin_src sh
+bun scripts/check-instance.ts https://pad.example.org client-files.sha256
+#+end_src
+
+It fetches every listed file and hashes it, and checks every script the home page and a pad's page load is on the list. It caught a chunk with a line added and a page loading a script not in the release. What it can't check: the HTML of each page and its two inline scripts, which the server renders per request (a nonce, the page's data). An operator can change those, and the check passes; it narrows what has to be trusted to them.
 
 * HTTPS
 
@@ -51,14 +118,14 @@ The app's limits are per address and per root ([[file:../architecture/capacity.o
 The database is one file, written through a WAL: copying =pad.db= while pad runs can catch it halfway. =scripts/backup.ts= takes a consistent copy with SQLite's =VACUUM INTO= while it runs, checks it with =PRAGMA integrity_check= and keeps the newest seven:
 
 #+begin_src sh
-bun scripts/backup.ts <pad.db> <directory> 7
+docker exec pad bun /app/backup.ts /data/pad.db /backups 7
 #+end_src
 
-Run it as the user pad runs as: opening the database creates its =-wal= and =-shm= files when they're missing, owned by whoever opened it. Copies on the server's own disk survive a mistake, not the disk; pull them elsewhere, e.g. =rsync= from another machine.
+The image has it as =/app/backup.ts=; =/backups= is the volume from [[*Docker][Docker]]. On pad.nassu.online, =deploy/pad-backup.timer= runs it daily, and =pad-update= before each switch. Outside a container: =bun scripts/backup.ts <pad.db> <directory> 7=, run as the user pad runs as: opening the database creates its =-wal= and =-shm= files when they're missing, owned by whoever opened it. Copies on the server's own disk survive a mistake, not the disk; pull them elsewhere, e.g. =rsync= from another machine.
 
 A copy is the whole database: root names, salts, the hash the password is checked against, sealed root keys, sealed pads and names, read-only links. Whoever has one can try passwords against it offline, at Argon2's cost per guess. Keep copies as you keep the server.
 
-To restore: stop pad, move =pad.db=, =pad.db-wal= and =pad.db-shm= aside together, put the copy in as =pad.db=, owned by pad's user, and start it.
+To restore: stop the container (=docker stop pad=), move =pad.db=, =pad.db-wal= and =pad.db-shm= aside together, put the copy in as =pad.db=, owned by the user pad runs as, and start it.
 
 A drill: keep a root whose password you use nowhere else, with a few pads. On another machine, with this repo, check a pulled copy opens:
 

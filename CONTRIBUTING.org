@@ -34,7 +34,7 @@ The browser's crypto only runs on =localhost= or HTTPS: from a phone on the LAN,
 | =bun run test:e2e=      | End-to-end tests in Chromium (Playwright)     |
 | =python3 scripts/og.py= | Redraw =static/og.png=, the link preview      |
 
-Building loads the server code, which opens a database: give it a throwaway one, as CI and =deploy.sh= do (=PAD_DB=$(mktemp -d)/pad.db bun run build=). The build runs with =bun build/index.js=; =deploy/pad.service= shows the environment it takes behind a proxy.
+Building loads the server code, which opens a database: give it a throwaway one, as CI and the =Dockerfile= do (=PAD_DB=$(mktemp -d)/pad.db bun run build=). The build runs with =bun build/index.js=; [[file:docs/guide/install.org][Installing pad]] lists the environment it takes. =SOURCE_DATE_EPOCH= makes two builds of one commit the same bytes, as the release's are (=vite.config.ts=).
 
 =scripts/bench/= measures what a server carries; each script's header says how to run it, and the results are in [[file:docs/architecture/capacity.org][Capacity and limits]].
 

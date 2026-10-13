@@ -1,0 +1,17 @@
+# Only what the build reads goes into the image's context: no database, no
+# local build, nothing gitignored.
+.git
+node_modules
+.svelte-kit
+build
+data
+test-results
+playwright-report
+deploy.env
+AUDIT.org
+notes.org
+docs/research
+.env
+.env.*
+.claude
+CLAUDE.md

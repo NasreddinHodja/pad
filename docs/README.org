@@ -4,7 +4,7 @@
 * Guide
 
 + [[file:guide/use.org][Using pad]]: paths, passwords, the subpad finder, locking
-+ [[file:guide/install.org][Installing pad]]: HTTPS, the proxy and what it sees, logs, backups, environment variables, limits
++ [[file:guide/install.org][Installing pad]]: Docker, updating, verifying a release, HTTPS, the proxy and what it sees, logs, backups, environment variables, limits
 
 * Architecture
 

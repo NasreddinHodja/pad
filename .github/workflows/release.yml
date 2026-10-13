@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+  # actions/attest: OIDC token for the Sigstore certificate, storing the
+  # attestation, and the artifact storage record.
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+env:
+  IMAGE: ghcr.io/nasreddinhodja/pad
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: The tag is package.json's version
+        run: |
+          version=$(jq -r .version package.json)
+          [ "$TAG" = "v$version" ] || { echo "$TAG is not v$version"; exit 1; }
+
+      # The commit's time: the same tag builds the same client files
+      # (vite.config.ts), whose hashes the release publishes.
+      - name: Source date
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 1.2.3 and latest from tag v1.2.3.
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+
+      # The build stage runs on the runner's platform and only copies into
+      # the arm64 base, so nothing runs under emulation.
+      - id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Signed build provenance, checked with `gh attestation verify oci://…`.
+      - uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  # The pushed image, started on each architecture as install.org runs it:
+  # it has to answer, or the release fails.
+  smoke:
+    needs: image
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      # A package new to ghcr may start out private.
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run the image
+        env:
+          REF: ${{ env.IMAGE }}@${{ needs.image.outputs.digest }}
+        run: |
+          docker run -d --name pad -p 5512:5512 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges "$REF"
+          for _ in $(seq 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5512/_/limits || true)
+            [ "$code" = 200 ] && break
+            sleep 1
+          done
+          docker logs pad
+          [ "$code" = 200 ] || { echo "No answer from /_/limits"; exit 1; }
+
+  release:
+    needs: [image, smoke]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          # git-cliff needs the tags and history for the release notes.
+          fetch-depth: 0
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The client files as the image serves them, for
+      # scripts/check-instance.ts.
+      - name: Hash the client files
+        env:
+          REF: ${{ env.IMAGE }}@${{ needs.image.outputs.digest }}
+        run: |
+          docker create --name pad "$REF"
+          docker cp pad:/app/client client
+          find client -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum \
+            | sed 's|  client/|  |' > client-files.sha256
+
+      - uses: actions/attest@v4
+        with:
+          subject-path: client-files.sha256
+
+      - name: Generate release notes
+        id: notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --latest --strip header
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          files: client-files.sha256
+          body: ${{ steps.notes.outputs.content }}

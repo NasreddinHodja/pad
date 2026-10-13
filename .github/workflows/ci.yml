@@ -25,3 +25,36 @@ jobs:
 
       # Building loads the server code, which opens a database.
       - run: PAD_DB="$RUNNER_TEMP/pad.db" bun run build
+
+  # The release's image, both architectures, not pushed: a broken Dockerfile
+  # shows here, not on a tag. The amd64 one is started as release.yml does.
+  docker:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: pad:ci
+
+      - name: Run the image
+        run: |
+          docker run -d --name pad -p 5512:5512 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges pad:ci
+          for _ in $(seq 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5512/_/limits || true)
+            [ "$code" = 200 ] && break
+            sleep 1
+          done
+          docker logs pad
+          [ "$code" = 200 ] || { echo "No answer from /_/limits"; exit 1; }

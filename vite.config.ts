@@ -1,7 +1,39 @@
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-bun';
 import { sveltekit } from '@sveltejs/kit/vite';
+import type { Adapter, Builder } from '@sveltejs/kit';
+import { utimesSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig } from 'vite';
+
+// The release builds with SOURCE_DATE_EPOCH, the commit's time, so a tag
+// builds the same bytes. Otherwise two builds differ in the version
+// (Date.now()) and in each file's mtime, which adapter-bun writes into
+// build/adapter-bun.js for Last-Modified.
+const epoch = process.env.SOURCE_DATE_EPOCH;
+
+function reproducible(adapter: Adapter): Adapter {
+  if (!epoch) return adapter;
+  const touch = (dir: string, files: string[]) => {
+    for (const file of files) utimesSync(join(dir, file), +epoch, +epoch);
+  };
+  return {
+    ...adapter,
+    adapt: (builder) =>
+      adapter.adapt(
+        new Proxy(builder, {
+          get(target, key: keyof Builder) {
+            if (key !== 'writeClient' && key !== 'writePrerendered') return target[key];
+            return (dest: string) => {
+              const files = target[key](dest);
+              touch(dest, files);
+              return files;
+            };
+          }
+        })
+      )
+  };
+}
 
 export default defineConfig({
   plugins: [
@@ -13,7 +45,8 @@ export default defineConfig({
           filename.split(/[/\\]/).includes('node_modules') ? undefined : true
       },
 
-      adapter: adapter(),
+      adapter: reproducible(adapter()),
+      ...(epoch && { version: { name: epoch } }),
 
       // The keys sit in this page, so a script injected into it could use
       // them: only our own scripts run. konigslibrary's policy, less GitHub.

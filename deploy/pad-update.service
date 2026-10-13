@@ -1,0 +1,11 @@
+# Runs pad-update for pad-update.timer: the latest release, if it isn't the
+# image running, with its attestation check, backup and rollback.
+[Unit]
+Description=Update pad to the latest release
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pad-update

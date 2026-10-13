@@ -1,0 +1,114 @@
+#!/bin/sh
+# Runs pad's image from a GitHub release on pad.nassu.online, as root:
+#
+#   pad-update             the latest release
+#   pad-update v0.2.0      that release
+#   pad-update --rollback  the image that ran before this one
+#
+# pad-update.timer runs it once a day. An image runs only if its attestation
+# says this repo's release.yml built it from that tag (gh attestation
+# verify). The database is copied before each switch, and an image that
+# doesn't answer is replaced by the one before. docs/guide/install.org,
+# Updating.
+set -eu
+
+REPO=NasreddinHodja/pad.nassu.online
+IMAGE=ghcr.io/nasreddinhodja/pad
+DATA=/var/lib/pad
+STATE=/var/lib/pad-update
+# PAD_TRUSTED_PROXIES and anything else of this host's; HOST and PORT here.
+ENV=/etc/pad.env
+HEALTH=http://127.0.0.1:5512/_/limits
+
+die() {
+  echo "pad-update: $*" >&2
+  exit 1
+}
+
+[ "$(id -u)" = 0 ] || die "run it as root"
+mkdir -p "$STATE"
+
+running() {
+  docker inspect pad --format '{{.Config.Image}}' 2>/dev/null || true
+}
+
+# Pad answers within a second of starting (measured), so 15 is plenty.
+healthy() {
+  i=0
+  while [ $i -lt 15 ]; do
+    curl -fsS -o /dev/null "$HEALTH" 2>/dev/null && return 0
+    i=$((i + 1))
+    sleep 1
+  done
+  return 1
+}
+
+# Host networking: Caddy reaches it on 127.0.0.1, and pad sees Caddy's own
+# address, as before the image. As pad's user, so the files in $DATA keep
+# their owner. The flags were measured in install.org, Docker.
+start() {
+  # Docker would create a missing one as root.
+  install -d -o pad -g pad -m 700 "$DATA/backups"
+  docker rm -f pad >/dev/null 2>&1 || true
+  docker run -d --name pad --restart unless-stopped \
+    --network host -e HOST=127.0.0.1 -e PORT=5512 --env-file "$ENV" \
+    --user "$(id -u pad):$(id -g pad)" \
+    --read-only --cap-drop ALL --security-opt no-new-privileges \
+    -v "$DATA:/data" -v "$DATA/backups:/backups" \
+    "$1" >/dev/null
+}
+
+backup() {
+  docker exec pad bun /app/backup.ts /data/pad.db /backups 7
+}
+
+previous=$(running)
+
+if [ "${1:-}" = --rollback ]; then
+  target=$(cat "$STATE/previous" 2>/dev/null) || die "no image ran before this one"
+  backup
+  start "$target"
+  healthy || die "$target doesn't answer either; see docker logs pad"
+  echo "$previous" >"$STATE/previous"
+  echo "Rolled back to $target."
+  exit 0
+fi
+
+tag=${1:-$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" |
+  sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')}
+[ -n "$tag" ] || die "couldn't find the latest release"
+version=${tag#v}
+
+docker pull -q "$IMAGE:$version" >/dev/null || die "no image $IMAGE:$version"
+# By digest from here on: what was checked is what runs.
+ref=$(docker image inspect "$IMAGE:$version" --format '{{range .RepoDigests}}{{println .}}{{end}}' |
+  grep -m1 "^$IMAGE@")
+case "$previous" in
+*"${ref#*@}") echo "$tag is already running."; exit 0 ;;
+esac
+
+gh attestation verify "oci://$ref" --bundle-from-oci \
+  --repo "$REPO" \
+  --signer-workflow "$REPO/.github/workflows/release.yml" \
+  --source-ref "refs/tags/$tag" >/dev/null ||
+  die "$ref has no attestation from $REPO's release.yml at $tag; not run"
+
+[ -n "$previous" ] && backup
+start "$IMAGE:$version@${ref#*@}"
+
+if ! healthy; then
+  if [ -n "$previous" ]; then
+    echo "$tag doesn't answer; going back to $previous." >&2
+    docker rm -f pad-failed >/dev/null 2>&1 || true
+    docker rename pad pad-failed
+    docker update --restart no pad-failed >/dev/null
+    docker stop pad-failed >/dev/null
+    start "$previous"
+    healthy || die "$previous doesn't answer either; see docker logs pad"
+    die "$tag failed to start; see docker logs pad-failed"
+  fi
+  die "$tag failed to start; see docker logs pad"
+fi
+
+[ -n "$previous" ] && echo "$previous" >"$STATE/previous"
+echo "Running $tag ($ref)."

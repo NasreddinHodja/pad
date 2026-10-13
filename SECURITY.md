@@ -10,7 +10,7 @@ There are no releases yet: fixes go to `main`.
 ## What the server protects
 
 Pad is one Bun process with one SQLite file (`PAD_DB`), meant to sit behind a
-reverse proxy that terminates TLS: `deploy/pad.service` listens on
+reverse proxy that terminates TLS: pad.nassu.online's container listens on
 `127.0.0.1:5512` behind Caddy (`deploy/Caddyfile`). Pads are encrypted in the
 browser, with keys derived from their root's password, so what the server
 guards is access, not the text:

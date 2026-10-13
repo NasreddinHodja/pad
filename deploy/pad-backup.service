@@ -1,0 +1,10 @@
+# A copy of the running pad's database into /var/lib/pad/backups, the newest
+# seven kept (scripts/backup.ts, in the image as /app/backup.ts).
+[Unit]
+Description=Back up pad's database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec pad bun /app/backup.ts /data/pad.db /backups 7

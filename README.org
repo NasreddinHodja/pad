@@ -19,11 +19,7 @@ SvelteKit, Svelte 5, Tailwind 4 and SQLite (=bun:sqlite=), on Bun. Setup, script
 
 * Deploy
 
-A systemd service behind Caddy on a VPS: =deploy/pad.service= and =deploy/Caddyfile= say how to set one up. Then, with =DEST= and =PORT= in =deploy.env=:
-
-#+begin_src sh
-./deploy.sh      # lint, check, test, build, upload, restart
-#+end_src
+The Docker image, =ghcr.io/nasreddinhodja/pad=, behind a proxy with HTTPS: [[file:docs/guide/install.org][Installing pad]]. A release is a =v*= tag matching =package.json='s version: =.github/workflows/release.yml= builds and attests the image, and publishes the client files' hashes and the notes (=cliff.toml=).
 
 * Limits
 

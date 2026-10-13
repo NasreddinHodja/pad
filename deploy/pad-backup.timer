@@ -1,0 +1,11 @@
+# One copy a day; pull them off the server from another machine.
+[Unit]
+Description=Back up pad daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
