@@ -1,8 +1,29 @@
 # /etc/caddy/sites-available/pad on the VPS, linked from sites-enabled/,
-# which the main Caddyfile imports.
+# which the main Caddyfile imports. The global block below can't go in an
+# imported file: on the VPS it's at the top of /etc/caddy/Caddyfile, and
+# applies to every site there.
 #
-# No `log` directive on purpose: access logs would write every subpad's path
-# to disk, which the database keeps only as HMACs.
+# No `log` directive on purpose: an access log would keep on disk who opened
+# which root when, and every pad id they read or saved. What a request shows
+# anyway: docs/guide/install.org, What the proxy sees.
+{
+  log {
+    # Without an access log Caddy still logs a request it couldn't serve,
+    # a 502 while pad restarts among them: the address, the path, the
+    # headers (caddy run, v2.11.7).
+    exclude http.log.error
+  }
+  servers {
+    timeouts {
+      # Default 1m: a client holding a connection open with half a header.
+      read_header 10s
+      # Default 1m idle, no rate: a body trickled a byte a minute. Now a
+      # body must average 1 KiB/s; a full save (1 MiB) still gets 17 min.
+      read_body_idle 10s 1024
+    }
+  }
+}
+
 pad.nassu.online {
   encode zstd gzip
   header {

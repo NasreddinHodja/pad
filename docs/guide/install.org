@@ -1,6 +1,8 @@
 #+TITLE: Installing pad
 #+OPTIONS: ^:{}
 
+Pad is one Bun process and one SQLite file. It needs [[*HTTPS][HTTPS]] in front, and a proxy to put it there: Caddy in the examples, from =deploy/Caddyfile=, pad.nassu.online's.
+
 * HTTPS
 
 The browser derives keys and encrypts with Web Crypto, which only runs on HTTPS or on =localhost=. Served over plain HTTP from anywhere else, pad's page can't unlock or save anything. Put HTTPS in front, as =deploy/Caddyfile= does.
@@ -14,6 +16,35 @@ Without =PAD_TRUSTED_PROXIES= behind a proxy, every visitor is the proxy's addre
 adapter-bun's =ADDRESS_HEADER= and =XFF_DEPTH= aren't used: with =ADDRESS_HEADER= set the server refuses to start.
 
 The proxy should also set the headers the app can't put on the files it serves from =static/= and the build: =deploy/Caddyfile= has them. Pages and API answers carry them from the app (=src/hooks.server.ts=).
+
+=deploy/Caddyfile= is pad.nassu.online's, and also sets two of Caddy's defaults tighter. A slow client was held open by Caddy v2.11.7 with its defaults, and cut with these (=deploy/Caddyfile='s global block, measured on the VPS):
+
+| Client                             | Defaults           | =read_header 10s=, =read_body_idle 10s 1024= |
+|------------------------------------+--------------------+----------------------------------------------|
+| Headers, a byte every 2 s          | still open at 40 s | cut at 12 s                                  |
+| A 1 MiB body at 100 bytes a second | still open at 40 s | cut at 22 s                                  |
+| A 1 MiB body at 2 KiB a second     | still open at 40 s | still open at 40 s                           |
+
+A body must average 1 KiB a second, so a full save still has 17 minutes. Both are server options, for every site on the same port.
+
+Caddy has no rate limits of its own; the app's hold without one ([[file:../architecture/capacity.org][Capacity and limits]]).
+
+* What the proxy sees
+
+Everything that crosses it, whether it keeps it or not: the client's address, when, the root's name (in page URLs and in every =/_/<root>/…= call), pad ids, read-only link ids, body sizes (a pad's text plus 28 bytes), when saves happen, the =User-Agent=, and the unlock cookie, which lets whoever holds it read and replace that root's sealed pads until the browser locks, the password changes or it expires. Not a password, a key, a pad's text or a subpad's name: the browser sends the path after the =#= to nobody, and keys and text only sealed. An old address from before that (=/<root>/a/b=) still sends its path once, then redirects.
+
+A proxy that logs keeps that list on disk. Nothing in pad stops an operator from turning a log on; that's what [[file:../architecture/encryption.org][the encryption]] is for.
+
+* Logs
+
+What pad and Caddy write. Both write to standard error; on pad.nassu.online that's journald, which on its Ubuntu keeps it on disk (=/var/log/journal=):
+
++ Pad: =Listening on …= at start, and a configuration error that stops it. Nothing per request: unmatched paths, wrong methods and malformed bodies wrote nothing (the build, probed with =curl=). An unexpected error prints its stack (SvelteKit's default =handleError=), without the request.
++ Caddy, with no =log= directive: no access log. It still logs a request it couldn't serve (=http.log.error=), with the address, the URL and the headers: a 502 while pad restarts does it. =deploy/Caddyfile= turns that logger off (=exclude http.log.error=); after, the same 502 wrote nothing (a throwaway Caddy v2.11.7 on the VPS). Left: start, stop and certificate renewals.
+
+* Floods
+
+The app's limits are per address and per root ([[file:../architecture/capacity.org][Capacity and limits]]): about 10 addresses at their full 200 requests a second fill the VPS. Past that, and past what the machine's link carries, nothing on the machine helps: the provider's network filtering, or a CDN in front, which then sees every request ([[*What the proxy sees][What the proxy sees]]).
 
 * Environment variables
 
