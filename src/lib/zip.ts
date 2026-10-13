@@ -4,7 +4,7 @@
 
 import { deflate } from './deflate.ts';
 
-export type File = { name: string; data: Uint8Array };
+export type File = { name: string; data: Uint8Array<ArrayBuffer> };
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -14,7 +14,9 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
 
 export function crc32(data: Uint8Array) {
   let crc = 0xffffffff;
-  for (const byte of data) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  // By index: for…of here allocated ~20 MiB of iterator results exporting
+  // the 5,000-pad root.
+  for (let i = 0; i < data.length; i++) crc = CRC_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
   return (crc ^ 0xffffffff) >>> 0;
 }
 
@@ -48,10 +50,9 @@ export class ZipWriter {
     const [time, date] = [this.#time, this.#date];
     const name = utf8.encode(file.name);
     const crc = crc32(file.data);
-    const deflated = await deflate(new Uint8Array(file.data));
+    const deflated = await deflate(file.data);
     // Stored when deflating doesn't help.
-    const [method, body] =
-      deflated.length < file.data.length ? [8, deflated] : [0, new Uint8Array(file.data)];
+    const [method, body] = deflated.length < file.data.length ? [8, deflated] : [0, file.data];
 
     const head = (signature: number, size: number) => {
       const bytes = new Uint8Array(size + name.length);

@@ -8,6 +8,7 @@ import {
   openShareKey,
   openShare,
   openText,
+  openTextBytes,
   openTheme,
   padId,
   padKeys,
@@ -148,8 +149,9 @@ export async function loadSince(root: string, keys: Keys, path: string, version:
 }
 
 /**
- * Up to BATCH_PADS pads in one request, their texts in the order of `paths`:
- * '' for one that doesn't exist.
+ * Up to BATCH_PADS pads in one request, their texts as UTF-8 in the order of
+ * `paths`: empty for one that doesn't exist. Bytes, not strings: export only
+ * stores them.
  */
 export async function loadMany(root: string, keys: Keys, paths: string[]) {
   if (paths.length > BATCH_PADS) throw new Error(`at most ${BATCH_PADS} pads at once`);
@@ -157,12 +159,12 @@ export async function loadMany(root: string, keys: Keys, paths: string[]) {
   const res = await post(`${base(root)}/pads/batch`, { ids });
   const all = new Uint8Array(await res.arrayBuffer());
   const view = new DataView(all.buffer);
-  const texts: Promise<string>[] = [];
+  const texts: Promise<Uint8Array<ArrayBuffer>>[] = [];
   let at = 0;
   for (const id of ids) {
     const length = view.getUint32(at, true);
-    const sealed = all.slice(at + 4, at + 4 + length);
-    texts.push(length ? openText(keys, id, sealed) : Promise.resolve(''));
+    const sealed = all.subarray(at + 4, at + 4 + length);
+    texts.push(length ? openTextBytes(keys, id, sealed) : Promise.resolve(new Uint8Array()));
     at += 4 + length;
   }
   return Promise.all(texts);

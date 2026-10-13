@@ -139,8 +139,11 @@ export async function padId(keys: Keys, path: string) {
 // contents or names without the browser noticing.
 export const sealText = async (keys: Keys, id: string, text: string) =>
   seal(keys.content, utf8.encode(text), `pad text\n${id}`);
+/** The pad's text as UTF-8, for what only stores it (export). */
+export const openTextBytes = (keys: Keys, id: string, data: Bytes) =>
+  open(keys.content, data, `pad text\n${id}`);
 export const openText = async (keys: Keys, id: string, data: Bytes) =>
-  utf8Decode.decode(await open(keys.content, data, `pad text\n${id}`));
+  utf8Decode.decode(await openTextBytes(keys, id, data));
 export const sealName = async (keys: Keys, id: string, path: string) =>
   toBase64(await seal(keys.content, utf8.encode(path), `pad name\n${id}`));
 export const openName = async (keys: Keys, id: string, sealed: string) =>

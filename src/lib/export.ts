@@ -7,7 +7,7 @@ import type { Keys } from './crypto.ts';
 import { BATCH_PADS } from './limits.ts';
 import { ZipWriter } from './zip.ts';
 
-const utf8 = new TextEncoder();
+const utf8Decode = new TextDecoder();
 
 export type Pad = { path: string; text: string };
 
@@ -26,13 +26,13 @@ async function inBatches(
   root: string,
   keys: Keys,
   paths: string[],
-  each: (batch: Pad[]) => Promise<void>
+  each: (batch: { path: string; bytes: Uint8Array<ArrayBuffer> }[]) => Promise<void>
 ) {
   const fetch = (from: number) => {
     const batch = paths.slice(from, from + BATCH_PADS);
     return api
       .loadMany(root, keys, batch)
-      .then((texts) => batch.map((p, i) => ({ path: p, text: texts[i] })));
+      .then((texts) => batch.map((p, i) => ({ path: p, bytes: texts[i] })));
   };
   let next = paths.length ? fetch(0) : null;
   for (let from = 0; next; from += BATCH_PADS) {
@@ -56,7 +56,7 @@ export async function collect(
   const out: Pad[] = [];
   progress(0, paths.length);
   await inBatches(root, keys, paths, async (batch) => {
-    out.push(...batch);
+    for (const p of batch) out.push({ path: p.path, text: utf8Decode.decode(p.bytes) });
     progress(out.length, paths.length);
   });
   return out;
@@ -80,7 +80,7 @@ export async function exportPads(
   progress(0, paths.length);
   await inBatches(root, keys, paths, async (batch) => {
     for (const p of batch) {
-      await out.add({ name: base + p.path.slice(path.length) + '.org', data: utf8.encode(p.text) });
+      await out.add({ name: base + p.path.slice(path.length) + '.org', data: p.bytes });
       progress(++done, paths.length);
     }
   });
