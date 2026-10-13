@@ -74,12 +74,16 @@ const vars = (theme: Theme) => ({
 });
 
 let marble: Promise<HTMLImageElement> | undefined;
+// The last two drawn: the theme on now and the one a cancelled pick goes back to.
 const textures = new Map<string, string>();
 let call = 0;
+let applied: Theme | undefined;
+
+const textureKey = (theme: Theme) => theme.bg + mix(theme.ink, theme.bg, 0.6);
 
 /** bg.png, two colours, redrawn in the theme's background and ink2; a data: URL, as the CSP takes. */
 async function texture(theme: Theme) {
-  const key = theme.bg + mix(theme.ink, theme.bg, 0.6);
+  const key = textureKey(theme);
   const done = textures.get(key);
   if (done) return done;
   marble ??= new Promise((resolve, reject) => {
@@ -102,10 +106,14 @@ async function texture(theme: Theme) {
   g.putImageData(data, 0, 0);
   const url = canvas.toDataURL('image/png');
   textures.set(key, url);
+  if (textures.size > 2) textures.delete(textures.keys().next().value!);
   return url;
 }
 
 export function applyTheme(theme: Theme) {
+  if (applied && sameTheme(applied, theme)) return;
+  const was = applied;
+  applied = { ...theme };
   const root = document.documentElement.style;
   for (const [name, value] of Object.entries(vars(theme))) root.setProperty(name, value);
   const mine = ++call;
@@ -113,8 +121,14 @@ export function applyTheme(theme: Theme) {
     root.removeProperty('--texture');
     return;
   }
-  // The default marble's colours under another theme's would flash: none until it's drawn.
-  root.setProperty('--texture', 'none');
+  const done = textures.get(textureKey(theme));
+  if (done) {
+    root.setProperty('--texture', `url(${done})`);
+    return;
+  }
+  // The default marble's colours under another theme's would flash: none until
+  // it's drawn. Another theme's marble stays meanwhile, a drag's last colour.
+  if (!was || sameTheme(was, DEFAULT)) root.setProperty('--texture', 'none');
   texture(theme)
     .catch(() => null)
     .then((url) => {

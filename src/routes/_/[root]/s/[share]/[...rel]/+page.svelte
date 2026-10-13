@@ -83,8 +83,9 @@
   // The root's theme as it was when the link was made.
   $effect(() => {
     applyTheme(shared?.theme ?? DEFAULT);
-    return () => applyTheme(DEFAULT);
   });
+  // Back to pad's own when the page goes, not between one theme and the next.
+  $effect(() => () => applyTheme(DEFAULT));
 </script>
 
 <svelte:head>

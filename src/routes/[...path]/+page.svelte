@@ -56,8 +56,9 @@
 
   $effect(() => {
     applyTheme(theme);
-    return () => applyTheme(DEFAULT);
   });
+  // Back to pad's own when the page goes, not between one theme and the next.
+  $effect(() => () => applyTheme(DEFAULT));
 
   /** Shows `next`; `keep` saves it to the root too. */
   async function retheme(next: Theme, keep: boolean) {
