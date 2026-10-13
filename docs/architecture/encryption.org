@@ -16,11 +16,33 @@ root key (random, one per root) ─HKDF─┬─► content key: AES-GCM over te
 + The root key is random and never changes: a password change seals the same key under the new password, so no pad is re-encrypted. It also means a change signs the old password's holders out but doesn't take the key from one who kept it: with a sealed pad from the server or a copy of the database, they can still open it.
 + Every seal is AES-256-GCM with a random 12-byte nonce, bound by its associated data to where it belongs: the root key to its root's name, a pad's text and name to its id. The server can't move a sealed key to another root, or swap two pads' texts or names, without the browser refusing them.
 + The root's theme is sealed under the content key too, bound to =pad theme=.
++ Text, names and a link's copy are padded before sealing (=src/lib/padme.ts=): the plain bytes, a =0x80= marker, then zeros up to the next Padmé size, a length whose binary float has no more mantissa bits than exponent bits (PURBs, [[https://arxiv.org/abs/1806.03160][arXiv 1806.03160]]). At most 12% more, and lengths fall into few sizes; text and links are 256 bytes at least, names 128. Their associated data ends in = padded=; a seal from before padding opens under the old one, and its pad's next save re-seals text and name. The theme isn't padded: it's always the same length. Why these: [[*Padding][Padding]].
 + A pad's id is the base64url HMAC-SHA-256 of its path under the name key: the same path always finds the same row, and the id says nothing about the path.
 
 * What the server keeps
 
-Per root: the salt (public: the gate needs it before the password), SHA-256 of =auth=, the sealed root key and the sealed theme. =auth= carries Argon2id's cost already, so a fast hash is enough. A copy of the database gives an attacker the salts and hashes to guess passwords against at Argon2id's cost, and nothing else. It does show how many pads a root has and how long each is.
+Per root: the salt (public: the gate needs it before the password), SHA-256 of =auth=, the sealed root key and the sealed theme. =auth= carries Argon2id's cost already, so a fast hash is enough. A copy of the database gives an attacker the salts and hashes to guess passwords against at Argon2id's cost, and nothing else. It does show how many pads a root has, and each one's size to its Padmé step: on the author's root, 42 sizes among 180 pads, 12 of them unique.
+
+* Padding
+
+=scripts/bench/padding.ts= over the author's root (180 pads, 2026-10-13): each step function applied to the plaintext plus its marker, plus 28 bytes. "Unique": pads no other pad shares a size with, so the ones a size alone picks out.
+
+| text            | bytes   | growth | sizes | unique   |
+|-----------------+---------+--------+-------+----------|
+| none            | 418,221 |     0% |   117 | 60 (33%) |
+| Padmé           | 422,174 |  +0.9% |    62 | 23 (13%) |
+| Padmé, min 256  | 427,968 |  +2.3% |    42 | 12 (7%)  |
+| 80-byte blocks  | 426,080 |  +1.9% |    32 | 9 (5%)   |
+| powers of two, min 256 | 506,288 | +21.1% | 7 | 1 (1%) |
+| 4 KiB blocks    | 996,272 |  +138% |     3 | 1 (1%)   |
+
+| names           | bytes  | growth | sizes | unique |
+|-----------------+--------+--------+-------+--------|
+| none            | 11,630 |     0% |    30 | 7 (4%) |
+| Padmé           | 11,996 |  +3.1% |    16 | 4 (2%) |
+| Padmé, min 128  | 28,080 |  +141% |     1 | 0      |
+
+Fixed blocks (Signal pads messages to 80 bytes) do well on small pads but show a large pad's length to the block; Padmé's steps grow with the length, so what a size shows stays within 12%. Powers of two group more for +21%. A name is at most 1,020 bytes; at 128 every name of this root looks the same, for 16 KB more.
 
 * Unlocking
 
@@ -52,7 +74,7 @@ A link is =/_/<root>/s/<id>#<key>=; its pages within it add =~= and the path und
 + The root's owners list the pad's links, open each =key= with the root's content key, and so can show and copy the links again.
 + Revoking deletes the row. Someone who read the copy before still has what they read.
 + The copy is sealed under its own key, not the root's: a link opens that one copy, nothing else in the root.
-+ Deflating first means the server learns the copy's compressed size rather than its size.
++ Deflating first means the server learns the copy's compressed size rather than its size, to its Padmé step.
 
 * What it doesn't protect against
 

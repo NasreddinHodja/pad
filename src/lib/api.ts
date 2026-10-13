@@ -125,6 +125,8 @@ export const remove = (root: string) => post(`${base(root)}/auth/delete`, {});
 const CACHE_CHARS = 1 << 20;
 const pads = new Map<string, { text: string; version: number }>();
 const lists = new Map<string, { etag: string; paths: string[] }>();
+/** `root\npath` of names sealed before padding (crypto.ts): their next save re-seals them. */
+const unpadded = new Set<string>();
 let cached = 0;
 
 function remember(root: string, path: string, text: string, version: number) {
@@ -149,6 +151,7 @@ export function forget(root: string) {
       cached -= v.text.length;
     }
   lists.delete(root);
+  for (const k of unpadded) if (k.startsWith(root + '\n')) unpadded.delete(k);
 }
 
 /** Every pad path in the root. */
@@ -160,7 +163,9 @@ export async function list(root: string, keys: Keys) {
   });
   if (res.status === 304 && known) return [...known.paths];
   const sealed = ((await res.json()) as { pads: { id: string; name: string }[] }).pads;
-  const paths = await Promise.all(sealed.map((p) => openName(keys, p.id, p.name)));
+  const names = await Promise.all(sealed.map((p) => openName(keys, p.id, p.name)));
+  for (const { path, padded } of names) if (!padded) unpadded.add(root + '\n' + path);
+  const paths = names.map((n) => n.path);
   const etag = res.headers.get('etag');
   if (etag) lists.set(root, { etag, paths });
   return [...paths];
@@ -232,11 +237,15 @@ export async function save(root: string, keys: Keys, path: string, text: string,
     headers: {
       'content-type': 'application/octet-stream',
       'if-match': `"${over}"`,
-      // Only a pad the server has no row for, or an emptied one, needs its
-      // name: a fresh seal of it on every save would change the root's list.
-      ...(over === 0 && { 'x-pad-name': await sealName(keys, id, path) })
+      // Only a pad the server has no row for, an emptied one, or one whose
+      // name shows its length needs its name: a fresh seal of it on every
+      // save would change the root's list.
+      ...((over === 0 || unpadded.has(root + '\n' + path)) && {
+        'x-pad-name': await sealName(keys, id, path)
+      })
     }
   });
+  unpadded.delete(root + '\n' + path);
   const { updatedAt } = (await res.json()) as { updatedAt: number };
   remember(root, path, text, updatedAt);
   return updatedAt;

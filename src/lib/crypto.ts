@@ -9,9 +9,16 @@
 // The server keeps the salt, a hash of auth and the sealed root key. A
 // password change re-seals the same root key, so no pad is re-encrypted.
 
+import { padded } from './padme.ts';
+
 // OWASP's minimum for Argon2id.
 const ARGON2 = { iterations: 2, parallelism: 1, memorySize: 19 * 1024 } as const;
 const IV = 12;
+/**
+ * Sealed text is padded to at least this, names to at least the other (all
+ * of dev's names fit in it): docs/architecture/encryption.org, Padding.
+ */
+const FLOOR = { text: 256, name: 128 } as const;
 
 export const MIN_PASSWORD = 8;
 export const MAX_PASSWORD = 256;
@@ -102,6 +109,25 @@ async function open(key: CryptoKey, data: Bytes, aad: string) {
   return new Uint8Array(plain);
 }
 
+// Padded: the plain bytes, a 0x80 marker, then zeros up to padme.ts's size.
+// Seals from before padding have no marker, and text can end in 0x80, so
+// padded ones say so in their associated data; the old ones still open.
+async function sealPadded(key: CryptoKey, plain: Bytes, aad: string, floor: number) {
+  const out = new Uint8Array(padded(plain.length + 1, floor));
+  out.set(plain);
+  out[plain.length] = 0x80;
+  return seal(key, out, `${aad} padded`);
+}
+
+async function openPadded(key: CryptoKey, data: Bytes, aad: string) {
+  const plain = await open(key, data, `${aad} padded`).catch(() => null);
+  if (!plain) return { plain: await open(key, data, aad), padded: false };
+  let end = plain.length - 1;
+  while (end >= 0 && plain[end] === 0) end--;
+  if (plain[end] !== 0x80) throw new Error("the server's copy doesn't decrypt: it's malformed");
+  return { plain: plain.subarray(0, end), padded: true };
+}
+
 // The root's name is in every seal, so nothing sealed for one root opens in another.
 export const sealRootKey = (wrap: CryptoKey, rootKey: Bytes, root: string) =>
   seal(wrap, rootKey, `pad root key\n${root}`);
@@ -139,18 +165,22 @@ export async function padId(keys: Keys, path: string) {
 // Text and name are sealed to their id, so the server can't swap two pads'
 // contents or names without the browser noticing.
 export const sealText = async (keys: Keys, id: string, text: string) =>
-  seal(keys.content, utf8.encode(text), `pad text\n${id}`);
+  sealPadded(keys.content, utf8.encode(text), `pad text\n${id}`, FLOOR.text);
 /** The pad's text as UTF-8, for what only stores it (export). */
-export const openTextBytes = (keys: Keys, id: string, data: Bytes) =>
-  open(keys.content, data, `pad text\n${id}`);
+export const openTextBytes = async (keys: Keys, id: string, data: Bytes) =>
+  (await openPadded(keys.content, data, `pad text\n${id}`)).plain;
 export const openText = async (keys: Keys, id: string, data: Bytes) =>
   utf8Decode.decode(await openTextBytes(keys, id, data));
 export const sealName = async (keys: Keys, id: string, path: string) =>
-  toBase64(await seal(keys.content, utf8.encode(path), `pad name\n${id}`));
-export const openName = async (keys: Keys, id: string, sealed: string) =>
-  utf8Decode.decode(await open(keys.content, fromBase64(sealed), `pad name\n${id}`));
+  toBase64(await sealPadded(keys.content, utf8.encode(path), `pad name\n${id}`, FLOOR.name));
+/** `padded` false: sealed before padding, its length shows; the next save re-seals it. */
+export async function openName(keys: Keys, id: string, sealed: string) {
+  const { plain, padded } = await openPadded(keys.content, fromBase64(sealed), `pad name\n${id}`);
+  return { path: utf8Decode.decode(plain), padded };
+}
 
-// The root's theme, which isn't any one pad's.
+// The root's theme, which isn't any one pad's. Not padded: it's always
+// `{bg, fg, ink}`, the same length (api.ts).
 export const sealTheme = async (keys: Keys, json: string) =>
   seal(keys.content, utf8.encode(json), 'pad theme');
 export const openTheme = async (keys: Keys, data: Bytes) =>
@@ -164,9 +194,9 @@ const shareKey = (key: Bytes, usage: KeyUsage) =>
 
 // What `api.share` makes: the pads, deflated.
 export const sealShare = async (key: Bytes, id: string, plain: Bytes) =>
-  seal(await shareKey(key, 'encrypt'), plain, `pad share tree\n${id}`);
+  sealPadded(await shareKey(key, 'encrypt'), plain, `pad share tree\n${id}`, FLOOR.text);
 export const openShare = async (key: Bytes, id: string, data: Bytes) =>
-  open(await shareKey(key, 'decrypt'), data, `pad share tree\n${id}`);
+  (await openPadded(await shareKey(key, 'decrypt'), data, `pad share tree\n${id}`)).plain;
 
 export const sealShareKey = (keys: Keys, id: string, key: Bytes) =>
   seal(keys.content, key, `pad share key\n${id}`);

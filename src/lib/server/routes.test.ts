@@ -383,7 +383,8 @@ describe('quotas', () => {
     const id = b64(32);
     for (let i = 0; i < 3000; i++) {
       expect((await save('rewrite', cookies, MAX_SEALED, id, '203.0.113.30')).status).toBe(200);
-      later(500);
+      // What the root's write meter refills in the time.
+      later(Math.ceil((MAX_SEALED / WRITES.perSecond) * 1000));
     }
   });
 

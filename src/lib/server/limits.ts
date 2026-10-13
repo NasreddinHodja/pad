@@ -11,6 +11,7 @@
 
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { MAX_DEPTH, MAX_PATH, MAX_SEGMENT, normalizePath } from '../limits.ts';
+import { padded } from '../padme.ts';
 import { address } from './address.ts';
 import { config, type Bucket } from './config.ts';
 
@@ -19,10 +20,13 @@ export { MAX_DEPTH, MAX_PATH, MAX_SEGMENT, normalizePath };
 const MiB = 1024 * 1024;
 
 export const MAX_BYTES = config.padBytes;
-/** A pad's text once sealed: AES-GCM adds a 12-byte nonce and a 16-byte tag. */
-export const MAX_SEALED = MAX_BYTES + 28;
-/** A sealed path, in base64: 255 characters of up to 4 bytes, sealed. */
-export const MAX_SEALED_NAME = 1400;
+/**
+ * A pad's text once sealed: padded with its end marker (padme.ts), then
+ * AES-GCM's 12-byte nonce and 16-byte tag.
+ */
+export const MAX_SEALED = padded(MAX_BYTES + 1) + 28;
+/** A sealed path, in base64: 255 characters of up to 4 bytes, padded, sealed. */
+export const MAX_SEALED_NAME = Math.ceil(((padded(MAX_PATH * 4 + 1) + 28) * 4) / 3);
 /** `{"bg":"#rrggbb","fg":"#rrggbb","ink":"#rrggbb"}` is 45 bytes; sealed, 73. */
 export const MAX_THEME = 256;
 export const MAX_SHARES = config.linksPerRoot;

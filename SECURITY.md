@@ -81,8 +81,10 @@ each.
   the `#` (`/notes#today`), which browsers don't send, and the database keeps
   it only as HMACs. An address from before that change (`/notes/today`) still
   reaches the server once, to be redirected.
-- **Sizes show.** A copy of the database shows how many pads a root has and
-  how long each is.
+- **Sizes show, rounded.** A copy of the database shows how many pads a root
+  has, and how long each is to within its padding (at most 12% more; pads
+  under 256 bytes all look the same). Pads sealed before padding show their
+  exact size until they're saved again.
 - **A password change keeps the root key.** It signs every other browser
   out, but someone who knew the old password and kept the key can still read
   any sealed pad they get later, from the server or a copy of the database.

@@ -75,8 +75,8 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 /Unlocked, metered, quota./ Saves a pad, over the version named. Saving an emptied pad brings it back.
 
 + =If-Match=: the version the text was made over, as the GET's =ETag= (="<ms>"=), or ="0"= for a pad that doesn't exist or has been emptied. Missing: =428=. Not the pad's version now: =412=, and nothing is written.
-+ Body: the sealed text, at most 512 KiB + 28 bytes; over: =413=.
-+ =X-Pad-Name=: the sealed path, base64url, at most 1400 characters. Needed when the pad is new or emptied (missing then: =400=); left out, a pad keeps the name it has.
++ Body: the sealed text, padded (=src/lib/padme.ts=): at most 540,700 bytes, a 512 KiB text's padded size plus 28; over: =413=.
++ =X-Pad-Name=: the sealed path, base64url, at most 1403 characters. Needed when the pad is new or emptied (missing then: =400=); left out, a pad keeps the name it has.
 
 =200= ={"updatedAt": <ms>}=.
 
@@ -131,7 +131,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** GET /_/limits
 
-Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, =growth= and =requests= are buckets of ={"burst", "perSecond", "floor"}=. =padBytes= is the text before encryption, which adds 28 bytes. The operator sets them with =PAD_CONFIG= ([[file:../guide/install.org::*Limits][install guide]]).
+Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, =growth= and =requests= are buckets of ={"burst", "perSecond", "floor"}=. =padBytes= is the text before encryption; padding rounds it up (3.1% at 512 KiB) and sealing adds 28 bytes, and the server, which can't tell text from padding, takes up to that. The operator sets them with =PAD_CONFIG= ([[file:../guide/install.org::*Limits][install guide]]).
 
 =200= ={"padBytes": 524288, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
 

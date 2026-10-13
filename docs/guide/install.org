@@ -105,7 +105,7 @@ Caddy has no rate limits of its own; the app's hold without one ([[file:../archi
 
 * What the proxy sees
 
-Everything that crosses it, whether it keeps it or not: the client's address, when, the root's name (in page URLs and in every =/_/<root>/…= call), pad ids, read-only link ids, body sizes (a pad's text plus 28 bytes), when saves happen, the =User-Agent=, and the unlock cookie, which lets whoever holds it read and replace that root's sealed pads until the browser locks, the password changes or it expires. Not a password, a key, a pad's text or a subpad's name: the browser sends the path after the =#= to nobody, and keys and text only sealed. An old address from before that (=/<root>/a/b=) still sends its path once, then redirects.
+Everything that crosses it, whether it keeps it or not: the client's address, when, the root's name (in page URLs and in every =/_/<root>/…= call), pad ids, read-only link ids, body sizes (a pad's text padded to its Padmé step, plus 28 bytes), when saves happen, the =User-Agent=, and the unlock cookie, which lets whoever holds it read and replace that root's sealed pads until the browser locks, the password changes or it expires. Not a password, a key, a pad's text or a subpad's name: the browser sends the path after the =#= to nobody, and keys and text only sealed. An old address from before that (=/<root>/a/b=) still sends its path once, then redirects.
 
 A proxy that logs keeps that list on disk. Nothing in pad stops an operator from turning a log on; that's what [[file:../architecture/encryption.org][the encryption]] is for.
 
@@ -151,7 +151,7 @@ It derives the keys as the browser does and opens every pad's name and text, and
 | =PAD_TRUSTED_PROXIES= | unset           | Proxy addresses and CIDR ranges, comma-separated, see [[*Behind a reverse proxy][Behind a reverse proxy]]                                          |
 | =HOST=                | every interface | Address to listen on (adapter-bun's)                                                                                    |
 | =PORT=                | =3000=          | Port to listen on (adapter-bun's)                                                                                       |
-| =BODY_SIZE_LIMIT=     | =512K=          | Largest request body (adapter-bun's). Set =1M=: a full pad is =padBytes= plus 28, a link's copy up to 1 MiB              |
+| =BODY_SIZE_LIMIT=     | =512K=          | Largest request body (adapter-bun's). Set =1M=: a full pad is =padBytes= padded, plus 28, a link's copy up to 1 MiB              |
 | =PROTOCOL_HEADER=     | unset (=https=) | Header naming the request's scheme (adapter-bun's); without it every request is taken as HTTPS                          |
 | =HOST_HEADER=         | unset (=Host=)  | Header naming the request's host (adapter-bun's)                                                                        |
 
@@ -167,7 +167,7 @@ The site's origin is the request's =Host= over =https=: adapter-bun has no =ORIG
 
 | Key            | Default                        | What it limits                                                                              |
 |----------------+--------------------------------+---------------------------------------------------------------------------------------------|
-| =padBytes=     | 524288 (512 KiB)               | A pad's text. Past 1 MiB minus 28, raise =BODY_SIZE_LIMIT= with it                          |
+| =padBytes=     | 524288 (512 KiB)               | A pad's text. Past 1,032,191 bytes (padded and sealed, 1 MiB), raise =BODY_SIZE_LIMIT= with it                          |
 | =serverBytes=  | 5368709120 (5 GiB)             | The database, past which no pad or link grows                                               |
 | =rootBytes=    | 16777216 (16 MiB)              | A root's pads and links                                                                     |
 | =rootPads=     | 5000                           | A root's pads, emptied ones included                                                        |

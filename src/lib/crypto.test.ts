@@ -20,6 +20,7 @@ import {
   sealTheme,
   toBase64
 } from './crypto.ts';
+import { padded } from './padme.ts';
 
 test('base64url round-trips without padding', () => {
   const bytes = random(31);
@@ -58,7 +59,7 @@ test('text and names open only under the id they were sealed for', async () => {
   await expect(openText(keys, other, text)).rejects.toThrow();
 
   const name = await sealName(keys, id, 'a/b');
-  expect(await openName(keys, id, name)).toBe('a/b');
+  expect(await openName(keys, id, name)).toEqual({ path: 'a/b', padded: true });
   await expect(openName(keys, other, name)).rejects.toThrow();
 });
 
@@ -80,4 +81,38 @@ test("a theme opens only with its root's keys, and isn't a pad's text", async ()
   await expect(openTheme(await padKeys(random(32)), sealed)).rejects.toThrow();
   const id = await padId(keys, 'a');
   await expect(openText(keys, id, sealed)).rejects.toThrow();
+});
+
+test('text and names are padded, to the same size when short', async () => {
+  const keys = await padKeys(random(32));
+  const id = await padId(keys, 'a');
+  // 28: the nonce and the tag.
+  expect((await sealText(keys, id, 'a')).length).toBe(256 + 28);
+  expect((await sealText(keys, id, 'a'.repeat(255))).length).toBe(256 + 28);
+  expect((await sealText(keys, id, 'a'.repeat(256))).length).toBe(padded(257) + 28);
+  expect(await openText(keys, id, await sealText(keys, id, 'a\0'))).toBe('a\0');
+  // Text can end in the marker's byte: U+00C0 is C3 80 in UTF-8.
+  expect(await openText(keys, id, await sealText(keys, id, 'À'))).toBe('À');
+  expect(await openText(keys, id, await sealText(keys, id, ''))).toBe('');
+  expect(fromBase64(await sealName(keys, id, 'a')).length).toBe(128 + 28);
+  expect(fromBase64(await sealName(keys, id, 'x'.repeat(127))).length).toBe(128 + 28);
+});
+
+test('text and names sealed before padding still open', async () => {
+  const keys = await padKeys(random(32));
+  const id = await padId(keys, 'a');
+  const old = async (aad: string, text: string) => {
+    const iv = random(12);
+    const additionalData = new TextEncoder().encode(aad);
+    const sealed = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv, additionalData },
+      keys.content,
+      new TextEncoder().encode(text)
+    );
+    return new Uint8Array([...iv, ...new Uint8Array(sealed)]);
+  };
+  expect(await openText(keys, id, await old(`pad text\n${id}`, 'hiÀ'))).toBe('hiÀ');
+  const name = toBase64(await old(`pad name\n${id}`, 'a'));
+  expect(await openName(keys, id, name)).toEqual({ path: 'a', padded: false });
+  await expect(openText(keys, id, await old(`pad text\nother`, 'hi'))).rejects.toThrow();
 });
