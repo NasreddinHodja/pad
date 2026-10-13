@@ -5,7 +5,7 @@ The routes under =/_/= that the page calls (=src/lib/api.ts=). Everything sent i
 
 * Conventions
 
-+ =<root>= is a root's name, percent-encoded. A name that isn't a single valid segment: =400=.
++ =<root>= is a root's name, percent-encoded. A name that isn't a single valid segment: =400=. Every name and id is checked once decoded, as it's looked up, and decoded once: =a%2Fb= is =a/b= (=400=), =a%252Fb= is the root =a%2Fb= (=e2e/paths.e2e.ts=).
 + Bytes in JSON are base64url without padding.
 + Errors are JSON, ={"status": 401, "message": "/x is locked"}=.
 + Every route but =GET=s needs =Sec-Fetch-Site: same-origin=, or an =Origin= matching the page's when the browser doesn't send that. Otherwise: =403=.
