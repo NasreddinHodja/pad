@@ -30,7 +30,8 @@ pad.nassu.online {
     # No includeSubDomains: the other subdomains aren't this server.
     Strict-Transport-Security "max-age=63072000"
     X-Content-Type-Options nosniff
-    # Links in a pad would otherwise tell the site they lead to the pad's path.
+    # Links in a pad would otherwise tell the site they lead to the root's name
+    # (the path under it is after the `#`, which a Referer never carries).
     Referrer-Policy no-referrer
     # A page this one opens can't reach back into it through window.opener.
     Cross-Origin-Opener-Policy same-origin
