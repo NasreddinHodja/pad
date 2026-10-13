@@ -88,6 +88,19 @@ No save failed in either. The flood ran on the VPS itself, so it also took CPU f
 
 The disk-filling row is the first run's correction: with the day's 1 GiB available at once, the same run took 1 GiB in 20 s, which the 64 MiB burst replaced.
 
+* Page loads: rendered, or a shell and its data
+
+=loads.ts= on the laptop (16 threads, Bun 1.4.2), 8 at a time for 5 s, each load from a fresh address, 2026-10-13. A root page is rendered on the server today; with =ssr = false= it would be an empty shell and then =__data.json=, which SvelteKit fetches from the browser (=page/index.js= runs no =load= for a shell). Loads a second, two runs each:
+
+| Load                                    | Rendered (today) | Shell, then its data |
+|-----------------------------------------+------------------+----------------------|
+| control: =robots.txt=, a file           | 56,244 / 56,577  | 53,631 / 57,425      |
+| =/=                                     | 9,697 / 9,909    | 9,671 / 9,880        |
+| a claimed root                          | 5,829 / 5,999    | 6,070 / 5,949        |
+| an unclaimed root                       | 6,325 / 6,308    | 6,313 / 5,975        |
+
+The shell costs less than a rendered page (9,079–10,969 alone), but its data request takes it back: no saving, and the gate waits one more round trip. Root and link pages stay rendered. =/= stays rendered too: adapter-bun serves a prerendered page as a file, before =hooks.server.ts=, so without the app's headers, and a prerender runs at build time with SvelteKit's placeholder origin, which would go into =/='s title and the link preview's image URL for every instance.
+
 * Out of scope
 
 + Request floods from many addresses. The VPS takes about 1,900 small requests a second; one address now gets 200 of them, so about 10 addresses flat out fill it. Past that it's the proxy's and the provider's (install guide).
