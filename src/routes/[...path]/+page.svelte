@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/ui/Button.svelte';
   import { browser } from '$app/env';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
@@ -82,9 +83,7 @@
     <div class="flex w-full max-w-xl flex-col gap-3 panel p-3 sm:p-6">
       <h1 class="border-b border-ink text-xl">400</h1>
       <p class="text-ink" role="alert">► not a valid pad path</p>
-      <a class="hit relative self-start text-ink hover:text-hi hover:underline" href="/"
-        >another pad</a
-      >
+      <Button class="self-start" href="/">another pad</Button>
     </div>
   </main>
 {:else if keys === undefined || path === null}

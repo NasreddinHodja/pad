@@ -3,9 +3,11 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import * as api from '#lib/api.ts';
+  import { message, when } from '#lib/format.ts';
   import { href } from '#lib/href.ts';
   import { applyTheme, DEFAULT } from '#lib/theme.ts';
   import { under } from '#lib/tree.ts';
+  import Button from '#lib/ui/Button.svelte';
 
   // A read-only link's copy: the pad it was made at and those under it, all
   // fetched and opened once; moving between them stays on this page. The key
@@ -46,9 +48,6 @@
   // Whether `path` is in the copy at all: a pad, or one with pads under it.
   const found = $derived(!!pad || children.length > 0 || rel === '');
 
-  const when = (ms: number) =>
-    new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
   /** A place in the copy, `parts` under the pad it was made at. */
   const within = (parts: string[]) =>
     `/_/${encodeURIComponent(root)}/s/${id}#${key}` +
@@ -67,7 +66,7 @@
     let current = true;
     api.readShare(root, id, hash).then(
       (s) => current && (shared = s),
-      (e) => current && (problem = e instanceof Error ? e.message : "couldn't open the link")
+      (e) => current && (problem = message(e, "couldn't open the link"))
     );
     return () => (current = false);
   });
@@ -102,24 +101,19 @@
       class="flex min-w-0 flex-1 [scrollbar-width:none] overflow-x-auto whitespace-nowrap"
       aria-label="path"
     >
-      <a class="hit relative text-ink hover:text-hi hover:underline" href="/">pad</a>
+      <Button href="/">pad</Button>
       {#if shared}
         <span class="px-1 text-dim">/</span>
         <!-- The pad the link was made at, then where in the copy this is. -->
         {#if relParts.length}
-          <a class="hit relative text-ink hover:text-hi hover:underline" href={within([])}
-            >{shared.path}</a
-          >
+          <Button href={within([])}>{shared.path}</Button>
         {:else}
           <span aria-current="page">{shared.path}</span>
         {/if}
         {#each relParts as segment, i (i)}
           <span class="px-1 text-dim">/</span>
           {#if i < relParts.length - 1}
-            <a
-              class="hit relative text-ink hover:text-hi hover:underline"
-              href={within(relParts.slice(0, i + 1))}>{segment}</a
-            >
+            <Button href={within(relParts.slice(0, i + 1))}>{segment}</Button>
           {:else}
             <span aria-current="page">{segment}</span>
           {/if}
@@ -131,9 +125,7 @@
     </span>
     {#if path}
       <!-- The pad itself, for those with the password. -->
-      <a class="hit relative text-ink hover:text-hi hover:underline" href={href(path.split('/'))}
-        >edit</a
-      >
+      <Button href={href(path.split('/'))}>edit</Button>
     {/if}
   </header>
 

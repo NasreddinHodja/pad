@@ -21,6 +21,8 @@ A pad's address has its root in the path and the rest after the =#= (=src/lib/hr
 + =Gate.svelte= in =password= mode, for =?password=;
 + =Pad.svelte= otherwise, with =Finder.svelte= under it, =Share.svelte= when its header's *share* is pressed, =ThemePicker.svelte= for a root's *theme* and =Delete.svelte= for its *delete*.
 
+What every screen uses is in =src/lib/ui/=, which imports nothing from the app, to be lifted into a package shared with konigslibrary: =Button.svelte= (the primary button and the text one, a link with an =href=), =Modal.svelte= (a titled panel over =Backdrop.svelte='s checker; Escape and the backdrop close it, =focus-trap.ts= keeps Tab inside and starts on =data-autofocus=) and =motion.ts=.
+
 * The editor
 
 =Pad.svelte= loads the pad and the root's list of paths, decrypts both, and keeps =saved=, the text the server has as far as it knows. Typing schedules a save 600ms out; blur, a hidden tab and navigating away save at once. Only one save runs at a time. A failed one retries after 5 seconds. Every 5 seconds, if nothing is unsaved, it reloads the pad and takes the server's text if it changed, keeping the selection. An empty pad is deleted rather than saved, so it drops out of its parent's list.

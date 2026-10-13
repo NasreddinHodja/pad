@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/ui/Button.svelte';
   import { page } from '$app/state';
 </script>
 
@@ -10,8 +11,6 @@
   <div class="flex w-full max-w-xl flex-col gap-3 panel p-3 sm:p-6">
     <h1 class="border-b border-ink text-xl">{page.status}</h1>
     <p class="text-ink" role="alert">► {page.error?.message ?? 'something went wrong'}</p>
-    <a class="hit relative self-start text-ink hover:text-hi hover:underline" href="/"
-      >another pad</a
-    >
+    <Button class="self-start" href="/">another pad</Button>
   </div>
 </main>

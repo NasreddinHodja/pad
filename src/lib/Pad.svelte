@@ -7,12 +7,14 @@
   import Delete from './Delete.svelte';
   import { collect, download, exportPads } from './export.ts';
   import Finder from './Finder.svelte';
+  import { message } from './format.ts';
   import Share from './Share.svelte';
   import { href } from './href.ts';
-  import { fadeOut, flyIn } from './motion.ts';
+  import { fadeOut, flyIn } from './ui/motion.ts';
   import { rememberTheme, type Theme } from './theme.ts';
   import ThemePicker from './ThemePicker.svelte';
   import { under } from './tree.ts';
+  import Button from './ui/Button.svelte';
 
   let {
     path,
@@ -72,8 +74,6 @@
   let kept = false;
   // False once this editor is gone: what it was waiting for has nowhere to go.
   let alive = true;
-
-  const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
   function schedule(delay = SAVE_DELAY) {
     clearTimeout(timer);
@@ -258,13 +258,18 @@
     await invalidateAll();
   }
 
-  const actions = $derived([
+  // The actions: a row on a wide screen, a menu on a phone. Password is a page,
+  // so a link.
+  type Action = { label: string; disabled?: boolean } & (
+    { href: string; run?: undefined } | { href?: undefined; run: () => void }
+  );
+  const actions: Action[] = $derived([
     { label: 'share', disabled: !ready, run: () => (sharing = true) },
     { label: 'export', disabled: !ready, run: exportAll },
     ...(isRoot ? [{ label: 'theme', disabled: !ready, run: () => (theming = true) }] : []),
-    { label: 'password', disabled: false, run: () => goto(href(segments, '?password')) },
+    { label: 'password', href: href(segments, '?password') },
     ...(isRoot ? [{ label: 'delete', disabled: !ready, run: () => (deleting = true) }] : []),
-    { label: 'lock', disabled: false, run: lock }
+    { label: 'lock', run: lock }
   ]);
 
   // The path on one line: the first segment, "…", then as many of the last as
@@ -320,15 +325,12 @@
         e.stopPropagation();
       }}
     >
-      <a class="hit relative text-ink hover:text-hi hover:underline" href="/">pad</a>
+      <Button href="/">pad</Button>
       {#each segments as segment, i (i)}
         {#if i === 0 || i > folded}
           <span class="px-1 text-dim">/</span>
           {#if i < segments.length - 1}
-            <a
-              class="hit relative text-ink hover:text-hi hover:underline"
-              href={href(segments.slice(0, i + 1))}>{segment}</a
-            >
+            <Button href={href(segments.slice(0, i + 1))}>{segment}</Button>
           {:else}
             <span aria-current="page">{segment}</span>
           {/if}
@@ -346,45 +348,17 @@
       aria-live="polite">{status}</span
     >
     <div class="flex gap-x-4 max-sm:hidden">
-      <button
-        class="hit relative cursor-pointer text-ink hover:text-hi hover:underline disabled:cursor-default disabled:opacity-40"
-        disabled={!ready}
-        onclick={() => (sharing = true)}>share</button
-      >
-      <button
-        class="hit relative cursor-pointer text-ink hover:text-hi hover:underline disabled:cursor-default disabled:opacity-40"
-        disabled={!ready}
-        onclick={exportAll}>export</button
-      >
-      {#if isRoot}
-        <button
-          class="hit relative cursor-pointer text-ink hover:text-hi hover:underline disabled:cursor-default disabled:opacity-40"
-          disabled={!ready}
-          onclick={() => (theming = true)}>theme</button
-        >
-      {/if}
-      <a
-        class="hit relative text-ink hover:text-hi hover:underline"
-        href={href(segments, '?password')}>password</a
-      >
-      {#if isRoot}
-        <button
-          class="hit relative cursor-pointer text-ink hover:text-hi hover:underline disabled:cursor-default disabled:opacity-40"
-          disabled={!ready}
-          onclick={() => (deleting = true)}>delete</button
-        >
-      {/if}
-      <button
-        class="hit relative cursor-pointer text-ink hover:text-hi hover:underline"
-        onclick={lock}>lock</button
-      >
+      {#each actions as item (item.label)}
+        {#if item.href !== undefined}
+          <Button href={item.href}>{item.label}</Button>
+        {:else}
+          <Button disabled={item.disabled} onclick={item.run}>{item.label}</Button>
+        {/if}
+      {/each}
     </div>
     <div bind:this={menuWrap} class="sm:hidden">
-      <button
-        class="hit relative cursor-pointer text-ink hover:text-hi hover:underline"
-        aria-expanded={menu}
-        aria-controls="pad-menu"
-        onclick={() => (menu = !menu)}>{menu ? '×' : '≡'}<span class="sr-only"> menu</span></button
+      <Button aria-expanded={menu} aria-controls="pad-menu" onclick={() => (menu = !menu)}
+        >{menu ? '×' : '≡'}<span class="sr-only"> menu</span></Button
       >
       {#if menu}
         <div
@@ -394,17 +368,19 @@
           out:fadeOut
         >
           {#each actions as item, i (item.label)}
-            <button
-              class="cursor-pointer border border-ink px-2 py-2 text-left text-ink hover:bg-ink3 hover:text-hi disabled:cursor-default disabled:opacity-40 {i >
-              0
-                ? '-mt-px'
-                : ''}"
-              disabled={item.disabled}
-              onclick={() => {
-                menu = false;
-                item.run();
-              }}>› {item.label}</button
-            >
+            {@const classes = `cursor-pointer border border-ink px-2 py-2 text-left text-ink hover:bg-ink3 hover:text-hi disabled:cursor-default disabled:opacity-40 ${i > 0 ? '-mt-px' : ''}`}
+            {#if item.href !== undefined}
+              <a class={classes} href={item.href} onclick={() => (menu = false)}>› {item.label}</a>
+            {:else}
+              <button
+                class={classes}
+                disabled={item.disabled}
+                onclick={() => {
+                  menu = false;
+                  item.run();
+                }}>› {item.label}</button
+              >
+            {/if}
           {/each}
         </div>
       {/if}

@@ -3,7 +3,7 @@
   import { tick } from 'svelte';
   import { rank } from './fuzzy.ts';
   import { href } from './href.ts';
-  import { fadeOut, flyIn } from './motion.ts';
+  import { fadeOut, flyIn } from './ui/motion.ts';
 
   // fzf over the pads under this one. Collapsed it's the field; focused, a
   // panel opens upwards around it over a checker backdrop, best match nearest

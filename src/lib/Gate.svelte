@@ -2,7 +2,9 @@
   import { goto } from '$app/navigation';
   import * as api from './api.ts';
   import { checkPassword, type Keys } from './crypto.ts';
+  import { day, message } from './format.ts';
   import { href } from './href.ts';
+  import Button from './ui/Button.svelte';
 
   let {
     path,
@@ -24,7 +26,6 @@
   // Reclaiming a deleted root is unlocking it with its old password.
   let reclaiming = $state(false);
   const form = $derived(reclaiming ? 'unlock' : mode);
-  const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { dateStyle: 'medium' });
 
   // The fields have no names, so even with scripts off the form can't send
   // a password anywhere: it only ever leaves through the code below, as keys.
@@ -50,7 +51,7 @@
         await goto(href(path.split('/')), { invalidateAll: true });
       }
     } catch (e) {
-      problem = e instanceof Error ? e.message : 'something went wrong';
+      problem = message(e, 'something went wrong');
     } finally {
       busy = false;
     }
@@ -86,13 +87,13 @@
         <p class="text-ink">
           ► a deleted /{root} is still here until {day(purgeAt)}. its old password reclaims it;
           claiming /{root} anew deletes it for good.
-          <button
+          <Button
             type="button"
-            class="hit relative cursor-pointer text-ink underline hover:text-hi"
+            class="underline"
             onclick={() => {
               reclaiming = true;
               problem = '';
-            }}>reclaim it</button
+            }}>reclaim it</Button
           >
         </p>
       {/if}
@@ -153,10 +154,7 @@
       <p class="text-ink" role="alert">► {problem}</p>
     {/if}
     <div class="flex items-center gap-3">
-      <button
-        class="hit relative h-8 cursor-pointer border border-ink bg-ink px-3 text-bg shadow-raised enabled:hover:bg-hi enabled:active:translate-x-0.5 enabled:active:translate-y-0.5 enabled:active:shadow-sunk disabled:cursor-wait pointer-coarse:h-10"
-        disabled={busy}
-      >
+      <Button variant="primary" disabled={busy}>
         {busy
           ? 'deriving keys…'
           : form === 'claim'
@@ -166,22 +164,19 @@
               : form === 'unlock'
                 ? 'unlock'
                 : 'change'}
-      </button>
+      </Button>
       {#if reclaiming}
-        <button
+        <Button
           type="button"
-          class="hit relative cursor-pointer text-ink hover:text-hi hover:underline"
           onclick={() => {
             reclaiming = false;
             problem = '';
-          }}>claim anew</button
+          }}>claim anew</Button
         >
       {:else if mode === 'password'}
-        <a class="hit relative text-ink hover:text-hi hover:underline" href={href(path.split('/'))}
-          >cancel</a
-        >
+        <Button href={href(path.split('/'))}>cancel</Button>
       {:else}
-        <a class="hit relative text-ink hover:text-hi hover:underline" href="/">another pad</a>
+        <Button href="/">another pad</Button>
       {/if}
     </div>
   </form>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { href } from '#lib/href.ts';
+  import Button from '#lib/ui/Button.svelte';
 
   let name = $state('');
 
@@ -42,11 +43,7 @@
           spellcheck="false"
         />
       </label>
-      <button
-        class="hit relative h-8 cursor-pointer border border-ink bg-ink px-3 text-bg shadow-raised active:translate-x-0.5 active:translate-y-0.5 active:shadow-sunk enabled:hover:bg-hi pointer-coarse:h-10"
-      >
-        open
-      </button>
+      <Button variant="primary">open</Button>
     </form>
   </div>
 </main>

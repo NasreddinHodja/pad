@@ -145,3 +145,22 @@ test.describe('a root with a pad under it', () => {
     await expect(editor(page)).toHaveValue('kept');
   });
 });
+
+test('a dialog keeps Tab inside, and Escape gives the pad back its focus', async ({ page }) => {
+  await claimNew(page);
+  await page.getByRole('button', { name: 'delete', exact: true }).click();
+  const dialog = page.getByRole('alertdialog', { name: /^delete \// });
+  const cancel = dialog.getByRole('button', { name: 'cancel', exact: true });
+  const remove = dialog.getByRole('button', { name: 'delete', exact: true });
+  // Cancel first, so a stray Enter deletes nothing.
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(remove).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(remove).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(editor(page)).toBeFocused();
+});
