@@ -2,7 +2,6 @@
   import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
   import { onMount, tick, untrack } from 'svelte';
   import * as api from './api.ts';
-  import { blockCaret } from './caret.ts';
   import { forgetKeys, type Keys } from './crypto.ts';
   import Delete from './Delete.svelte';
   import { collect, download, exportPads } from './export.ts';
@@ -382,7 +381,6 @@
 
   <textarea
     bind:this={textarea}
-    {@attach blockCaret}
     readonly={!ready}
     bind:value={content}
     {oninput}

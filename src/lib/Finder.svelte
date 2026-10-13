@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { tick } from 'svelte';
-  import { blockCaret } from './caret.ts';
   import { rank } from './fuzzy.ts';
   import { href } from './href.ts';
   import { fadeOut, flyIn } from './motion.ts';
@@ -147,7 +146,6 @@
     <input
       class="h-full w-full min-w-0 bg-transparent text-fg placeholder:text-dim focus-visible:outline-none!"
       bind:this={input}
-      {@attach blockCaret}
       bind:value={query}
       onfocus={() => (open = true)}
       onblur={() => (open = false)}

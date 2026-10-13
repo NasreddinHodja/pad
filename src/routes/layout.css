@@ -105,29 +105,6 @@ textarea {
   caret-shape: block;
 }
 
-/* lib/caret.ts's block, over everything, the finder's panel included. */
-.block-caret {
-  position: fixed;
-  z-index: 60;
-  pointer-events: none;
-  white-space: pre;
-  background: var(--color-ink);
-  color: var(--color-bg);
-  animation: blink 1s steps(1) infinite;
-}
-
-@keyframes blink {
-  50% {
-    visibility: hidden;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .block-caret {
-    animation: none;
-  }
-}
-
 ::selection {
   background: var(--color-ink);
   color: var(--color-bg);

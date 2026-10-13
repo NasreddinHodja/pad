@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import * as api from './api.ts';
-  import { blockCaret } from './caret.ts';
   import { checkPassword, type Keys } from './crypto.ts';
   import { href } from './href.ts';
 
@@ -69,7 +68,6 @@
     <input
       class="h-8 border border-ink bg-bg px-2 text-fg pointer-coarse:h-10"
       type="password"
-      {@attach blockCaret}
       {autocomplete}
       required
       maxlength="256"
