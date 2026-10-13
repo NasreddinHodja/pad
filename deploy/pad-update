@@ -89,11 +89,12 @@ esac
 
 # Against the bundle the release attaches: gh needs no login for that
 # (tested), and does for --bundle-from-oci (it refused on this VPS).
-tmp=$(mktemp)
-trap 'rm -f "$tmp"' EXIT
-curl -fsSL -o "$tmp" "https://github.com/$REPO/releases/download/$tag/image-attestation.json" ||
+# gh takes only a .json or .jsonl name.
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+curl -fsSL -o "$tmp/bundle.json" "https://github.com/$REPO/releases/download/$tag/image-attestation.json" ||
   die "no image-attestation.json in release $tag"
-gh attestation verify "oci://$ref" --bundle "$tmp" \
+gh attestation verify "oci://$ref" --bundle "$tmp/bundle.json" \
   --repo "$REPO" \
   --signer-workflow "$REPO/.github/workflows/release.yml" \
   --source-ref "refs/tags/$tag" >/dev/null ||
