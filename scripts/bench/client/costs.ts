@@ -466,6 +466,48 @@ if (root === 'avgroot') {
     await pickTheme('dusk');
   });
 
+  // What a load downloaded, and which of its scripts carries WebAssembly (the
+  // Argon2 chunk): `from` is where in the events the load starts.
+  async function scripts(from: number, load: any) {
+    const bodies: { url: string; bytes: number; wasm: boolean }[] = [];
+    for (const e of events
+      .slice(from)
+      .filter(
+        (e) =>
+          e.sessionId === s &&
+          e.method === 'Network.responseReceived' &&
+          e.params.response.url.endsWith('.js')
+      )) {
+      const b = await S('Network.getResponseBody', { requestId: e.params.requestId }).catch(
+        () => null
+      );
+      const size = load.requests.find((r: any) => r.url === e.params.response.url)?.bytes ?? 0;
+      bodies.push({
+        url: path(e.params.response.url),
+        bytes: size,
+        wasm: !!b && String(b.body).includes('AGFzbQ')
+      });
+    }
+    return {
+      totalKiB: +(load.requests.reduce((a: number, r: any) => a + r.bytes, 0) / 1024).toFixed(1),
+      jsFiles: bodies.length,
+      wasmChunk: bodies.filter((b) => b.wasm)
+    };
+  }
+
+  // The pad again, its keys from IndexedDB: no password, so no Argon2 needed.
+  await section('padRevisit', async () => {
+    await S('Network.setCacheDisabled', { cacheDisabled: true });
+    const from = events.length;
+    const load = await watch(async () => {
+      await S('Page.navigate', { url: `${base}/${root}` });
+      await until(loaded(first), 60000);
+      await Bun.sleep(1000);
+    });
+    out.padRevisit = await scripts(from, load);
+    await S('Network.setCacheDisabled', { cacheDisabled: false });
+  });
+
   // A read-only link's page: what it downloads, cache off. The link comes
   // from the clipboard write the page makes, caught on its way.
   await section('linkPage', async () => {
@@ -490,32 +532,7 @@ if (root === 'avgroot') {
       await until(`!!document.querySelector('pre')`, 30000);
       await Bun.sleep(1000);
     });
-    const bodies: { url: string; bytes: number; wasm: boolean }[] = [];
-    for (const e of events
-      .slice(from)
-      .filter(
-        (e) =>
-          e.sessionId === s &&
-          e.method === 'Network.responseReceived' &&
-          e.params.response.url.endsWith('.js')
-      )) {
-      const b = await S('Network.getResponseBody', { requestId: e.params.requestId }).catch(
-        () => null
-      );
-      const size = linkLoad.requests.find((r: any) => r.url === e.params.response.url)?.bytes ?? 0;
-      bodies.push({
-        url: path(e.params.response.url),
-        bytes: size,
-        wasm: !!b && String(b.body).includes('AGFzbQ')
-      });
-    }
-    out.linkPage = {
-      totalKiB: +(linkLoad.requests.reduce((a: number, r: any) => a + r.bytes, 0) / 1024).toFixed(
-        1
-      ),
-      jsFiles: bodies.length,
-      wasmChunk: bodies.filter((b) => b.wasm)
-    };
+    out.linkPage = await scripts(from, linkLoad);
     await S('Network.setCacheDisabled', { cacheDisabled: false });
   });
 } else {
