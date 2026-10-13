@@ -19,7 +19,7 @@ An unlock lasts 30 days unused, at most 180. The password can't be recovered: th
 
 * Saving
 
-A pad saves itself 600ms after you stop typing, when it loses focus, and when the tab is hidden. The status in the header says =unsaved=, =saving…= or =saved=; on a failure it retries every 5 seconds. Two people in one pad: the last save wins. A pad with nothing unsaved picks up others' saves every 5 seconds.
+A pad saves itself 600ms after you stop typing, when it loses focus, and when the tab is hidden. The status in the header says =unsaved=, =saving…= or =saved=; on a failure it retries every 5 seconds. Two people in one pad: a save made over a version that has since changed is refused, and the pad keeps both texts, the lines they share once and what differs between =<<<<<<< this browser=, ~=======~ and =>>>>>>> elsewhere=; the status says =► changed elsewhere, both kept=. A pad with nothing unsaved picks up others' saves every 5 seconds.
 
 A pad holds 512 KiB, and a root 16 MiB and 5000 pads, its read-only links included; emptied pads count until they're gone for good, 30 days on. Each address adds at most 1 GiB a day. Every limit is in [[file:../architecture/capacity.org][Capacity and limits]].
 

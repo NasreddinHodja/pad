@@ -11,6 +11,14 @@ function target(event: RequestEvent) {
   return { root, id: padIdParam(event.params.id) };
 }
 
+// A write names the version it was made over (If-Match, as the GET's ETag),
+// and is refused over any other: a browser that missed a write can't drop it.
+function current(event: RequestEvent, root: string, id: string) {
+  const over = event.request.headers.get('if-match');
+  if (over === null) error(428, 'say which version this was made over');
+  if (over !== `"${padVersion(root, id)}"`) error(412, 'changed elsewhere');
+}
+
 // The pad's version (its last write's time) is its ETag: the editor's poll
 // sends the one it has, and gets 304 and no body while it's current.
 export const GET: RequestHandler = (event) => {
@@ -35,7 +43,7 @@ export const GET: RequestHandler = (event) => {
 };
 
 // The editor's autosave: the sealed text as the body, the sealed path in a
-// header.
+// header. Nothing awaits between the version's check and the write.
 export const PUT: RequestHandler = async (event) => {
   ours(event);
   const { root, id } = target(event);
@@ -47,6 +55,7 @@ export const PUT: RequestHandler = async (event) => {
   meterWrite(event, root, size);
   const before = padSize(root, id);
   allowGrowth(event, root, size - (before ?? 0), before === null ? 1 : 0);
+  current(event, root, id);
   return json({ updatedAt: putSealed(root, id, name, data) });
 };
 
@@ -55,6 +64,7 @@ export const DELETE: RequestHandler = (event) => {
   ours(event);
   const { root, id } = target(event);
   meterWrite(event, root);
+  current(event, root, id);
   markPad(root, id);
   return new Response(null, { status: 204 });
 };

@@ -18,7 +18,7 @@ const POLL = 5000;
 const RETRY = 5000;
 
 /** The failures these tests have the server answer, which Chromium logs. */
-const REFUSED = /Failed to load resource: the server responded with a status of (500|429|413)/;
+const REFUSED = /Failed to load resource: the server responded with a status of (500|429|413|412)/;
 
 /** Answers a save with `status` and a message, as the server words its errors. */
 const refuse = (route: Route, status: number, message: string, headers = {}) =>
@@ -204,11 +204,92 @@ test.describe('the poll', () => {
     await page.waitForTimeout(POLL * 2 + 1000);
     await expect(editor(page)).toHaveValue('mine');
 
-    // The server back: the retry saves them, last write wins, and the other
-    // browser, with nothing unsaved, shows them.
+    // The server back: the retry is refused over the other's write, so both
+    // are saved, and the other browser, with nothing unsaved, shows them.
     await page.unroute(PAD_ROUTE);
-    await expect(status(page)).toHaveText('saved', { timeout: RETRY + 3000 });
-    await expect(editor(other)).toHaveValue('mine', { timeout: POLL + 3000 });
+    const kept = '<<<<<<< this browser\nmine\n=======\ntheirs\n>>>>>>> elsewhere';
+    await expect(status(page)).toHaveText('► changed elsewhere, both kept', {
+      timeout: RETRY + 3000
+    });
+    await expect(editor(page)).toHaveValue(kept);
+    await expect(editor(other)).toHaveValue(kept, { timeout: POLL + 3000 });
     await opened(other);
+  });
+});
+
+test.describe('two browsers', () => {
+  test.use({ allowedErrors: [REFUSED] });
+
+  test('a save over a newer version keeps both texts', async ({ page, context, newContext }) => {
+    const root = await claimNew(page);
+    await editor(page).fill('list\nmilk\nend');
+    await expect(status(page)).toHaveText('saved');
+    const other = await (await newContext()).newPage();
+    await other.goto('/' + root);
+    await unlock(other, root);
+    await expect(editor(other)).toHaveValue('list\nmilk\nend');
+
+    // This browser's save held until the other has saved over the version
+    // both opened.
+    let release!: () => void;
+    const slow = new Promise<void>((r) => (release = r));
+    let held = 0;
+    await onSave(page, async (route, n) => {
+      if (n === 0) {
+        held++;
+        await slow;
+      }
+      await route.continue();
+    });
+    await editor(page).fill('list\nmilk, eggs\nend');
+    await expect.poll(() => held).toBe(1);
+    await editor(other).fill('list\nmilk, bread\nend');
+    await expect(status(other)).toHaveText('saved');
+    release();
+
+    const both =
+      'list\n<<<<<<< this browser\nmilk, eggs\n=======\nmilk, bread\n>>>>>>> elsewhere\nend';
+    await expect(editor(other)).toHaveValue(both, { timeout: POLL + 3000 });
+    await expect(editor(page)).toHaveValue(both);
+    await expect(status(page)).toHaveText('► changed elsewhere, both kept');
+    expect(await stored(context, root)).toBe(both);
+  });
+
+  test('with the editor gone, both texts are still saved', async ({
+    page,
+    context,
+    newContext
+  }) => {
+    const root = await claimNew(page);
+    await editor(page).fill('a');
+    await expect(status(page)).toHaveText('saved');
+    const other = await (await newContext()).newPage();
+    await other.goto('/' + root);
+    await unlock(other, root);
+
+    let release!: () => void;
+    const slow = new Promise<void>((r) => (release = r));
+    let held = 0;
+    await onSave(page, async (route, n) => {
+      if (n === 0) {
+        held++;
+        await slow;
+      }
+      await route.continue();
+    });
+    await editor(page).fill('mine');
+    await expect.poll(() => held).toBe(1);
+    await editor(other).fill('theirs');
+    await expect(status(other)).toHaveText('saved');
+    // Away from the pad before its refusal arrives.
+    await page.evaluate(() =>
+      document.querySelector<HTMLAnchorElement>('nav[aria-label="path"] a[href="/"]')!.click()
+    );
+    await expect(page.getByRole('heading', { level: 1, name: 'pad' })).toBeVisible();
+    release();
+
+    const kept = '<<<<<<< this browser\nmine\n=======\ntheirs\n>>>>>>> elsewhere';
+    await expect(editor(other)).toHaveValue(kept, { timeout: POLL + 3000 });
+    expect(await stored(context, root)).toBe(kept);
   });
 });

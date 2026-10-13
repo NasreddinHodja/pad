@@ -69,7 +69,7 @@ const queue = [...pads];
 await Promise.all(
   Array.from({ length: 8 }, async () => {
     for (let p; (p = queue.shift());) {
-      await api.save(root, keys, p[0], text(p[1]));
+      await api.save(root, keys, p[0], text(p[1]), 0);
       total += p[1];
       n++;
     }

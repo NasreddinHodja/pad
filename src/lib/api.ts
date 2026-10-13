@@ -220,12 +220,16 @@ export async function loadMany(root: string, keys: Keys, paths: string[]) {
   return Promise.all(texts);
 }
 
-/** An empty pad is deleted. The pad's new version: 0 once deleted. */
-export async function save(root: string, keys: Keys, path: string, text: string) {
+/**
+ * An empty pad is deleted. `over`: the version the text was made over, or 0
+ * for a pad that doesn't exist; refused (412) if the server's is newer. The
+ * pad's new version: 0 once deleted.
+ */
+export async function save(root: string, keys: Keys, path: string, text: string, over: number) {
   const id = await padId(keys, path);
   const url = `${base(root)}/pads/${id}`;
   if (text === '') {
-    await call(url, { method: 'DELETE' });
+    await call(url, { method: 'DELETE', headers: { 'if-match': `"${over}"` } });
     remember(root, path, '', 0);
     return 0;
   }
@@ -234,6 +238,7 @@ export async function save(root: string, keys: Keys, path: string, text: string)
     body: await sealText(keys, id, text),
     headers: {
       'content-type': 'application/octet-stream',
+      'if-match': `"${over}"`,
       'x-pad-name': await sealName(keys, id, path)
     }
   });

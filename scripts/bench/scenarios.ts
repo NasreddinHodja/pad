@@ -34,12 +34,24 @@ async function claim(root: string, ip: string) {
     .join('; ');
 }
 
-const save = (root: string, cookie: string, ip: string, size: number, id = b64(32)) =>
-  fetch(`${base}/_/${root}/pads/${id}`, {
+// Each pad's version, as a browser that saved it last would have it.
+const versions = new Map<string, number>();
+const save = async (root: string, cookie: string, ip: string, size: number, id = b64(32)) => {
+  const r = await fetch(`${base}/_/${root}/pads/${id}`, {
     method: 'PUT',
     body: new Uint8Array(size),
-    headers: h(ip, { cookie, 'x-pad-name': b64(48), 'content-type': 'application/octet-stream' })
-  }).then(async (r) => (await r.arrayBuffer(), r.status));
+    headers: h(ip, {
+      cookie,
+      'if-match': `"${versions.get(root + id) ?? 0}"`,
+      'x-pad-name': b64(48),
+      'content-type': 'application/octet-stream'
+    })
+  });
+  if (r.status === 200)
+    versions.set(root + id, ((await r.json()) as { updatedAt: number }).updatedAt);
+  else await r.arrayBuffer();
+  return r.status;
+};
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const tag = Date.now().toString(36);

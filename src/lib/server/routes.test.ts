@@ -10,7 +10,7 @@ import * as pads from '../../routes/_/[root]/pads/+server.ts';
 import { BATCH_PADS } from '../limits.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as usage from '../../routes/_/[root]/usage/+server.ts';
-import { db, setCeiling } from './db.ts';
+import { db, padVersion, setCeiling } from './db.ts';
 import {
   REQUESTS,
   MAX_SEALED,
@@ -81,12 +81,13 @@ async function claimed(root: string) {
   return cookies;
 }
 
+// A browser that has the pad's current version.
 const save = (root: string, cookies: Cookies, size: number, id = b64(32), address?: string) =>
   call(pad.PUT, {
     method: 'PUT',
     params: { root, id },
     body: new Uint8Array(size),
-    headers: { 'x-pad-name': 'n' },
+    headers: { 'x-pad-name': 'n', 'if-match': `"${padVersion(root, id)}"` },
     cookies,
     address
   });
@@ -173,6 +174,30 @@ describe('versions', () => {
     expect(after.status).toBe(200);
     expect(after.res!.headers.get('etag')).not.toBe(etag);
     expect((await after.res!.json()).pads.length).toBe(2);
+  });
+
+  test('a write over any version but the current one is refused', async () => {
+    const cookies = await claimed('stale');
+    const id = b64(32);
+    const write = (method: 'PUT' | 'DELETE', over?: number) =>
+      call(pad[method], {
+        method,
+        params: { root: 'stale', id },
+        body: method === 'PUT' ? new Uint8Array(10) : undefined,
+        headers: { 'x-pad-name': 'n', ...(over === undefined ? {} : { 'if-match': `"${over}"` }) },
+        cookies
+      });
+    // A new pad's version is 0, and only one of two browsers creating it wins.
+    const first = (await (await write('PUT', 0)).res!.json()).updatedAt;
+    expect((await write('PUT', 0)).status).toBe(412);
+    expect((await write('PUT')).status).toBe(428);
+    expect((await write('DELETE', first - 1)).status).toBe(412);
+    expect((await write('DELETE')).status).toBe(428);
+    expect((await read('stale', id, cookies, first)).status).toBe(304);
+    // Emptied, its version is 0 again; a browser still at the last one is refused.
+    expect((await write('DELETE', first)).status).toBe(204);
+    expect((await write('PUT', first)).status).toBe(412);
+    expect((await write('PUT', 0)).status).toBe(200);
   });
 
   test('two writes in one millisecond get two versions', async () => {

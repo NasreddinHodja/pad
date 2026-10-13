@@ -51,7 +51,12 @@ async function run(label: string, size: number, n: number, conc: number, per: nu
         const r = await fetch(`${base}/_/${root}/pads/${b64(32)}`, {
           method: 'PUT',
           body,
-          headers: { ...headers, 'x-pad-name': b64(48), 'content-type': 'application/octet-stream' }
+          headers: {
+            ...headers,
+            'if-match': '"0"',
+            'x-pad-name': b64(48),
+            'content-type': 'application/octet-stream'
+          }
         });
         if (r.status !== 200) throw new Error(`save ${k}: ${r.status} ${await r.text()}`);
         await r.arrayBuffer();

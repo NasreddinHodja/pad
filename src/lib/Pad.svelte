@@ -2,6 +2,7 @@
   import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
   import { onMount, tick, untrack } from 'svelte';
   import * as api from './api.ts';
+  import { both } from './both.ts';
   import { forgetKeys, type Keys } from './crypto.ts';
   import Delete from './Delete.svelte';
   import { collect, download, exportPads } from './export.ts';
@@ -66,6 +67,9 @@
   let textarea: HTMLTextAreaElement;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let saving = false;
+  // A save was refused over a newer version, and both texts are on screen,
+  // until the next edit.
+  let kept = false;
   // False once this editor is gone: what it was waiting for has nowhere to go.
   let alive = true;
 
@@ -77,6 +81,7 @@
   }
 
   function oninput() {
+    kept = false;
     status = 'unsaved';
     schedule();
   }
@@ -93,12 +98,13 @@
     saving = true;
     status = 'saving…';
     try {
-      version = await api.save(where.root, where.keys, where.path, body);
+      version = await api.save(where.root, where.keys, where.path, body, version);
       writes++;
       saved = body;
-      status = content === saved ? 'saved' : 'unsaved';
+      status = content !== saved ? 'unsaved' : kept ? '► changed elsewhere, both kept' : 'saved';
       if (content !== saved) schedule();
     } catch (e) {
+      if (e instanceof api.Refused && e.status === 412) return await keepBoth();
       // Too big: the pad, or its root past its quota. Sending the same text
       // again can't help; the next edit saves again, and may fit.
       if (e instanceof api.Refused && e.status === 413) {
@@ -114,6 +120,31 @@
     } finally {
       saving = false;
     }
+  }
+
+  // Saved elsewhere since our version: theirs and what's on screen, both,
+  // saved over theirs. Even with this editor gone, which has no screen to
+  // show them on.
+  async function keepBoth() {
+    const theirs = await api.loadSince(where.root, where.keys, where.path, -1).catch(() => null);
+    if (theirs === null) {
+      status = '► changed elsewhere, retrying';
+      return schedule(RETRY);
+    }
+    const merged = both(content, theirs.text);
+    version = theirs.version;
+    saved = theirs.text;
+    if (merged.text !== content) {
+      content = merged.text;
+      kept = true;
+      if (alive) {
+        const { selectionStart, selectionEnd } = textarea;
+        requestAnimationFrame(() =>
+          textarea.setSelectionRange(merged.at(selectionStart), merged.at(selectionEnd))
+        );
+      }
+    }
+    schedule(0);
   }
 
   // Someone else's last write, shown while we have nothing unsaved.

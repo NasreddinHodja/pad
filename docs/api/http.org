@@ -71,8 +71,9 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** PUT /_/<root>/pads/<id>
 
-/Unlocked, metered, quota./ Saves a pad; the last write wins. Saving an emptied pad brings it back.
+/Unlocked, metered, quota./ Saves a pad, over the version named. Saving an emptied pad brings it back.
 
++ =If-Match=: the version the text was made over, as the GET's =ETag= (="<ms>"=), or ="0"= for a pad that doesn't exist or has been emptied. Missing: =428=. Not the pad's version now: =412=, and nothing is written.
 + Body: the sealed text, at most 512 KiB + 28 bytes; over: =413=.
 + =X-Pad-Name=: the sealed path, base64url, at most 1400 characters.
 
@@ -80,7 +81,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** DELETE /_/<root>/pads/<id>
 
-/Unlocked, metered./ What saving an empty pad does: marks it, so it leaves the list and its links 404, and purges it 30 days on unless it's saved again. =204=.
+/Unlocked, metered./ What saving an empty pad does: marks it, so it leaves the list and its links 404, and purges it 30 days on unless it's saved again. =If-Match= as for =PUT=. =204=.
 
 * Theme
 

@@ -70,8 +70,9 @@ export function padVersion(root: string, id: string) {
 }
 
 /**
- * Last write wins, and unmarks an emptied pad. Its time is its version, so it
- * only ever grows: two writes in one millisecond still get two.
+ * Writes the pad, whatever its version (the route checks it), and unmarks an
+ * emptied pad. Its time is its version, so it only ever grows: two writes in
+ * one millisecond still get two.
  */
 export function putSealed(root: string, id: string, name: string, data: Uint8Array) {
   const now = Math.max(Date.now(), (lastStmt.get(root, id)?.updated_at ?? 0) + 1);
