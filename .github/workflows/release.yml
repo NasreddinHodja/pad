@@ -72,11 +72,21 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       # Signed build provenance, checked with `gh attestation verify oci://…`.
-      - uses: actions/attest@v4
+      - id: attest
+        uses: actions/attest@v4
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+      # Attached to the release: gh verifies with a bundle given to it
+      # without logging in, which deploy/pad-update relies on; fetching one
+      # needs a login (cli/cli#11803).
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-attestation
+          path: ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
 
   # The pushed image, started on each architecture as install.org runs it:
   # it has to answer, or the release fails.
@@ -139,6 +149,13 @@ jobs:
         with:
           subject-path: client-files.sha256
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: image-attestation
+          path: image-attestation
+
+      - run: mv image-attestation/* image-attestation.json
+
       - name: Generate release notes
         id: notes
         uses: orhun/git-cliff-action@v4
@@ -149,5 +166,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
-          files: client-files.sha256
+          files: |
+            client-files.sha256
+            image-attestation.json
           body: ${{ steps.notes.outputs.content }}

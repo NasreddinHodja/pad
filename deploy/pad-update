@@ -87,7 +87,13 @@ case "$previous" in
 *"${ref#*@}") echo "$tag is already running."; exit 0 ;;
 esac
 
-gh attestation verify "oci://$ref" --bundle-from-oci \
+# Against the bundle the release attaches: gh needs no login for that
+# (tested), and does for --bundle-from-oci (it refused on this VPS).
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+curl -fsSL -o "$tmp" "https://github.com/$REPO/releases/download/$tag/image-attestation.json" ||
+  die "no image-attestation.json in release $tag"
+gh attestation verify "oci://$ref" --bundle "$tmp" \
   --repo "$REPO" \
   --signer-workflow "$REPO/.github/workflows/release.yml" \
   --source-ref "refs/tags/$tag" >/dev/null ||

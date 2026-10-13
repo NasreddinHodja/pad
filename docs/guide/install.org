@@ -62,6 +62,13 @@ The image has a signed attestation that this repo's release workflow built it:
 gh attestation verify oci://ghcr.io/nasreddinhodja/pad:latest --repo NasreddinHodja/pad.nassu.online
 #+end_src
 
+That needs a GitHub login. Each release also attaches the bundle, =image-attestation.json=; with it, gh checks without one (tested with no credentials at all: the release's digest passed, the wrong tag was refused):
+
+#+begin_src sh
+gh attestation verify oci://ghcr.io/nasreddinhodja/pad:0.1.0 --bundle image-attestation.json \
+  --repo NasreddinHodja/pad.nassu.online --source-ref refs/tags/v0.1.0
+#+end_src
+
 Each release also lists the files every page loads, with their hashes (=client-files.sha256=, attested the same way). The same tag builds the same bytes: the release build sets =SOURCE_DATE_EPOCH= to the commit's time (=vite.config.ts=), and a build in the image at =/src= matched one on a laptop's checkout, all 119 files. Anyone can check that an instance serves them:
 
 #+begin_src sh
