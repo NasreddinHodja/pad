@@ -7,6 +7,11 @@ repository. Please don't open a public issue for it.
 
 Fixes go to `main` and out in the next release.
 
+An advisory against one of pad's dependencies (`bun audit`, which CI runs on
+every push and weekly) is fixed in a release within 7 days if it's high or
+critical and reaches the served code or the server, otherwise in the next
+release.
+
 ## What the server protects
 
 Pad is one Bun process with one SQLite file (`PAD_DB`), meant to sit behind a
