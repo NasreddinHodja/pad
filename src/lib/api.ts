@@ -117,12 +117,53 @@ export const lock = (root: string) => post(`${base(root)}/auth/lock`, {});
 /** Marks the root and its pads deleted, and signs every browser out; its password reclaims it. */
 export const remove = (root: string) => post(`${base(root)}/auth/delete`, {});
 
+// What this tab has opened, decrypted, with the version or ETag the server
+// gave it, so that asking "still this?" gets 304 and no body: moving between
+// pads doesn't download the root's names, or a pad just left, again.
+// Plaintext: it goes with the root's keys (forget). Pads' text, at most
+// CACHE_CHARS, the oldest opened going first.
+const CACHE_CHARS = 1 << 20;
+const pads = new Map<string, { text: string; version: number }>();
+const lists = new Map<string, { etag: string; paths: string[] }>();
+let cached = 0;
+
+function remember(root: string, path: string, text: string, version: number) {
+  const key = root + '\n' + path;
+  const was = pads.get(key);
+  if (was) cached -= was.text.length;
+  pads.delete(key);
+  pads.set(key, { text, version });
+  cached += text.length;
+  for (const [k, v] of pads) {
+    if (cached <= CACHE_CHARS) break;
+    pads.delete(k);
+    cached -= v.text.length;
+  }
+}
+
+/** Drops what this tab keeps of the root's pads and names: for when its keys go. */
+export function forget(root: string) {
+  for (const [k, v] of pads)
+    if (k.startsWith(root + '\n')) {
+      pads.delete(k);
+      cached -= v.text.length;
+    }
+  lists.delete(root);
+}
+
 /** Every pad path in the root. */
 export async function list(root: string, keys: Keys) {
-  const { pads } = (await (await call(`${base(root)}/pads`)).json()) as {
-    pads: { id: string; name: string }[];
-  };
-  return Promise.all(pads.map((p) => openName(keys, p.id, p.name)));
+  const known = lists.get(root);
+  const res = await call(`${base(root)}/pads`, {
+    headers: known ? { 'if-none-match': known.etag } : {},
+    cache: 'no-store'
+  });
+  if (res.status === 304 && known) return [...known.paths];
+  const sealed = ((await res.json()) as { pads: { id: string; name: string }[] }).pads;
+  const paths = await Promise.all(sealed.map((p) => openName(keys, p.id, p.name)));
+  const etag = res.headers.get('etag');
+  if (etag) lists.set(root, { etag, paths });
+  return [...paths];
 }
 
 export async function load(root: string, keys: Keys, path: string) {
@@ -144,8 +185,17 @@ export async function loadSince(root: string, keys: Keys, path: string, version:
   });
   if (res.status === 304) return null;
   const now = Number(res.headers.get('x-updated-at')) || 0;
-  if (res.status === 204) return { text: '', version: now };
-  return { text: await openText(keys, id, new Uint8Array(await res.arrayBuffer())), version: now };
+  const text =
+    res.status === 204 ? '' : await openText(keys, id, new Uint8Array(await res.arrayBuffer()));
+  remember(root, path, text, now);
+  return { text, version: now };
+}
+
+/** The pad: this tab's copy if the server says it's still current. */
+export async function openPad(root: string, keys: Keys, path: string) {
+  const known = pads.get(root + '\n' + path);
+  // No version is -1: without a copy, always the pad itself.
+  return (await loadSince(root, keys, path, known?.version ?? -1)) ?? known!;
 }
 
 /**
@@ -176,6 +226,7 @@ export async function save(root: string, keys: Keys, path: string, text: string)
   const url = `${base(root)}/pads/${id}`;
   if (text === '') {
     await call(url, { method: 'DELETE' });
+    remember(root, path, '', 0);
     return 0;
   }
   const res = await call(url, {
@@ -186,7 +237,9 @@ export async function save(root: string, keys: Keys, path: string, text: string)
       'x-pad-name': await sealName(keys, id, path)
     }
   });
-  return ((await res.json()) as { updatedAt: number }).updatedAt;
+  const { updatedAt } = (await res.json()) as { updatedAt: number };
+  remember(root, path, text, updatedAt);
+  return updatedAt;
 }
 
 /** The root's theme; null if it's never been picked. */

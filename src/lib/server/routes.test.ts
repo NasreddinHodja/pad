@@ -6,6 +6,7 @@ import { handle } from '../../hooks.server.ts';
 import * as auth from '../../routes/_/[root]/auth/[action]/+server.ts';
 import * as pad from '../../routes/_/[root]/pads/[id]/+server.ts';
 import * as batch from '../../routes/_/[root]/pads/batch/+server.ts';
+import * as pads from '../../routes/_/[root]/pads/+server.ts';
 import { BATCH_PADS } from '../limits.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as usage from '../../routes/_/[root]/usage/+server.ts';
@@ -149,6 +150,29 @@ describe('versions', () => {
     expect(same.status).toBe(304);
     expect((await same.res!.arrayBuffer()).byteLength).toBe(0);
     expect((await read('versions', id, cookies, version - 1)).status).toBe(200);
+  });
+
+  test('the list is 304 to its own ETag, until a pad changes', async () => {
+    const cookies = await claimed('listed');
+    await save('listed', cookies, 10, b64(32));
+    const list = (etag?: string) =>
+      call(pads.GET, {
+        params: { root: 'listed' },
+        cookies,
+        headers: etag ? { 'if-none-match': etag } : {}
+      });
+    const first = await list();
+    expect(first.status).toBe(200);
+    const etag = first.res!.headers.get('etag')!;
+    expect(etag).toMatch(/^".+"$/);
+    const same = await list(etag);
+    expect(same.status).toBe(304);
+    expect((await same.res!.arrayBuffer()).byteLength).toBe(0);
+    await save('listed', cookies, 10, b64(32));
+    const after = await list(etag);
+    expect(after.status).toBe(200);
+    expect(after.res!.headers.get('etag')).not.toBe(etag);
+    expect((await after.res!.json()).pads.length).toBe(2);
   });
 
   test('two writes in one millisecond get two versions', async () => {

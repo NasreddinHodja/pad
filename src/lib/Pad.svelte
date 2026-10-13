@@ -137,8 +137,7 @@
   async function open() {
     try {
       const [pad, paths] = await Promise.all([
-        // No version matches -1: always the pad itself.
-        api.loadSince(where.root, where.keys, where.path, -1),
+        api.openPad(where.root, where.keys, where.path),
         api.list(where.root, where.keys)
       ]);
       if (!alive || !pad) return;
@@ -210,6 +209,7 @@
     await save();
     if (content !== saved) return;
     rememberTheme(where.root, null);
+    api.forget(where.root);
     await Promise.all([api.lock(where.root), forgetKeys(where.root)]).catch(() => {});
     goto('/');
   }
@@ -222,6 +222,7 @@
     await api.remove(where.root);
     saved = null;
     rememberTheme(where.root, null);
+    api.forget(where.root);
     await forgetKeys(where.root);
     await invalidateAll();
   }
