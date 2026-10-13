@@ -49,6 +49,11 @@ const putStmt = db.query(
   `INSERT INTO sealed (root, id, name, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
    ON CONFLICT(root, id) DO UPDATE SET name = ?3, data = ?4, updated_at = ?5, deleted_at = NULL`
 );
+// A pad that has its name: SQLite checks NOT NULL on the row an upsert would
+// insert, so keeping the name is an UPDATE of its own.
+const rewriteStmt = db.query(
+  'UPDATE sealed SET data = ?3, updated_at = ?4, deleted_at = NULL WHERE root = ?1 AND id = ?2'
+);
 const listStmt = db.query<{ id: string; name: string }, [string]>(
   `SELECT id, name FROM sealed WHERE root = ? AND deleted_at IS NULL ORDER BY id LIMIT ${ROOT_PADS}`
 );
@@ -56,8 +61,8 @@ const listStmt = db.query<{ id: string; name: string }, [string]>(
 const usageStmt = db.query<{ bytes: number; pads: number }, [string]>(
   'SELECT bytes, pads FROM roots WHERE name = ?'
 );
-const sizeStmt = db.query<{ size: number }, [string, string]>(
-  'SELECT length(data) + length(name) AS size FROM sealed WHERE root = ? AND id = ?'
+const sizeStmt = db.query<{ total: number; name: number }, [string, string]>(
+  'SELECT length(data) + length(name) AS total, length(name) AS name FROM sealed WHERE root = ? AND id = ?'
 );
 
 export function getSealed(root: string, id: string) {
@@ -71,12 +76,13 @@ export function padVersion(root: string, id: string) {
 
 /**
  * Writes the pad, whatever its version (the route checks it), and unmarks an
- * emptied pad. Its time is its version, so it only ever grows: two writes in
- * one millisecond still get two.
+ * emptied pad. A null name keeps the one it has. Its time is its version, so
+ * it only ever grows: two writes in one millisecond still get two.
  */
-export function putSealed(root: string, id: string, name: string, data: Uint8Array) {
+export function putSealed(root: string, id: string, name: string | null, data: Uint8Array) {
   const now = Math.max(Date.now(), (lastStmt.get(root, id)?.updated_at ?? 0) + 1);
-  putStmt.run(root, id, name, data, now);
+  if (name === null) rewriteStmt.run(root, id, data, now);
+  else putStmt.run(root, id, name, data, now);
   return now;
 }
 
@@ -89,7 +95,7 @@ export function usage(root: string) {
   return usageStmt.get(root) ?? { bytes: 0, pads: 0 };
 }
 
-/** The bytes the pad counts for now; null if it doesn't exist. */
+/** The bytes the pad counts for now, and its name's; null if it has no row. */
 export function padSize(root: string, id: string) {
-  return sizeStmt.get(root, id)?.size ?? null;
+  return sizeStmt.get(root, id) ?? null;
 }

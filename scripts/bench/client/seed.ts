@@ -76,4 +76,3 @@ await Promise.all(
   })
 );
 console.log(kind, n, 'pads,', total, 'bytes of text');
-console.log(await (await fetch(`/_/${root}/usage`)).text());

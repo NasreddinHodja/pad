@@ -6,10 +6,8 @@
 import { db } from './db.ts';
 import { MAX_SHARES } from './limits.ts';
 
-// A link to an emptied pad is quiet until the pad is saved again or purged.
 const getStmt = db.query<{ data: Uint8Array; created_at: number }, [string, string]>(
-  `SELECT data, created_at FROM shares s WHERE id = ? AND root = ? AND NOT EXISTS
-   (SELECT 1 FROM sealed WHERE root = s.root AND id = s.pad AND deleted_at IS NOT NULL)`
+  'SELECT data, created_at FROM shares WHERE id = ? AND root = ?'
 );
 const listStmt = db.query<
   { id: string; sealed_key: Uint8Array; created_at: number },

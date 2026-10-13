@@ -1,11 +1,12 @@
 // Deletion is a mark, and the mark is undone or made good after GRACE.
 //
-// An emptied pad is marked: it drops out of its root's list and its links go
-// quiet, and saving it again unmarks it. A deleted root is marked with every
+// An emptied pad is marked, and its sealed text and name go at once: nothing
+// could read them (saving it again writes both anew). It drops out of its
+// root's list; its links, copies of their own, stay until revoked. A deleted root is marked with every
 // pad in it, at one time, and every browser is signed out of it; its old
 // password reclaims it, unmarking what was marked with it, and a fresh claim
 // purges it first. Whatever is still marked after GRACE is purged: the sealed
-// pads, their links and, for a root, its password, unlocks and devices.
+// pads' rows and, for a root, its password, unlocks, devices and links.
 
 import { config } from './config.ts';
 import { db } from './db.ts';
@@ -14,8 +15,11 @@ export const GRACE = config.grace;
 /** How often a request may set off a purge. */
 const PURGE_EVERY = 60 * 60 * 1000;
 
+// The row stays, empty: it keeps the pad's version growing and counts toward
+// the root's pads until it's purged.
 const markPadStmt = db.query(
-  'UPDATE sealed SET deleted_at = ? WHERE root = ? AND id = ? AND deleted_at IS NULL'
+  `UPDATE sealed SET deleted_at = ?, data = x'', name = ''
+   WHERE root = ? AND id = ? AND deleted_at IS NULL`
 );
 const deletedAtStmt = db.query<{ deleted_at: number | null }, [string]>(
   'SELECT deleted_at FROM roots WHERE name = ?'
@@ -37,9 +41,6 @@ const unmarkRootStmt = db.query('UPDATE roots SET deleted_at = NULL WHERE name =
 // The root's pads, links, unlocks and devices go with it.
 const purgeRootStmt = db.query('DELETE FROM roots WHERE name = ?');
 const purgeRootsStmt = db.query('DELETE FROM roots WHERE deleted_at <= ?');
-const purgeLinksStmt = db.query(
-  'DELETE FROM shares WHERE (root, pad) IN (SELECT root, id FROM sealed WHERE deleted_at <= ?)'
-);
 const purgePadsStmt = db.query('DELETE FROM sealed WHERE deleted_at <= ?');
 
 /** An emptied pad. Its first emptying counts, not later ones. */
@@ -80,7 +81,6 @@ export function purgeRoot(root: string) {
 export const purge = db.transaction((now: number) => {
   const before = now - GRACE;
   purgeRootsStmt.run(before);
-  purgeLinksStmt.run(before);
   purgePadsStmt.run(before);
 });
 

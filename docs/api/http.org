@@ -67,7 +67,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 /Unlocked./ =<id>= is 43 base64url characters.
 
-+ =200=, =application/octet-stream=: the sealed text, with =X-Updated-At= in Unix milliseconds.
++ =200=, =application/octet-stream=: the sealed text, with its version as =ETag=: ="<ms>"=, its last write's time in Unix milliseconds.
 + =204= if there's no such pad, or it's been emptied.
 
 ** PUT /_/<root>/pads/<id>
@@ -76,13 +76,13 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 + =If-Match=: the version the text was made over, as the GET's =ETag= (="<ms>"=), or ="0"= for a pad that doesn't exist or has been emptied. Missing: =428=. Not the pad's version now: =412=, and nothing is written.
 + Body: the sealed text, at most 512 KiB + 28 bytes; over: =413=.
-+ =X-Pad-Name=: the sealed path, base64url, at most 1400 characters.
++ =X-Pad-Name=: the sealed path, base64url, at most 1400 characters. Needed when the pad is new or emptied (missing then: =400=); left out, a pad keeps the name it has.
 
 =200= ={"updatedAt": <ms>}=.
 
 ** DELETE /_/<root>/pads/<id>
 
-/Unlocked, metered./ What saving an empty pad does: marks it, so it leaves the list and its links 404, and purges it 30 days on unless it's saved again. =If-Match= as for =PUT=. =204=.
+/Unlocked, metered./ What saving an empty pad does: drops its sealed text and name and marks it, so it leaves the list; its links stay. The empty row is purged 30 days on unless it's saved again. =If-Match= as for =PUT=. =204=.
 
 * Theme
 
@@ -117,7 +117,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** GET /_/<root>/shares/<link>
 
-/Open./ Anyone with the link may. =200=, =application/octet-stream=: the sealed copy, with =X-Created-At= in Unix milliseconds. =404= if it was revoked or never made, or its pad is emptied or its root deleted.
+/Open./ Anyone with the link may. =200=, =application/octet-stream=: the sealed copy, with =X-Created-At= in Unix milliseconds. =404= if it was revoked or never made, or its root deleted.
 
 ** DELETE /_/<root>/pads/<id>/shares
 
@@ -135,8 +135,3 @@ Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, 
 
 =200= ={"padBytes": 524288, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
 
-** GET /_/<root>/usage
-
-/Unlocked./ What the root's quota counts: its pads' sealed text and paths, emptied ones included until purged, and its links.
-
-=200= ={"bytes": <n>, "pads": <n>}=.

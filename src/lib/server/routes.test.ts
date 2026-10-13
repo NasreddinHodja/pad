@@ -9,8 +9,7 @@ import * as batch from '../../routes/_/[root]/pads/batch/+server.ts';
 import * as pads from '../../routes/_/[root]/pads/+server.ts';
 import { BATCH_PADS } from '../limits.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
-import * as usage from '../../routes/_/[root]/usage/+server.ts';
-import { db, padVersion, setCeiling } from './db.ts';
+import { db, padVersion, setCeiling, usage } from './db.ts';
 import {
   REQUESTS,
   MAX_SEALED,
@@ -198,6 +197,32 @@ describe('versions', () => {
     expect((await write('DELETE', first)).status).toBe(204);
     expect((await write('PUT', first)).status).toBe(412);
     expect((await write('PUT', 0)).status).toBe(200);
+  });
+
+  test('a save without a name keeps the one the pad has; a new or emptied pad needs one', async () => {
+    const cookies = await claimed('named');
+    const id = b64(32);
+    const write = (method: 'PUT' | 'DELETE', name?: string) =>
+      call(pad[method], {
+        method,
+        params: { root: 'named', id },
+        body: method === 'PUT' ? new Uint8Array(10) : undefined,
+        headers: {
+          'if-match': `"${padVersion('named', id)}"`,
+          ...(name === undefined ? {} : { 'x-pad-name': name })
+        },
+        cookies
+      });
+    expect((await write('PUT')).status).toBe(400);
+    expect((await write('PUT', 'abc')).status).toBe(200);
+    expect((await write('PUT')).status).toBe(200);
+    const { res } = await call(pads.GET, { params: { root: 'named' }, cookies });
+    expect((await res!.json()).pads).toEqual([{ id, name: 'abc' }]);
+    expect(usage('named').bytes).toBe(13);
+    expect((await write('DELETE')).status).toBe(204);
+    expect((await write('PUT')).status).toBe(400);
+    expect((await write('PUT', 'abcd')).status).toBe(200);
+    expect(usage('named').bytes).toBe(14);
   });
 
   test('two writes in one millisecond get two versions', async () => {
@@ -399,10 +424,9 @@ describe('quotas', () => {
     }
   });
 
-  test('usage counts pads and links', async () => {
+  test('the quota counts pads and links', async () => {
     const cookies = await claimed('count');
     await save('count', cookies, 100);
-    const { res } = await call(usage.GET, { params: { root: 'count' }, cookies });
-    expect(await res!.json()).toEqual({ bytes: 101, pads: 1 });
+    expect(usage('count')).toEqual({ bytes: 101, pads: 1 });
   });
 });

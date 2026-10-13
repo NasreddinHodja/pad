@@ -44,7 +44,7 @@ async function inBatches(
 
 /**
  * The pad and every pad under it, all at once: a read-only link's copy is
- * one sealed blob. At most a root's 16 MiB (ROOT_BYTES).
+ * one sealed blob. At most a root's quota (ROOT_BYTES).
  */
 export async function collect(
   root: string,

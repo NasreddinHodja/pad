@@ -13,7 +13,7 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 | =/_/<root>/pads=, =/_/<root>/pads/<id>=                 | list, read, write, delete sealed pads           |
 | =/_/<root>/s/<link>#<key>~<path>=                       | a read-only link's pages                        |
 | =/_/<root>/shares/<link>=, =/_/<root>/pads/<id>/shares= | make, read, revoke, list read-only links        |
-| =/_/<root>/usage=, =/_/limits=                          | what a root's quota counts; every limit         |
+| =/_/limits=                                             | every limit                                     |
 
 A pad's address has its root in the path and the rest after the =#= (=src/lib/href.ts=), which browsers don't send: the server learns which root is open, not which pad under it. =/<root>='s load (=+page.server.ts=) normalises the root (redirecting an address from before, =/a/b=, to =/a#b=) and returns only the root's state: =open=, =locked= or =unlocked=, and its salt. The page then shows:
 
@@ -41,7 +41,7 @@ What every screen uses is in =src/lib/ui/=, which imports nothing from the app, 
 + =devices= :: one row per browser per root it has ever unlocked: SHA-256 of the device cookie's token, when it was last seen there. Kept through locking; gone after 180 days unseen.
 + =shares= :: one row per read-only link: its random =id=, root, =pad= (the pad's id; the pad needn't be saved, if pads under it are), =sealed_key= (the link's key, encrypted under the root's), =data= (the copy, encrypted under the link's key), =created_at=.
 
-Emptying a pad sets its =deleted_at=; saving it again clears it. Deleting a root sets the root's and its live pads' to one time, later than any of its pads already emptied, and drops its =unlocks=; unlocking it clears the root's and those pads'. A marked pad's links 404, as do a deleted root's. A request runs a purge at most hourly, before anything else (=hooks.server.ts=): whatever was marked more than 30 days ago goes, a root with its pads, links, =unlocks= and =devices=. Claiming a deleted root purges it first.
+Emptying a pad sets its =deleted_at= and empties its =data= and =name=; saving it again clears the mark. Deleting a root sets the root's and its live pads' to one time, later than any of its pads already emptied, and drops its =unlocks=; unlocking it clears the root's and those pads'. A deleted root's links 404; an emptied pad's don't. A request runs a purge at most hourly, before anything else (=hooks.server.ts=): whatever was marked more than 30 days ago goes, a root with its pads, links, =unlocks= and =devices=. Claiming a deleted root purges it first.
 
 Rate limits and wrong-password counts are in memory (=limits.ts=, =auth.ts=): a restart clears them.
 

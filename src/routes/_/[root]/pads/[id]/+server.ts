@@ -36,30 +36,33 @@ export const GET: RequestHandler = (event) => {
     headers: {
       'content-type': 'application/octet-stream',
       'cache-control': 'no-store',
-      etag: `"${version}"`,
-      'x-updated-at': String(version)
+      etag: `"${version}"`
     }
   });
 };
 
-// The editor's autosave: the sealed text as the body, the sealed path in a
-// header. Nothing awaits between the version's check and the write.
+// The editor's autosave: the sealed text as the body, and the sealed path in
+// a header when the pad is new or emptied; a pad that has one keeps it.
+// Nothing awaits between the version's check and the write.
 export const PUT: RequestHandler = async (event) => {
   ours(event);
   const { root, id } = target(event);
-  const name = event.request.headers.get('x-pad-name') ?? '';
-  if (!/^[A-Za-z0-9_-]+$/.test(name) || name.length > MAX_SEALED_NAME)
+  const name = event.request.headers.get('x-pad-name');
+  if (name !== null && (!/^[A-Za-z0-9_-]+$/.test(name) || name.length > MAX_SEALED_NAME))
     error(400, 'malformed pad name');
   const data = await readCapped(event.request, MAX_SEALED, `pad is over ${MAX_BYTES / 1024} KiB`);
-  const size = data.length + name.length;
-  meterWrite(event, root, size);
   const before = padSize(root, id);
-  allowGrowth(event, root, size - (before ?? 0), before === null ? 1 : 0);
+  const size = data.length + (name?.length ?? before?.name ?? 0);
+  meterWrite(event, root, size);
+  allowGrowth(event, root, size - (before?.total ?? 0), before === null ? 1 : 0);
   current(event, root, id);
+  // Past the version's check: a stale browser gets 412, not this.
+  if (name === null && padVersion(root, id) === 0) error(400, 'a new pad needs its name');
   return json({ updatedAt: putSealed(root, id, name, data) });
 };
 
-// An emptied pad: marked, and purged in 30 days unless it's saved again.
+// An emptied pad: its text and name go now, its row in 30 days unless it's
+// saved again.
 export const DELETE: RequestHandler = (event) => {
   ours(event);
   const { root, id } = target(event);

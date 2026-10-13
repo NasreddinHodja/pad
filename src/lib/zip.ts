@@ -101,9 +101,3 @@ export class ZipWriter {
     return new Blob([...this.#parts, ...this.#central, end], { type: 'application/zip' });
   }
 }
-
-export async function zip(files: File[], now = new Date()) {
-  const out = new ZipWriter(now);
-  for (const file of files) await out.add(file);
-  return out.finish();
-}

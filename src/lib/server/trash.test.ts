@@ -2,7 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { expect, test } from 'bun:test';
 import { randomBytes } from 'node:crypto';
 import { access, claim, unlock, verify } from './auth.ts';
-import { getSealed, listSealed, putSealed } from './db.ts';
+import { db, getSealed, listSealed, putSealed, usage } from './db.ts';
 import { addShare, getShare } from './shares.ts';
 import { deletedAt, deleteRoot, GRACE, markPad, purge, reclaimRoot } from './trash.ts';
 
@@ -18,17 +18,26 @@ const bytes = (n: number) => new Uint8Array(randomBytes(n));
 const id = (c: string) => c.repeat(43);
 const link = (c: string) => c.repeat(22);
 
-test('an emptied pad drops out, its links go quiet, and saving it again brings both back', () => {
+test('an emptied pad drops out, its links stay, and saving it again brings it back', () => {
   claim('empty', bytes(16), bytes(32), bytes(60));
   putSealed('empty', id('a'), 'name', bytes(10));
   addShare('empty', link('w'), id('a'), bytes(60), bytes(10));
   markPad('empty', id('a'));
   expect(getSealed('empty', id('a'))).toBeNull();
   expect(listSealed('empty')).toEqual([]);
-  expect(getShare('empty', link('w'))).toBeNull();
+  expect(getShare('empty', link('w'))).not.toBeNull();
   putSealed('empty', id('a'), 'name', bytes(10));
   expect(getSealed('empty', id('a'))).not.toBeNull();
-  expect(getShare('empty', link('w'))).not.toBeNull();
+});
+
+test("an emptied pad's text and name leave at once; it still counts as a pad", () => {
+  claim('drop', bytes(16), bytes(32), bytes(60));
+  putSealed('drop', id('a'), 'name', bytes(10));
+  markPad('drop', id('a'));
+  expect(
+    db.query("SELECT length(data) + length(name) AS n FROM sealed WHERE root = 'drop'").get()
+  ).toEqual({ n: 0 });
+  expect(usage('drop')).toEqual({ bytes: 0, pads: 1 });
 });
 
 test('a deleted root signs everyone out, and its password reclaims what was deleted with it', () => {
@@ -77,6 +86,5 @@ test('a purge takes only what has been marked longer than the grace', () => {
   purge(Date.now() + GRACE + 1);
   expect(access(jar(), 'old')).toBe('open');
   expect(listSealed('kept').map((p) => p.id)).toEqual([id('a')]);
-  putSealed('kept', id('b'), 'name', bytes(10));
-  expect(getShare('kept', link('y'))).toBeNull();
+  expect(getShare('kept', link('y'))).not.toBeNull();
 });

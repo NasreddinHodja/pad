@@ -3,7 +3,7 @@
 
 * Paths
 
-Any path is a pad: =/notes=, =/notes/today=, =/notes/today/later=. Pads are made by typing in them and deleted by emptying them: an emptied pad leaves its parent's list, and its read-only links stop working; typing in it again within 30 days brings the links back, and after that it's gone for good. A path has up to 10 segments of up to 64 characters, 255 in all; =/_/…= is reserved for the API.
+Any path is a pad: =/notes=, =/notes/today=, =/notes/today/later=. Pads are made by typing in them and deleted by emptying them: an emptied pad leaves its parent's list and its text leaves the server; its read-only links, copies of their own, keep working until revoked. A path has up to 10 segments of up to 64 characters, 255 in all; =/_/…= is reserved for the API.
 
 * Roots and passwords
 
@@ -21,7 +21,7 @@ An unlock lasts 30 days unused, at most 180. The password can't be recovered: th
 
 A pad saves itself 600ms after you stop typing, when it loses focus, and when the tab is hidden. The status in the header says =unsaved=, =saving…= or =saved=; on a failure it retries every 5 seconds. Two people in one pad: a save made over a version that has since changed is refused, and the pad keeps both texts, the lines they share once and what differs between =<<<<<<< this browser=, ~=======~ and =>>>>>>> elsewhere=; the status says =► changed elsewhere, both kept=. A pad with nothing unsaved picks up others' saves every 5 seconds.
 
-A pad holds 512 KiB, and a root 16 MiB and 5000 pads, its read-only links included; emptied pads count until they're gone for good, 30 days on. Each address adds at most 1 GiB a day. Every limit is in [[file:../architecture/capacity.org][Capacity and limits]].
+A pad holds 512 KiB, and a root 16 MiB, its read-only links included, and 5000 pads, emptied ones counted for 30 days. Each address adds at most 1 GiB a day. Every limit is in [[file:../architecture/capacity.org][Capacity and limits]].
 
 * Read-only links
 

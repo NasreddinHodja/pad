@@ -166,13 +166,6 @@ export async function list(root: string, keys: Keys) {
   return [...paths];
 }
 
-export async function load(root: string, keys: Keys, path: string) {
-  const id = await padId(keys, path);
-  const res = await call(`${base(root)}/pads/${id}`);
-  if (res.status === 204) return '';
-  return openText(keys, id, new Uint8Array(await res.arrayBuffer()));
-}
-
 /**
  * The pad, unless it's still at `version`: null then. Its version comes with
  * it, for the next ask.
@@ -184,7 +177,7 @@ export async function loadSince(root: string, keys: Keys, path: string, version:
     cache: 'no-store'
   });
   if (res.status === 304) return null;
-  const now = Number(res.headers.get('x-updated-at')) || 0;
+  const now = Number(res.headers.get('etag')?.slice(1, -1)) || 0;
   const text =
     res.status === 204 ? '' : await openText(keys, id, new Uint8Array(await res.arrayBuffer()));
   remember(root, path, text, now);
@@ -239,7 +232,9 @@ export async function save(root: string, keys: Keys, path: string, text: string,
     headers: {
       'content-type': 'application/octet-stream',
       'if-match': `"${over}"`,
-      'x-pad-name': await sealName(keys, id, path)
+      // Only a pad the server has no row for, or an emptied one, needs its
+      // name: a fresh seal of it on every save would change the root's list.
+      ...(over === 0 && { 'x-pad-name': await sealName(keys, id, path) })
     }
   });
   const { updatedAt } = (await res.json()) as { updatedAt: number };

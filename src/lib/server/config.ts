@@ -20,7 +20,7 @@ export const DEFAULTS = {
   linksPerRoot: 1000,
   /** The database's size past which no pad or link grows. */
   serverBytes: 5 * GiB,
-  /** A root's pads (sealed text and path, emptied ones too until purged) and links. */
+  /** A root's pads (sealed text and path) and links. */
   rootBytes: 16 * MiB,
   /** A root's pads, emptied ones too: the list returns at most this many. */
   rootPads: 5000,

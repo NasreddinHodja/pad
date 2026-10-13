@@ -58,15 +58,11 @@ export function allowGrowth(event: RequestEvent, root: string, bytes: number, pa
   if (bytes <= 0 && pads <= 0) return;
   if (full()) error(507, 'this server is full');
   const used = usage(root);
-  // Emptied pads count until they're purged, or emptying and refilling would
-  // get around the quota.
+  // Emptied pads count until they're purged: their rows are still there.
   if (used.pads + pads > ROOT_PADS)
     error(413, `/${root} has ${ROOT_PADS} pads, emptied ones included until they're purged`);
   if (used.bytes + bytes > ROOT_BYTES)
-    error(
-      413,
-      `/${root} is at its ${ROOT_BYTES / 1024 / 1024} MiB, emptied pads included until they're purged`
-    );
+    error(413, `/${root} is at its ${ROOT_BYTES / 1024 / 1024} MiB`);
   meterGrowth(event, bytes);
 }
 

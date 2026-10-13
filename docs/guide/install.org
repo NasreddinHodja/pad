@@ -169,7 +169,7 @@ The site's origin is the request's =Host= over =https=: adapter-bun has no =ORIG
 |----------------+--------------------------------+---------------------------------------------------------------------------------------------|
 | =padBytes=     | 524288 (512 KiB)               | A pad's text. Past 1 MiB minus 28, raise =BODY_SIZE_LIMIT= with it                          |
 | =serverBytes=  | 5368709120 (5 GiB)             | The database, past which no pad or link grows                                               |
-| =rootBytes=    | 16777216 (16 MiB)              | A root's pads and links, emptied pads included until purged                                 |
+| =rootBytes=    | 16777216 (16 MiB)              | A root's pads and links                                                                     |
 | =rootPads=     | 5000                           | A root's pads, emptied ones included                                                        |
 | =linksPerRoot= | 1000                           | Read-only links a root has at once                                                          |
 | =writes=       | 16 MiB burst, 1 MiB/s, 16 KiB  | Writes to a root by anyone unlocked there: ={"burst", "perSecond", "floor"}=, in bytes      |

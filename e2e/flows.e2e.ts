@@ -133,6 +133,42 @@ test.describe('a root with a pad under it', () => {
     );
   });
 
+  test("saving a pad that exists doesn't change the root's list", async ({ page }) => {
+    const root = await claimNew(page);
+    await editor(page).fill('top');
+    await expect(status(page)).toHaveText('saved');
+    await page.goto(padUrl(`${root}/sub`));
+    await opened(page);
+    await editor(page).fill('below');
+    await expect(status(page)).toHaveText('saved');
+    await page.getByRole('navigation', { name: 'path' }).getByRole('link', { name: root }).click();
+    await opened(page);
+    await expect(editor(page)).toHaveValue('top');
+
+    // From here no pad is made or emptied: every move asks the list and gets 304.
+    const lists: number[] = [];
+    page.on('response', (r) => {
+      if (new URL(r.url()).pathname === `/_/${root}/pads`) lists.push(r.status());
+    });
+    const finder = page.getByRole('combobox', { name: `find or make a pad under ${root}` });
+    for (const text of ['top 2', 'top 3']) {
+      await editor(page).fill(text);
+      await expect(status(page)).toHaveText('saved');
+      await finder.click();
+      await finder.fill('sub');
+      await finder.press('Enter');
+      await expect(page).toHaveURL(`/${root}#sub`);
+      await opened(page);
+      await page
+        .getByRole('navigation', { name: 'path' })
+        .getByRole('link', { name: root })
+        .click();
+      await opened(page);
+      await expect(editor(page)).toHaveValue(text);
+    }
+    expect(lists).toEqual([304, 304, 304, 304]);
+  });
+
   test('an address from before the path moved after the #', async ({ page }) => {
     const root = await claimNew(page);
     await page.goto(padUrl(`${root}/old`));

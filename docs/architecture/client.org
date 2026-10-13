@@ -314,7 +314,7 @@ Each against the build before it, two runs each of =costs.ts= on the average roo
 
 + Argon2 (b99defa): =hash-wasm= imported when a password is derived, not with the page. Built on its own, the chunk is 27,713 bytes, 37,706 before: the rest of =hash-wasm= goes.
 + The theme (7fd4137): put on once a load, not reset to the default between one theme and the next; a marble already drawn goes straight on, and while one is drawn the last stays, so a drag no longer blanks it at each colour. The picker's script time didn't move (16–17 ms for the 60).
-+ Moves between pads (0a7a277): the list's ETag is a hash of its body; the tab keeps the root's names and the pads opened (≤ 1 Mi characters), dropped on lock. The way to a subpad still downloads the list after a save into the root: a save re-seals the pad's name, so the list did change.
++ Moves between pads (0a7a277): the list's ETag is a hash of its body; the tab keeps the root's names and the pads opened (≤ 1 Mi characters), dropped on lock. A save into the root used to re-seal the pad's name, so the next move downloaded the list again; a save now sends the name only for a new or emptied pad (e2e "saving a pad that exists doesn't change the root's list": list answers on four moves after saves, =200, 304, 200, 304= before, =304= ×4 after).
 + The finder, measured and left (=costs.ts=, the 5,000-pad root): opening it is 15 ms of script and 2 of layout, two keys of search 7 and 2; it shows 14 rows for 970 nodes. =costs.ts='s =open.ms= (1,025) is mostly its own 1 s wait. From the night run's =costs.jsonl=.
 + Export stays deflated (user, 2026-10-12): 4.7 s, not 0.8 stored.
 

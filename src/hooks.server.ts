@@ -10,7 +10,8 @@ const HEADERS = {
   // subdomains may not be this server.
   'strict-transport-security': 'max-age=63072000',
   'x-content-type-options': 'nosniff',
-  // Links in a pad would otherwise tell the site they lead to the pad's path.
+  // Links in a pad would otherwise tell the site they lead to the root's name
+  // (the path under it is after the `#`, which a Referer never carries).
   'referrer-policy': 'no-referrer',
   // A page this one opens can't reach back into it through window.opener.
   'cross-origin-opener-policy': 'same-origin',

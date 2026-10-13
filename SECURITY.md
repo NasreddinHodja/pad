@@ -83,6 +83,9 @@ each.
   reaches the server once, to be redirected.
 - **Sizes show.** A copy of the database shows how many pads a root has and
   how long each is.
+- **A password change keeps the root key.** It signs every other browser
+  out, but someone who knew the old password and kept the key can still read
+  any sealed pad they get later, from the server or a copy of the database.
 - **The first save claims a root.** Whoever saves under an unclaimed root
   first sets its password.
 - **A read-only link is a bearer secret.** Anyone with the whole link reads
