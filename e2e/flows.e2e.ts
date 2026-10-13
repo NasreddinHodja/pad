@@ -35,6 +35,7 @@ test('claim, reload, unlock in another browser, lock', async ({ page, newContext
   const other = await (await newContext()).newPage();
   await other.goto('/' + root);
   await expect(other.getByRole('heading', { level: 1, name: `/${root} is locked` })).toBeVisible();
+  await expect(other.getByLabel('password')).toBeFocused();
   await expectAccessible(other, 'gate, unlocking');
   await unlock(other, root);
   await expect(editor(other)).toHaveValue('hello');

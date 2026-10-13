@@ -78,7 +78,15 @@
 {/snippet}
 
 <main class="flex min-h-dvh flex-col items-center justify-center px-3 py-8">
-  <form class="flex w-full max-w-xl flex-col gap-3 panel p-3 sm:p-6" {onsubmit}>
+  <!-- The first password, and again when claiming turns to reclaiming. -->
+  <form
+    class="flex w-full max-w-xl flex-col gap-3 panel p-3 sm:p-6"
+    {onsubmit}
+    {@attach (el) => {
+      void form;
+      el.querySelector<HTMLInputElement>('input[type="password"]')?.focus();
+    }}
+  >
     <!-- For password managers: what the password is for. -->
     <input type="text" autocomplete="username" value="/{root}" hidden readonly />
     {#if form === 'claim'}
