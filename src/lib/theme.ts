@@ -81,7 +81,11 @@ let applied: Theme | undefined;
 
 const textureKey = (theme: Theme) => theme.bg + mix(theme.ink, theme.bg, 0.6);
 
-/** bg.png, two colours, redrawn in the theme's background and ink2; a data: URL, as the CSP takes. */
+/**
+ * bg.png, two colours, redrawn in the theme's background and ink2; a data: URL,
+ * as the CSP takes. It's marble.xbm from Anthony Thyssen's AIcons
+ * (desc/bw-bgnd), inverted and doubled.
+ */
 async function texture(theme: Theme) {
   const key = textureKey(theme);
   const done = textures.get(key);

@@ -35,8 +35,8 @@ export const SEALED_KEY_BYTES = 60;
 
 const DAY = 24 * 60 * 60 * 1000;
 /** An unlock unused this long, or this old, is over. */
-const IDLE = 30 * DAY;
-const ABSOLUTE = 180 * DAY;
+export const IDLE = 30 * DAY;
+export const ABSOLUTE = 180 * DAY;
 /** last_seen is written at most this often. */
 const TOUCH_EVERY = 60 * 60 * 1000;
 

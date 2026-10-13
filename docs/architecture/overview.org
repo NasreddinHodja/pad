@@ -16,6 +16,7 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 | =/_/<root>/s/<link>#<key>~<path>=                       | a read-only link's pages                        |
 | =/_/<root>/shares/<link>=, =/_/<root>/pads/<id>/shares= | make, read, revoke, list read-only links        |
 | =/_/limits=                                             | every limit                                     |
+| =/_/about=                                              | how to use pad, with this server's limits       |
 
 A pad's address has its root in the path and the rest after the =#= (=src/lib/href.ts=), which browsers don't send: the server learns which root is open, not which pad under it. =/<root>='s load (=+page.server.ts=) normalises the root (redirecting an address from before, =/a/b=, to =/a#b=) and returns only the root's state: =open=, =locked= or =unlocked=, and its salt. The page then shows:
 

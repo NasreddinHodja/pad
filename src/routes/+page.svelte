@@ -47,4 +47,8 @@
       <Button variant="primary">open</Button>
     </form>
   </div>
+  <p class="mt-3 border border-ink bg-bg px-3 text-dim">
+    <Button href="/_/about">how it works</Button> ·
+    <Button href="https://github.com/NasreddinHodja/pad.nassu.online">source</Button>
+  </p>
 </main>

@@ -50,6 +50,16 @@ test('claim, reload, unlock in another browser, lock', async ({ page, newContext
   await expect(editor(other)).toHaveValue('hello');
 });
 
+test("the about page, from the home page, with this server's limits", async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'how it works' }).click();
+  await expect(page).toHaveURL('/_/about');
+  await expect(page.getByText('here a pad holds 512 KiB')).toBeVisible();
+  await expectAccessible(page, 'about');
+  await page.getByRole('link', { name: '← pad' }).click();
+  await expect(page).toHaveURL('/');
+});
+
 test.describe('a root with a pad under it', () => {
   // The share dialog copies the new link.
   test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
