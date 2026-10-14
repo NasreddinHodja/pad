@@ -36,8 +36,10 @@ for (const [path, hash] of want) {
   }
 }
 
-// The home page and a pad's page load different nodes.
-for (const page of ['/', '/check-instance']) {
+// Each kind of page loads its own nodes: the home page, a pad's, a link's
+// reader (where a tampered server would aim at people reading links), the
+// about page. A link that doesn't exist still gets its page.
+for (const page of ['/', '/check-instance', `/_/check-instance/s/${'A'.repeat(22)}`, '/_/about']) {
   const html = await (await fetch(new URL(page, base))).text();
   for (const [path] of html.matchAll(/_app\/immutable\/[^"'`)\s]+/g)) {
     if (!want.has(path)) {
