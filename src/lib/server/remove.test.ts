@@ -85,6 +85,13 @@ test('a link, by the address a reporter sends, goes alone', () => {
   expect(remove(file, 'link', OTHER).code).toBe(0);
 });
 
+test('a link of the old form, with a place in the copy after its id, too', () => {
+  const file = database();
+  const { code, out } = remove(file, 'link', `https://pad.example/_/bad/s/${LINK}/a/b#somekey`);
+  expect(code).toBe(0);
+  expect(out).toContain(`removed link ${LINK} of /bad`);
+});
+
 test('what is not there, or is not a name, is said and changes nothing', () => {
   const file = database();
   expect(remove(file, 'root', 'nobody')).toMatchObject({ code: 1, out: 'no root /nobody\n' });

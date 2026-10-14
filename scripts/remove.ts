@@ -57,8 +57,11 @@ if (kind === 'root') {
   db.query('DELETE FROM roots WHERE name = ?').run(root);
   console.log(`removed /${root}: ${counts.pads} pads, ${counts.links} links`);
 } else {
-  // The id is the link's last segment; its key, after the #, isn't needed.
-  const id = pathOf(target).split('/').pop()!;
+  // The id is the segment after /s/: a link of the old form has a place in
+  // the copy after it (/_/<root>/s/<id>/a/b). Its key, after the #, isn't
+  // needed. A bare id is itself.
+  const parts = pathOf(target).split('/');
+  const id = parts[1] === '_' && parts[3] === 's' ? parts[4] : parts.pop()!;
   if (!/^[A-Za-z0-9_-]{22}$/.test(id)) {
     console.error(`not a link: ${target}`);
     process.exit(2);
