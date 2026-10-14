@@ -4,19 +4,25 @@
 
 import * as api from './api.ts';
 import type { Keys } from './crypto.ts';
-import { BATCH_PADS } from './limits.ts';
+import { BATCH_PADS, normalizePath } from './limits.ts';
 import { ZipWriter } from './zip.ts';
 
 const utf8Decode = new TextDecoder();
 
 export type Pad = { path: string; text: string };
 
-/** The pad and every pad under it, by path, sorted. */
-async function under(root: string, keys: Keys, path: string) {
-  return (await api.list(root, keys))
-    .filter((p) => p === path || p.startsWith(path + '/'))
+/**
+ * Of `paths`, the pad and every pad under it, sorted. A name that isn't a
+ * path as pad writes one (`a/../../x`) is left out: only a modified browser
+ * seals one, and in a zip it would land outside the folder it's unzipped in.
+ */
+export const within = (paths: string[], path: string) =>
+  paths
+    .filter((p) => normalizePath(p) === p && (p === path || p.startsWith(path + '/')))
     .sort((a, b) => a.localeCompare(b));
-}
+
+const under = async (root: string, keys: Keys, path: string) =>
+  within(await api.list(root, keys), path);
 
 /**
  * `paths` a batch at a time (BATCH_PADS a request), the next asked for while
