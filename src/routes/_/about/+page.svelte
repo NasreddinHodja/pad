@@ -81,7 +81,10 @@
           <span class="text-ink">password</span>, in a pad's header, changes the root's password and
           signs every other browser out.
         </li>
-        <li><span class="text-ink">lock</span> signs this browser out and forgets its keys.</li>
+        <li>
+          <span class="text-ink">lock</span> signs this browser out and forgets its keys. a pad that can't
+          be saved asks first: locking again loses what isn't.
+        </li>
         <li>
           <span class="text-ink">delete</span>, in a root's header, deletes the root and every pad
           under it, stops its links and signs every browser out. for {days(data.grace)} its old password

@@ -76,6 +76,8 @@
   let kept = false;
   // The next save keeps the text it overwrites, however recent: a restore's.
   let keepNext = false;
+  // Asked again: what isn't saved goes with the lock. Until the next edit.
+  let lockAnyway = false;
   // False once this editor is gone: what it was waiting for has nowhere to go.
   let alive = true;
 
@@ -86,6 +88,7 @@
 
   function oninput() {
     kept = false;
+    lockAnyway = false;
     status = 'unsaved';
     schedule();
   }
@@ -240,10 +243,21 @@
     }
   }
 
-  // Saves first: locking signs this browser out of the root and forgets its keys.
+  // Saves first: locking signs this browser out of the root and forgets its
+  // keys. A pad that can't be saved (too big, offline) still locks, asked
+  // twice: on a shared computer, staying unlocked is worse.
   async function lock() {
-    await save();
-    if (content !== saved) return;
+    if (!lockAnyway) {
+      await save();
+      if (content !== saved) {
+        lockAnyway = true;
+        status = "► not saved: lock again to lock and lose what's unsaved";
+        return;
+      }
+    }
+    // Nothing left to save, nor to retry, once the keys go.
+    clearTimeout(timer);
+    saved = null;
     rememberTheme(where.root, null);
     api.forget(where.root);
     await Promise.all([api.lock(where.root), forgetKeys(where.root)]).catch(() => {});

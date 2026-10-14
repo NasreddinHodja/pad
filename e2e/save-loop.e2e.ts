@@ -133,6 +133,24 @@ test.describe('refused saves', () => {
     expect(await stored(context, root)).toBe('too muc');
   });
 
+  test("lock still locks a pad that can't be saved, once asked again", async ({ page }) => {
+    const root = await claimNew(page);
+    await onSave(page, (route) => refuse(route, 413, 'too big'));
+    await editor(page).fill('too much');
+    await expect(status(page)).toHaveText('► too big, not saved');
+
+    const lock = page.getByRole('button', { name: 'lock', exact: true });
+    await lock.click();
+    await expect(status(page)).toHaveText(
+      "► not saved: lock again to lock and lose what's unsaved"
+    );
+    await expect(page).toHaveURL(new RegExp(`/${root}$`));
+    await lock.click();
+    await expect(page).toHaveURL('/');
+    await page.goto('/' + root);
+    await expect(page.getByRole('heading', { level: 1, name: `/${root} is locked` })).toBeVisible();
+  });
+
   test('a 413 without a message says what happened', async ({ page }) => {
     await claimNew(page);
     await onSave(page, (route) => route.fulfill({ status: 413, body: 'Payload Too Large' }));
