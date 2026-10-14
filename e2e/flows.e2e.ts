@@ -281,3 +281,29 @@ test('a pad written another way is the same pad, and its address says so', async
   await opened(page);
   await expect(editor(page)).toHaveValue('milk');
 });
+
+test.describe('a revoked link', () => {
+  test.use({
+    permissions: ['clipboard-read', 'clipboard-write'],
+    allowedErrors: [/\/shares\/[A-Za-z0-9_-]{22}: .* status of 404/]
+  });
+
+  test('stops working, and leaves the list', async ({ page, newContext }) => {
+    await claimNew(page);
+    await editor(page).fill('gone soon');
+    await expect(status(page)).toHaveText('saved');
+    await page.getByRole('button', { name: 'share', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'read-only links' });
+    await dialog.getByRole('button', { name: 'new link', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'copied', exact: true })).toBeVisible();
+    const url = await page.evaluate(() => navigator.clipboard.readText());
+    await dialog.getByRole('button', { name: 'revoke', exact: true }).click();
+    await expect(dialog.getByText('no links yet.')).toBeVisible();
+    await expect(dialog.getByRole('alert')).toBeHidden();
+    const reader = await (await newContext()).newPage();
+    await reader.goto(url);
+    await expect(reader.getByRole('alert')).toHaveText(
+      '► this link expired, was revoked, or never was'
+    );
+  });
+});

@@ -67,6 +67,15 @@ async function check(res: Response) {
   return res;
 }
 
+// A DELETE has no body, and without a content-type SvelteKit's CSRF check
+// takes it for a form's: under our no-referrer policy Chromium's Origin isn't
+// ours, and it's refused (403). The server's own check is Sec-Fetch-Site.
+const del = (url: string, headers: Record<string, string> = {}) =>
+  call(url, {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/octet-stream', ...headers }
+  });
+
 const post = (url: string, data: unknown) =>
   call(url, {
     method: 'POST',
@@ -233,7 +242,7 @@ export async function save(root: string, keys: Keys, path: string, text: string,
   const id = await padId(keys, path);
   const url = `${base(root)}/pads/${id}`;
   if (text === '') {
-    await call(url, { method: 'DELETE', headers: { 'if-match': `"${over}"` } });
+    await del(url, { 'if-match': `"${over}"` });
     remember(root, path, '', 0);
     return 0;
   }
@@ -358,11 +367,10 @@ export async function shares(root: string, keys: Keys, path: string) {
   );
 }
 
-export const revoke = (root: string, id: string) =>
-  call(`${base(root)}/shares/${id}`, { method: 'DELETE' });
+export const revoke = (root: string, id: string) => del(`${base(root)}/shares/${id}`);
 
 export const revokeAll = async (root: string, keys: Keys, path: string) =>
-  call(`${base(root)}/pads/${await padId(keys, path)}/shares`, { method: 'DELETE' });
+  del(`${base(root)}/pads/${await padId(keys, path)}/shares`);
 
 /** What a link's `#` holds: its key, and whether it has a password too. Null if it's no key. */
 export function linkFragment(fragment: string) {
