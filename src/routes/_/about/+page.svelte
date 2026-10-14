@@ -55,8 +55,10 @@
       <h3 class="underline">paths</h3>
       <p>
         any path is a pad: /notes, /notes/today, /notes/today/later. a pad is made by typing in it
-        and deleted by emptying it: it leaves its parent's list and its text leaves the server. a
-        path has up to {data.path.depth} segments of up to {data.path.segment} characters,
+        and deleted by emptying it: it leaves its parent's list, and {#if data.versions}its text
+          stays only in its history, below, for
+          {days(data.grace)}{:else}its text leaves the server{/if}. a path has up to {data.path
+          .depth} segments of up to {data.path.segment} characters,
         {data.path.chars} in all. case doesn't count: /Notes is /notes. /_/… is the server's own.
       </p>
 
