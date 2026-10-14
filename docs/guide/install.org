@@ -135,7 +135,7 @@ Pad limits what it can see, per address: requests a second, bytes written, wrong
 -A ufw6-before-input -p tcp --syn -m multiport --dports 80,443 -m connlimit --connlimit-above 64 --connlimit-mask 64 -j REJECT --reject-with tcp-reset
 #+end_src
 
-then =ufw reload=. A browser opens a few connections to a site, one over HTTP/2, so 64 leaves room for an office behind one address. The rule counts connections, not requests: one HTTP/2 connection carries many requests at once, which is why pad counts its unsent answers itself.
+then =ufw reload=. A browser opens a few connections to a site, one over HTTP/2, so 64 leaves room for an office behind one address. The rule counts connections, not requests: one HTTP/2 connection carries many requests at once, which is why pad counts its unsent answers itself. pad.nassu.online runs both rules: 70 connections opened at once from one address get 64 through and 6 refused.
 
 * Abuse
 
