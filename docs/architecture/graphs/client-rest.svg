@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="240" viewBox="0 0 720 240" role="img" aria-label="Memory an open page keeps, at rest, above a blank page">
+<style>
+  svg { --surface: #fcfcfb; --text: #0b0b0b; --muted: #52514e; --rule: #d8d7d2;
+        --accent: #2a78d6; --context: #8a8983; --second: #eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface: #1a1a19; --text: #f0efec; --muted: #c3c2b7; --rule: #3a3a37;
+          --accent: #3987e5; --context: #6b6a65; --second: #d95926; }
+  }
+  text { font: 13px system-ui, sans-serif; fill: var(--text); }
+  .muted { fill: var(--muted); }
+  .title { font-size: 15px; font-weight: 600; }
+  .accent { fill: var(--accent); }
+  .context { fill: var(--context); }
+  .second { fill: var(--second); }
+</style>
+<rect width="100%" height="100%" fill="var(--surface)"/>
+<text x="16" y="26" class="title">Memory an open page keeps, at rest, above a blank page</text>
+<text x="16" y="46" class="muted">Chromium 154, renderers’ PSS, median of 3 runs: results-2026-10-14/{drive,floor}.jsonl</text>
+<path class="accent" d="M220 72h122.50000000000001a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-122.50000000000001z"/><text x="212" y="84" text-anchor="end">empty: pad</text><text x="352.5" y="84" class="muted">25.3 MiB</text><path class="context" d="M220 98h23.500000000000004a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-23.500000000000004z"/><text x="212" y="110" text-anchor="end">empty: bare textarea</text><text x="253.5" y="110" class="muted">5.5 MiB</text><path class="accent" d="M220 124h214.00000000000003a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-214.00000000000003z"/><text x="212" y="136" text-anchor="end">average root: pad</text><text x="444" y="136" class="muted">43.6 MiB</text><path class="context" d="M220 150h113a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-113z"/><text x="212" y="162" text-anchor="end">average root: bare textarea</text><text x="343" y="162" class="muted">23.4 MiB</text><path class="accent" d="M220 176h327a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-327z"/><text x="212" y="188" text-anchor="end">max root: pad</text><text x="557" y="188" class="muted">66.2 MiB</text><path class="context" d="M220 202h198a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-198z"/><text x="212" y="214" text-anchor="end">max root: bare textarea</text><text x="428" y="214" class="muted">40.4 MiB</text><line x1="220" x2="220" y1="68" y2="222" stroke="var(--muted)"/>
+</svg>

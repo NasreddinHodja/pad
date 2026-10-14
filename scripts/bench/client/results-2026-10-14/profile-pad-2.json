@@ -1,0 +1,102 @@
+{
+  "base": "http://localhost:5641",
+  "root": "avgroot",
+  "typingMs": 80191,
+  "dumpsAsked": 22,
+  "dumpsTaken": 22,
+  "dumps": 22,
+  "dumpsLost": [],
+  "dataLoss": false,
+  "afterIsLastDump": true,
+  "peakDump": 14,
+  "rendererTotalMiB": {
+    "before": 130.55,
+    "peak": 199.95,
+    "after": 146.86
+  },
+  "allocators": {
+    "blink_gc": {
+      "before": 51.65,
+      "peak": 98.12,
+      "after": 97.98
+    },
+    "blink_objects": {
+      "before": 17.88,
+      "peak": 43.61,
+      "after": 0
+    },
+    "partition_alloc": {
+      "before": 4.85,
+      "peak": 15.87,
+      "after": 2.49
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 4.84,
+      "peak": 15.86,
+      "after": 2.48
+    },
+    "malloc": {
+      "before": 25.58,
+      "peak": 30.53,
+      "after": 12.29
+    },
+    "shared_memory": {
+      "before": 12.99,
+      "peak": 16.03,
+      "after": 14.54
+    },
+    "cc": {
+      "before": 11.84,
+      "peak": 14.84,
+      "after": 13.34
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 0.01,
+      "peak": 1.02,
+      "after": 0.01
+    },
+    "v8": {
+      "before": 4.13,
+      "peak": 4.58,
+      "after": 4.58
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.25,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.5,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "v8/main/heap/old_space": {
+      "before": 1.25,
+      "peak": 1.25,
+      "after": 1.25
+    }
+  },
+  "jsAllocatedWhileTypingMiB": 7.09,
+  "topJsAllocators": [
+    ["_r BAhUOvSI.js:1", 1.8],
+    ["Map :0", 1.08],
+    ["#_ BAhUOvSI.js:1", 0.66],
+    ["Set :0", 0.63],
+    ["(anonymous) BAhUOvSI.js:3", 0.52],
+    ["ensure BAhUOvSI.js:1", 0.38],
+    ["i BAhUOvSI.js:1", 0.3],
+    ["rr BAhUOvSI.js:1", 0.23],
+    ["#g BAhUOvSI.js:1", 0.22],
+    ["Zt BAhUOvSI.js:1", 0.2],
+    ["#v BAhUOvSI.js:1", 0.2],
+    ["O BAhUOvSI.js:1", 0.17],
+    ["(V8 API) :0", 0.14],
+    ["flush BAhUOvSI.js:1", 0.09],
+    ["push :0", 0.09]
+  ]
+}

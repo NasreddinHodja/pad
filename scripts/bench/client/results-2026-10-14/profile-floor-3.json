@@ -1,0 +1,64 @@
+{
+  "base": "floor",
+  "root": "avgroot",
+  "typingMs": 78224,
+  "dumpsAsked": 22,
+  "dumpsTaken": 22,
+  "dumps": 22,
+  "dumpsLost": [],
+  "dataLoss": false,
+  "afterIsLastDump": true,
+  "peakDump": 12,
+  "rendererTotalMiB": {
+    "before": 107.79,
+    "peak": 166.27,
+    "after": 127.33
+  },
+  "allocators": {
+    "blink_gc": {
+      "before": 43.14,
+      "peak": 101.96,
+      "after": 101.96
+    },
+    "blink_objects": {
+      "before": 27.22,
+      "peak": 39.14,
+      "after": 0
+    },
+    "malloc": {
+      "before": 19.35,
+      "peak": 21.24,
+      "after": 9.79
+    },
+    "v8": {
+      "before": 2.52,
+      "peak": 2.58,
+      "after": 2.51
+    },
+    "partition_alloc": {
+      "before": 2.5,
+      "peak": 2.55,
+      "after": 1.95
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 2.5,
+      "peak": 2.55,
+      "after": 1.95
+    },
+    "shared_memory": {
+      "before": 7.03,
+      "peak": 7.07,
+      "after": 6.08
+    },
+    "cc": {
+      "before": 6.02,
+      "peak": 6.02,
+      "after": 5.02
+    }
+  },
+  "jsAllocatedWhileTypingMiB": 0.06,
+  "topJsAllocators": [
+    ["(V8 API) :0", 0.06],
+    ["(root) :0", 0]
+  ]
+}

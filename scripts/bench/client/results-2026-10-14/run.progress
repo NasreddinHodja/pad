@@ -1,0 +1,54 @@
+machine checked idle 06:49:56: load 0.30 0.27 0.35; Steam, Zen and the other Chromium closed, baloo suspended; busiest other processes kwin and another Claude session (~2% of a core each)
+== 06:49:56 floor 0 1
+== 06:50:00 floor avg 1
+== 06:50:05 floor max 1
+== 06:50:14 drive.ts claim 1
+== 06:50:21 drive.ts avg-type 1
+== 06:51:54 drive.ts max-type 1
+== 06:53:53 drive.ts max-export 1
+== 06:54:11 drive.ts avg-type 1
+== 06:56:40 floor-cpu avg 1
+== 06:59:59 cpu.ts avg 1
+== 07:02:52 floor-cpu max 1
+== 07:06:36 cpu.ts max 1
+== 07:09:37 typing-profile floor 1
+== 07:11:08 typing-profile pad 1
+== 07:12:41 export-pss 1
+== 07:12:50 costs.ts avg 1
+== 07:14:29 costs.ts max 1
+== 07:14:39 floor 0 2
+== 07:14:43 floor avg 2
+== 07:14:47 floor max 2
+== 07:14:57 drive.ts claim 2
+== 07:15:04 drive.ts avg-type 2
+== 07:16:38 drive.ts max-type 2
+== 07:18:36 drive.ts max-export 2
+== 07:18:54 drive.ts avg-type 2
+== 07:21:22 floor-cpu avg 2
+== 07:24:42 cpu.ts avg 2
+== 07:27:34 floor-cpu max 2
+== 07:31:18 cpu.ts max 2
+== 07:34:20 typing-profile floor 2
+== 07:35:50 typing-profile pad 2
+== 07:37:24 export-pss 2
+== 07:37:34 costs.ts avg 2
+== 07:39:12 costs.ts max 2
+== 07:39:22 floor 0 3
+== 07:39:26 floor avg 3
+== 07:39:31 floor max 3
+== 07:39:40 drive.ts claim 3
+== 07:39:47 drive.ts avg-type 3
+== 07:41:21 drive.ts max-type 3
+== 07:43:20 drive.ts max-export 3
+== 07:43:38 drive.ts avg-type 3
+== 07:46:04 floor-cpu avg 3
+== 07:49:24 cpu.ts avg 3
+== 07:52:16 floor-cpu max 3
+== 07:56:00 cpu.ts max 3
+== 07:59:02 typing-profile floor 3
+== 08:00:32 typing-profile pad 3
+== 08:02:05 export-pss 3
+== 08:02:15 costs.ts avg 3
+== 08:03:53 costs.ts max 3
+== 08:04:03 done
+exit 0

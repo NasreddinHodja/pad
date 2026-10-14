@@ -1,0 +1,102 @@
+{
+  "base": "http://localhost:5641",
+  "root": "avgroot",
+  "typingMs": 79840,
+  "dumpsAsked": 22,
+  "dumpsTaken": 22,
+  "dumps": 22,
+  "dumpsLost": [],
+  "dataLoss": false,
+  "afterIsLastDump": true,
+  "peakDump": 14,
+  "rendererTotalMiB": {
+    "before": 130.09,
+    "peak": 202,
+    "after": 145.94
+  },
+  "allocators": {
+    "blink_gc": {
+      "before": 52.37,
+      "peak": 97.82,
+      "after": 97.61
+    },
+    "blink_objects": {
+      "before": 16.75,
+      "peak": 42.48,
+      "after": 0
+    },
+    "partition_alloc/partitions/buffer": {
+      "before": 4.32,
+      "peak": 15.35,
+      "after": 2.48
+    },
+    "partition_alloc": {
+      "before": 4.34,
+      "peak": 15.36,
+      "after": 2.49
+    },
+    "malloc": {
+      "before": 25.8,
+      "peak": 30.07,
+      "after": 11.74
+    },
+    "shared_memory": {
+      "before": 12.99,
+      "peak": 16.03,
+      "after": 14.54
+    },
+    "cc": {
+      "before": 11.84,
+      "peak": 14.84,
+      "after": 13.34
+    },
+    "partition_alloc/partitions/array_buffer": {
+      "before": 0.01,
+      "peak": 1.02,
+      "after": 0.01
+    },
+    "v8": {
+      "before": 4.37,
+      "peak": 4.78,
+      "after": 4.59
+    },
+    "v8/main/heap/trusted_space": {
+      "before": 0.25,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "discardable": {
+      "before": 0.84,
+      "peak": 0.84,
+      "after": 0.84
+    },
+    "v8/main/heap/code_space": {
+      "before": 0.5,
+      "peak": 0.5,
+      "after": 0.5
+    },
+    "v8/main/heap/old_space": {
+      "before": 1.5,
+      "peak": 1.5,
+      "after": 1.5
+    }
+  },
+  "jsAllocatedWhileTypingMiB": 7.44,
+  "topJsAllocators": [
+    ["_r BAhUOvSI.js:1", 1.74],
+    ["Map :0", 0.81],
+    ["(anonymous) BAhUOvSI.js:3", 0.74],
+    ["Set :0", 0.66],
+    ["#_ BAhUOvSI.js:1", 0.64],
+    ["#g BAhUOvSI.js:1", 0.39],
+    ["ensure BAhUOvSI.js:1", 0.34],
+    ["rr BAhUOvSI.js:1", 0.33],
+    ["O BAhUOvSI.js:1", 0.3],
+    ["i BAhUOvSI.js:1", 0.23],
+    ["(V8 API) :0", 0.22],
+    ["Zt BAhUOvSI.js:1", 0.17],
+    ["e BAhUOvSI.js:1", 0.13],
+    ["flush BAhUOvSI.js:1", 0.11],
+    ["values :0", 0.11]
+  ]
+}
