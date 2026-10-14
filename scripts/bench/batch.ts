@@ -1,13 +1,15 @@
-// One address, one free root, one full pad, named 100 times in a batch read
-// (docs/architecture/capacity.org): the server's memory as it answers.
-// Against a build with a throwaway database:
+// A batch read's cost to the server's memory (docs/architecture/capacity.org),
+// from one address with one free root. `pads` 1: one full pad named 100
+// times, which a5e094a refuses (400). More: that many distinct full pads,
+// or as many as the root's quota takes, each named once: a whole root in one
+// response. Against a build with a throwaway database:
 //
 //   PAD_DB=/tmp/pad-batch.db PORT=5598 BODY_SIZE_LIMIT=1M bun build/index.js &
-//   bun scripts/bench/batch.ts http://127.0.0.1:5598 <its pid> slow 40 0
+//   bun scripts/bench/batch.ts http://127.0.0.1:5598 <its pid> slow 40 0 [pads] [seconds]
 // fast: reads every response; slow: opens n connections and never reads.
 import { ARGON2 } from '../../src/lib/limits.ts';
 
-const [base, pid, mode, nArg, concArg] = process.argv.slice(2);
+const [base, pid, mode, nArg, concArg, padsArg = '1', secondsArg = '6'] = process.argv.slice(2);
 const n = Number(nArg);
 const conc = Number(concArg);
 const b64 = (k: number) =>
@@ -34,20 +36,32 @@ const headers = { 'sec-fetch-site': 'same-origin', cookie };
 const limits = await (await fetch(`${base}/_/limits`)).json();
 const { padded } = await import('../../src/lib/padme.ts');
 const size = padded(limits.padBytes + 1) + 28;
-const id = b64(32);
-const put = await fetch(`${base}/_/${root}/pads/${id}`, {
-  method: 'PUT',
-  body: crypto.getRandomValues(new Uint8Array(size)).slice(),
-  headers: {
-    ...headers,
-    'if-match': '"0"',
-    'x-pad-name': b64(48),
-    'content-type': 'application/octet-stream'
+const ids: string[] = [];
+for (let i = 0; i < Number(padsArg);) {
+  const id = b64(32);
+  const put = await fetch(`${base}/_/${root}/pads/${id}`, {
+    method: 'PUT',
+    body: crypto.getRandomValues(new Uint8Array(size)).slice(),
+    headers: {
+      ...headers,
+      'if-match': '"0"',
+      'x-pad-name': b64(48),
+      'content-type': 'application/octet-stream'
+    }
+  });
+  // The root's writes are metered: wait as asked.
+  if (put.status === 429) {
+    await Bun.sleep(Number(put.headers.get('retry-after')) * 1000);
+    continue;
   }
-});
-if (put.status !== 200) throw new Error(`put ${put.status} ${await put.text()}`);
-const body = JSON.stringify({ ids: Array(100).fill(id) });
-console.log(`pad ${size} B; before: ${JSON.stringify(await rss())} MiB`);
+  // The root's quota: it's full.
+  if (put.status === 413 && ids.length) break;
+  if (put.status !== 200) throw new Error(`put ${put.status} ${await put.text()}`);
+  ids.push(id);
+  i++;
+}
+const body = JSON.stringify({ ids: ids.length === 1 ? Array(100).fill(ids[0]) : ids });
+console.log(`${ids.length} pads of ${size} B; before: ${JSON.stringify(await rss())} MiB`);
 
 if (mode === 'fast') {
   let next = 0,
@@ -96,7 +110,7 @@ if (mode === 'fast') {
     );
   // Bun's client reads anyway; pause so the kernel buffers fill and the server holds the rest.
   for (const s of sockets) s.pause?.();
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < Number(secondsArg); i++) {
     await Bun.sleep(1000);
     console.log(`${n} unread batches, t=${i + 1}s: ${JSON.stringify(await rss())} MiB`);
   }

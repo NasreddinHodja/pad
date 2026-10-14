@@ -67,7 +67,15 @@ Claiming a root is free: a root is a row of a few hundred bytes, and disk is onl
 
 Not limited by the app: page loads, the unlocked =GET=s (the editor polls them, export fetches every pad), =GET /_/limits=. A flood of those, or of anything, past what the machine's link carries is the proxy's and the provider's to stop ([[file:../guide/install.org][install guide]]). There is no limit for the whole server: anyone could spend it, and everyone's saves would fail.
 
-A batch read (=POST …/pads/batch=) names each pad once. Before, one full pad named 100 times was a 54 MB response built in memory; on the laptop's build, from one address, 40 connections that sent one each and never read held 2,118 MiB until they closed (=scripts/bench/batch.ts slow 40=). Now they're =400=, and the most one response can be is a full root, 16 MiB, held until it's read: as Vaultwarden's =/sync= builds a whole vault. Not yet measured: unread full-root responses against the VPS's 5.8 GiB.
+A batch read (=POST …/pads/batch=) names each pad once. Before, one full pad named 100 times was a 54 MB response built in memory; on the laptop's build, from one address, 40 connections that sent one each and never read held 2,118 MiB until they closed (=scripts/bench/batch.ts slow 40=). Now they're =400=, and the most one response can be is a full root, 16 MiB, held until it's read: as Vaultwarden's =/sync= builds a whole vault. Since then, measured 2026-10-14: a full root (31 pads of 540,700 bytes) asked for whole by connections that never read, from one address (=batch.ts slow <n> 0 100 25=); on the VPS, a second pad from the v0.2.0 build beside the live one, with its own database:
+
+| Unread connections | Laptop, held (peak) | VPS, peak    |
+|--------------------+---------------------+--------------|
+|                 40 | 695 MiB (959)       | 968 MiB      |
+|                 80 |                     | 1,739 MiB    |
+|                160 |                     | 3,390 MiB    |
+
+On the VPS the memory went back to about 55 MiB 20–25 s in, as the connections were closed: adapter-bun leaves Bun's idle timeout at its default (=CONNECTION_IDLE_TIMEOUT= unset). So one address holds about 21 MiB a connection for about 20 s; somewhere past 250 connections at once the VPS's 5.8 GiB runs out. The live pad answered throughout. Pad doesn't limit connections per address, and neither does =deploy/Caddyfile=.
 
 * What the limits changed
 
