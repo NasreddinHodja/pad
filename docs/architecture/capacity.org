@@ -32,7 +32,7 @@ With the scripts in =scripts/bench/=, 2026-10-11, on two machines: the author's 
 
 =requests.ts= gives the app's numbers; "before" is the build of =3d7f628=, before these limits. The meters, quota checks and the triggers that keep each root's usage (=schema.ts=, step 3) add about 0.03 ms to a small save. The app's numbers are over localhost, without TLS or a proxy; the laptop's database was on tmpfs, the VPS's on its disk. At about 1,900 small requests a second, the VPS carries about 9,600 open tabs polling. Polling is the larger load, so it's the first thing to replace past that.
 
-Keeping versions (=db.ts=, =keep=) made a save in SQLite 14.3 µs from 8.8: 20,000 saves of 3 KiB over 500 pads, in memory, three runs each of the build before and after, on the laptop. Most saves keep nothing, and stop at the gap's check, an index lookup. That's under 3% of a built-app save's 0.20 ms.
+Keeping versions (=db.ts=, =keep=) made a save in SQLite 10.7–10.8 µs from 6.6–7.0: 20,000 saves of 3 KiB over 500 pads, in memory, three runs each of 8ce98f2 and 8c4d2c0's =db.ts=, alternating, on the laptop with nothing else running (=scripts/bench/saves.ts=, 2026-10-14). Most saves keep nothing, and stop at the gap's check, an index lookup. The 4 µs it adds is 2% of a built-app save's 0.20 ms. The first measurement, 8.8 to 14.3 µs, ran beside a game.
 
 * Pad sizes
 
@@ -75,9 +75,17 @@ A batch read (=POST …/pads/batch=) names each pad once. Before, one full pad n
 |                 80 | 1,739 MiB        | 184 MiB                   |                              |                                  |                         |
 |                160 | 3,390 MiB        | 282 MiB                   | 174 MiB                      |                                  |                         |
 
-Built whole, the response held about 21 MiB a connection until the connection was closed, 20–25 s in (adapter-bun leaves Bun's idle timeout at its default, =CONNECTION_IDLE_TIMEOUT= unset): past about 250 connections from one address the VPS's 5.8 GiB would have run out. Read a pad at a time, as the client takes them, an unread connection holds about 1.4 MiB. A client that reads loses nothing: 40 whole-root batches, 10 at a time, came at 189 MB/s on the laptop, every one 200. The live pad answered throughout every run.
+Built whole, the response held about 21 MiB a connection until the connection was closed, 20–25 s in (adapter-bun leaves Bun's idle timeout at its default, =CONNECTION_IDLE_TIMEOUT= unset): past about 250 connections from one address the VPS's 5.8 GiB would have run out. Read a pad at a time, as the client takes them, an unread connection holds about 1.4 MiB. A client that reads loses nothing: 100 whole-root batches, 10 at a time, came at 533–554 MB/s on the laptop, every one 200 (the 189 MB/s first written here was a count =batch.ts= lost to a race, since fixed). The live pad answered throughout every run.
 
-So an address may have at most =concurrent= (64) answers carrying pads unsent at once (=hooks.server.ts=); the next is =429=. On the laptop, an address holding 80 unread got 429 while they were open and 200 again once they'd closed. Only those answers are counted: counting one means a stream around its body, and every answer so wrapped took page loads from 9,509/9,569 a second to 6,913/6,880 (home) and 4,130/4,116 to 2,663/2,722 (a root and its data), two runs each, =loads.ts=. Counting only those, page loads were 8,966/9,618 (home) before and 9,525/9,150 after, the same within the runs' spread. Whole-root batches read by clients went from 378/393 MB/s to 283/368 (=batch.ts fast 100 10 100=).
+So an address may have at most =concurrent= (64) answers carrying pads unsent at once (=hooks.server.ts=); the next is =429=. On the laptop, an address holding 80 unread got 429 while they were open and 200 again once they'd closed. Only those answers are counted: counting one means a stream around its body, which costs every page it's put on. =loads.ts=, loads a second, two runs of each build alternating, the laptop with nothing else running, 2026-10-14:
+
+| Load                          | Before the limit | Every answer counted | Only answers carrying pads (now) |
+|-------------------------------+------------------+----------------------+----------------------------------|
+| control: =robots.txt=, a file | 54,392 / 62,781  | 55,525 / 62,900      | 61,272 / 63,681                  |
+| =/=                           | 9,159 / 9,872    | 6,811 / 6,956        | 9,772 / 9,812                    |
+| a claimed root, then its data | 3,898 / 4,265    | 2,666 / 2,835        | 4,265 / 4,239                    |
+
+Whole-root batches read by clients, the answers that are counted: 533 / 554 / 553 MB/s before, 557 / 533 / 489 after (=batch.ts fast 100 10 100=, three pairs), the same within the runs' spread.
 
 * What the limits changed
 

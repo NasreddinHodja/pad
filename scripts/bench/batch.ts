@@ -78,7 +78,9 @@ if (mode === 'fast') {
           headers: { ...headers, 'content-type': 'application/json' }
         });
         statuses[r.status] = (statuses[r.status] ?? 0) + 1;
-        bytes += (await r.arrayBuffer()).byteLength;
+        // Read before adding: `bytes +=` across an await loses the others' adds.
+        const got = (await r.arrayBuffer()).byteLength;
+        bytes += got;
       }
     })
   );
