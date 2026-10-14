@@ -124,6 +124,19 @@ What pad and Caddy write. Both write to standard error; on pad.nassu.online that
 
 The app's limits are per address and per root ([[file:../architecture/capacity.org][Capacity and limits]]): about 10 addresses at their full 200 requests a second fill the VPS. Past that, and past what the machine's link carries, nothing on the machine helps: the provider's network filtering, or a CDN in front, which then sees every request ([[*What the proxy sees][What the proxy sees]]).
 
+** Connections per address
+
+Pad limits what it can see, per address: requests a second, bytes written, wrong passwords, and answers carrying pads left unsent (=concurrent=, 64), which a client that doesn't read would otherwise keep in pad's memory ([[file:../architecture/capacity.org][Capacity and limits]]). It can't count connections: behind a proxy every connection is the proxy's, and Caddy has no setting for connections per client. So the firewall does it. With ufw, one rule in each of =/etc/ufw/before.rules= and =/etc/ufw/before6.rules=, inside the =*filter= table before its =COMMIT= (=iptables-extensions(8)=, connlimit; ufw evaluates these before its own rules, =ufw-framework(8)=):
+
+#+begin_src sh
+# before.rules: per IPv4 address
+-A ufw-before-input -p tcp --syn -m multiport --dports 80,443 -m connlimit --connlimit-above 64 --connlimit-mask 32 -j REJECT --reject-with tcp-reset
+# before6.rules: per IPv6 /64, which one host can have all of
+-A ufw6-before-input -p tcp --syn -m multiport --dports 80,443 -m connlimit --connlimit-above 64 --connlimit-mask 64 -j REJECT --reject-with tcp-reset
+#+end_src
+
+then =ufw reload=. A browser opens a few connections to a site, one over HTTP/2, so 64 leaves room for an office behind one address. The rule counts connections, not requests: one HTTP/2 connection carries many requests at once, which is why pad counts its unsent answers itself.
+
 * Abuse
 
 A report names a root (its address) or a read-only link. Pad can't read either: a link's text opens with the key after its =#=, so a report that includes the whole link lets the operator open it in a browser and see that copy, and nothing else of the root; a root's pads need its password. =scripts/remove.ts= takes either down at once, with no grace and nothing for the password to bring back. A root goes with its pads, links, unlocks and devices, and its name can be claimed again. A link goes alone:
