@@ -90,6 +90,7 @@
       }
       const opened = await api
         .openShared(
+          root,
           id,
           fragment.password ? await linkKey(fragment.key, password, id) : fragment.key,
           sealed.data

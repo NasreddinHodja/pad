@@ -25,7 +25,15 @@ import {
 } from './crypto.ts';
 import { deflate, inflate } from './deflate.ts';
 import type { Pad } from './export.ts';
-import { ARGON2, BATCH_PADS, MAX_SHARE, MAX_SHARE_PLAIN, type Argon2 } from './limits.ts';
+import {
+  ARGON2,
+  BATCH_PADS,
+  canonical,
+  MAX_SHARE,
+  MAX_SHARE_PLAIN,
+  normalizePath,
+  type Argon2
+} from './limits.ts';
 import { parseTheme, type Theme } from './theme.ts';
 
 const utf8 = new TextEncoder();
@@ -423,13 +431,22 @@ export async function fetchShare(root: string, id: string, once = false) {
   };
 }
 
-/** A link's copy, opened with its key, or the key its password gives (`linkKey`). */
+/**
+ * A link's copy, opened with its key, or the key its password gives
+ * (`linkKey`). Its path is whatever the link's maker wrote: one outside the
+ * link's root is refused, or the page would name, and its edit button lead
+ * to, another root's pad.
+ */
 export async function openShared(
+  root: string,
   id: string,
   key: Uint8Array<ArrayBuffer>,
   data: Uint8Array<ArrayBuffer>
 ) {
   const plain = await openShare(key, id, data);
   const shared: Shared = JSON.parse(utf8Decode.decode(await inflate(plain, MAX_SHARE_PLAIN)));
+  const path = normalizePath(String(shared.path));
+  if (path !== shared.path || path.split('/')[0] !== canonical(root))
+    throw new Error("malformed: the link's copy names a pad outside its root");
   return { ...shared, theme: parseTheme(shared.theme) };
 }

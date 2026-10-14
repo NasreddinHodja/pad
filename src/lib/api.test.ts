@@ -1,5 +1,7 @@
 import { afterEach, expect, test } from 'bun:test';
 import * as api from './api.ts';
+import { random, sealShare, toBase64 } from './crypto.ts';
+import { deflate } from './deflate.ts';
 
 const realFetch = globalThis.fetch;
 afterEach(() => void (globalThis.fetch = realFetch));
@@ -52,4 +54,24 @@ test('the sealed key from before a password change is refused under the new one'
   expect(await api.unlock('a', 'new password', kdf('a'))).toBeDefined();
   kept.set('a', old);
   await expect(api.unlock('a', 'new password', kdf('a'))).rejects.toThrow("doesn't match");
+});
+
+// A copy as its maker seals it: whoever has made a link can write any path in it.
+async function copy(path: string) {
+  const key = random(32);
+  const id = toBase64(random(16));
+  const plain = await deflate(
+    new TextEncoder().encode(JSON.stringify({ path, pads: [{ path, text: 'hi' }], theme: {} }))
+  );
+  return { id, key, data: await sealShare(key, id, plain) };
+}
+
+test("a link's copy names a pad in the link's own root", async () => {
+  const { id, key, data } = await copy('alice/notes');
+  expect((await api.openShared('alice', id, key, data)).path).toBe('alice/notes');
+});
+
+test('a copy naming another root is refused: its edit button would lead there', async () => {
+  const { id, key, data } = await copy('bank/login');
+  await expect(api.openShared('alice', id, key, data)).rejects.toThrow('malformed');
 });
