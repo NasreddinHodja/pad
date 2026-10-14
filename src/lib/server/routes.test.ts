@@ -14,6 +14,7 @@ import * as padShares from '../../routes/_/[root]/pads/[id]/shares/+server.ts';
 import * as theme from '../../routes/_/[root]/theme/+server.ts';
 import { db, padVersion, setCeiling, usage } from './db.ts';
 import {
+  CONCURRENT,
   OPEN,
   REQUESTS,
   MAX_SEALED,
@@ -334,10 +335,13 @@ describe('batch reads', () => {
 });
 
 describe('meters', () => {
-  const ok = new Response('');
-  /** The hook's answer to a request from `peer`, saying it forwards for `forwarded`. */
-  const send = async (peer: string, forwarded?: string, path = '/') =>
-    await handle({
+  /**
+   * The hook's answer to a request from `peer`, saying it forwards for
+   * `forwarded`. The route answers an empty 200, sent whole as a server
+   * would, or `answer`'s, left for the test to read or not.
+   */
+  async function send(peer: string, forwarded?: string, path = '/', answer?: () => Response) {
+    const res = await handle({
       event: {
         getClientAddress: () => peer,
         url: new URL('http://pad.test' + path),
@@ -345,8 +349,12 @@ describe('meters', () => {
           headers: forwarded ? { 'x-forwarded-for': forwarded } : {}
         })
       } as RequestEvent,
-      resolve: async () => ok
+      resolve: async () => (answer ? answer() : new Response(''))
     });
+    if (!answer) await res.arrayBuffer();
+    return res;
+  }
+  const ok = { status: 200 };
 
   test('only the home and about pages may be indexed', async () => {
     expect((await send('198.51.100.210')).headers.get('x-robots-tag')).toBeNull();
@@ -359,19 +367,51 @@ describe('meters', () => {
       );
   });
 
+  test('answers carrying pads count toward their address until sent or dropped', async () => {
+    const PAD = `/_/someroot/pads/${b64(32)}`;
+    // A body that's never finished: a client that doesn't read.
+    const unread = () => new Response(new ReadableStream({ pull() {} }));
+    const held = [];
+    for (let i = 0; i < CONCURRENT; i++) {
+      const res = await send('198.51.100.220', undefined, PAD, unread);
+      expect(res).toMatchObject(ok);
+      held.push(res);
+    }
+    for (const path of [PAD, '/_/someroot/pads/batch', `/_/someroot/shares/${b64(16)}`])
+      expect((await send('198.51.100.220', undefined, path, unread)).status).toBe(429);
+    const refused = await send('198.51.100.220', undefined, PAD, unread);
+    expect(refused.headers.get('retry-after')).toBe('1');
+    // Pages and small answers aren't counted, and someone else isn't held up.
+    expect(await send('198.51.100.220', undefined, '/', unread)).toMatchObject(ok);
+    expect(await send('198.51.100.220', undefined, '/_/someroot/pads', unread)).toMatchObject(ok);
+    expect(await send('198.51.100.221', undefined, PAD)).toMatchObject(ok);
+    // One dropped (the client went away), one read to its end: two more may start.
+    await held[0].body!.cancel();
+    expect(await send('198.51.100.220', undefined, PAD, unread)).toMatchObject(ok);
+    await held[1].body!.cancel();
+    const read = await send('198.51.100.220', undefined, PAD, () => new Response('all of it'));
+    expect(await read.text()).toBe('all of it');
+    expect(await send('198.51.100.220', undefined, PAD)).toMatchObject(ok);
+    // An answer with no body is done at once.
+    for (let i = 0; i < 3; i++)
+      expect(
+        await send('198.51.100.220', undefined, PAD, () => new Response(null, { status: 304 }))
+      ).toMatchObject({ status: 304 });
+  });
+
   test('every request counts toward its address, and a refusal says when to come back', async () => {
-    for (let i = 0; i < REQUESTS.burst; i++) expect(await send('198.51.100.200')).toBe(ok);
+    for (let i = 0; i < REQUESTS.burst; i++) expect(await send('198.51.100.200')).toMatchObject(ok);
     const refused = await send('198.51.100.200');
     expect(refused.status).toBe(429);
     expect(refused.headers.get('retry-after')).toBe('1');
-    expect(await send('198.51.100.201')).toBe(ok);
+    expect(await send('198.51.100.201')).toMatchObject(ok);
     later(1000);
-    expect(await send('198.51.100.200')).toBe(ok);
+    expect(await send('198.51.100.200')).toMatchObject(ok);
   });
 
   test("a client's own X-Forwarded-For doesn't give it a fresh meter", async () => {
     for (let i = 0; i < REQUESTS.burst; i++)
-      expect(await send('198.51.100.210', `203.0.113.${i % 250}`)).toBe(ok);
+      expect(await send('198.51.100.210', `203.0.113.${i % 250}`)).toMatchObject(ok);
     expect((await send('198.51.100.210', '203.0.113.251')).status).toBe(429);
   });
 

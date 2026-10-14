@@ -157,7 +157,7 @@ A link that opens once is =409= without =X-Open: once=; with it, the copy is del
 
 ** GET /_/limits
 
-Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, =growth= and =requests= are buckets of ={"burst", "perSecond", "floor"}=. =padBytes= is the text before encryption; padding rounds it up (3.1% at 512 KiB) and sealing adds 28 bytes, and the server, which can't tell text from padding, takes up to that. The operator sets them with =PAD_CONFIG= ([[file:../guide/install.org::*Limits][install guide]]).
+Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, =growth= and =requests= are buckets of ={"burst", "perSecond", "floor"}=; =concurrent= is how many answers carrying pads (a pad, a batch, a kept version, a link's copy) one address may have unsent at once, the next =429= with =Retry-After: 1=. =padBytes= is the text before encryption; padding rounds it up (3.1% at 512 KiB) and sealing adds 28 bytes, and the server, which can't tell text from padding, takes up to that. The operator sets them with =PAD_CONFIG= ([[file:../guide/install.org::*Limits][install guide]]).
 
 =200= ={"padBytes": 524288, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
 

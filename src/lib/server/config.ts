@@ -41,6 +41,13 @@ export const DEFAULTS = {
    * lets an export read a full root.
    */
   requests: { burst: 5000, perSecond: 200, floor: 1 } as Bucket,
+  /**
+   * Requests an address may have open at once: answered but not yet sent
+   * whole, as a client that doesn't read leaves them. A tab has a few; 64 is
+   * an office's worth behind one address. Each holds what's left of its
+   * answer, at most a pad's 540,700 bytes after a5e094a's batches.
+   */
+  concurrent: 64,
   /** Wrong passwords: `free` tries, then a wait that doubles up to `maxWait`. */
   backoff: { free: 5, maxWait: 15 * 60 * 1000 },
   /** How long an emptied pad or a deleted root waits before it's purged. */
@@ -62,13 +69,21 @@ export const DEFAULTS = {
 export type Config = typeof DEFAULTS;
 
 /** Counts, not sizes or times: whole numbers. */
-const WHOLE = new Set(['linksPerRoot', 'rootPads', 'requests.burst', 'backoff.free', 'versions']);
+const WHOLE = new Set([
+  'linksPerRoot',
+  'rootPads',
+  'requests.burst',
+  'concurrent',
+  'backoff.free',
+  'versions'
+]);
 /** Divided by, or a cap nothing fits under: more than 0. */
 const POSITIVE = new Set([
   'padBytes',
   'rootBytes',
   'rootPads',
   'serverBytes',
+  'concurrent',
   'perSecond',
   'burst'
 ]);

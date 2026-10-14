@@ -191,6 +191,7 @@ The site's origin is the request's =Host= over =https=: adapter-bun has no =ORIG
 | =open=         | 16 MiB burst, 1 MiB/s, 16 KiB  | Claims, unlocks, locks and link reads, per address                                          |
 | =growth=       | 64 MiB burst, 1 GiB a day, 0   | New bytes an address adds to pads and links, across every root                              |
 | =requests=     | 5000 burst, 200/s, 1           | Every request an address sends, counted not weighed                                         |
+| =concurrent=   | 64                             | Answers carrying pads an address may have unsent at once; past it, 429                      |
 | =backoff=      | 5 free, 900000 (15 min)        | Wrong passwords: ={"free", "maxWait"}=; past =free=, a wait that doubles up to =maxWait=    |
 | =grace=        | 2592000000 (30 days)           | How long an emptied pad or a deleted root waits before it's purged                          |
 | =retention=    | 0 (never)                      | How long a root may go unused (no unlock, no browser with it open) before it's deleted      |

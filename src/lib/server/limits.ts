@@ -99,6 +99,7 @@ export const WRITES: Bucket = config.writes;
 export const OPEN: Bucket = config.open;
 export const GROWTH: Bucket = config.growth;
 export const REQUESTS: Bucket = config.requests;
+export const CONCURRENT = config.concurrent;
 
 const writes = meter(WRITES);
 const open = meter(OPEN);
@@ -117,6 +118,26 @@ function refuse(event: RequestEvent, wait: number, message: string) {
 /** Seconds the request's address must wait before another request, or 0. */
 export function requestWait(event: RequestEvent) {
   return Math.ceil(requests.take(limitKey(address(event)), 1) / 1000);
+}
+
+// Requests each address has open: answered, not yet sent whole. Counted, not
+// timed: a client that doesn't read holds its answers in pad's memory until
+// its connection closes (docs/architecture/capacity.org). Keys go at 0, so
+// the map is as big as the addresses with something open.
+const unsent = new Map<string, number>();
+
+/** Counts a request from `key` as open, unless it has CONCURRENT already. */
+export function startRequest(key: string) {
+  const n = unsent.get(key) ?? 0;
+  if (n >= CONCURRENT) return false;
+  unsent.set(key, n + 1);
+  return true;
+}
+
+export function endRequest(key: string) {
+  const n = (unsent.get(key) ?? 1) - 1;
+  if (n > 0) unsent.set(key, n);
+  else unsent.delete(key);
 }
 
 /** Meters a write to `root`. */

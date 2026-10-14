@@ -24,6 +24,7 @@ export const GET: RequestHandler = () =>
     open: limits.OPEN,
     growth: limits.GROWTH,
     requests: limits.REQUESTS,
+    concurrent: limits.CONCURRENT,
     backoff: { free: limits.BACKOFF_FREE, maxWait: limits.BACKOFF_MAX },
     grace: GRACE,
     retention: RETENTION,

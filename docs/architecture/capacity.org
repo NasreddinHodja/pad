@@ -69,13 +69,15 @@ Not limited by the app: page loads, the unlocked =GET=s (the editor polls them, 
 
 A batch read (=POST …/pads/batch=) names each pad once. Before, one full pad named 100 times was a 54 MB response built in memory; on the laptop's build, from one address, 40 connections that sent one each and never read held 2,118 MiB until they closed (=scripts/bench/batch.ts slow 40=). Now they're =400=, and the most one response can be is a full root, 16 MiB, held until it's read: as Vaultwarden's =/sync= builds a whole vault. Since then, measured 2026-10-14: a full root (31 pads of 540,700 bytes) asked for whole by connections that never read, from one address (=batch.ts slow <n> 0 100 25=); on the VPS, a second pad from the v0.2.0 build beside the live one, with its own database:
 
-| Unread connections | VPS, built whole | VPS, read a pad at a time | Laptop, built whole: held (peak) | Laptop, a pad at a time |
-|--------------------+------------------+---------------------------+----------------------------------+-------------------------|
-|                 40 | 968 MiB          | 123 MiB                   | 695 MiB (959)                    | 82 MiB (110)            |
-|                 80 | 1,739 MiB        | 184 MiB                   |                                  |                         |
-|                160 | 3,390 MiB        | 282 MiB                   |                                  |                         |
+| Unread connections | VPS, built whole | VPS, read a pad at a time | VPS, and 64 open per address | Laptop, built whole: held (peak) | Laptop, a pad at a time |
+|--------------------+------------------+---------------------------+------------------------------+----------------------------------+-------------------------|
+|                 40 | 968 MiB          | 123 MiB                   |                              | 695 MiB (959)                    | 82 MiB (110)            |
+|                 80 | 1,739 MiB        | 184 MiB                   |                              |                                  |                         |
+|                160 | 3,390 MiB        | 282 MiB                   | 174 MiB                      |                                  |                         |
 
 Built whole, the response held about 21 MiB a connection until the connection was closed, 20–25 s in (adapter-bun leaves Bun's idle timeout at its default, =CONNECTION_IDLE_TIMEOUT= unset): past about 250 connections from one address the VPS's 5.8 GiB would have run out. Read a pad at a time, as the client takes them, an unread connection holds about 1.4 MiB. A client that reads loses nothing: 40 whole-root batches, 10 at a time, came at 189 MB/s on the laptop, every one 200. The live pad answered throughout every run.
+
+So an address may have at most =concurrent= (64) answers carrying pads unsent at once (=hooks.server.ts=); the next is =429=. On the laptop, an address holding 80 unread got 429 while they were open and 200 again once they'd closed. Only those answers are counted: counting one means a stream around its body, and every answer so wrapped took page loads from 9,509/9,569 a second to 6,913/6,880 (home) and 4,130/4,116 to 2,663/2,722 (a root and its data), two runs each, =loads.ts=. Counting only those, page loads were 8,966/9,618 (home) before and 9,525/9,150 after, the same within the runs' spread. Whole-root batches read by clients went from 378/393 MB/s to 283/368 (=batch.ts fast 100 10 100=).
 
 * What the limits changed
 
