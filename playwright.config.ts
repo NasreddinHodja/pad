@@ -41,7 +41,9 @@ export default defineConfig({
     // database. The build is production's: __Host- cookies, which Chromium
     // takes over http on localhost.
     command: `rm -f ${DB} ${DB}-wal ${DB}-shm && bun run build && bun build/index.js`,
-    env: { PAD_DB: DB, HOST: '127.0.0.1', PORT: String(PORT) },
+    // A grace other than the default's 30 days, so text that names it is
+    // seen to come from the server's limits.
+    env: { PAD_DB: DB, HOST: '127.0.0.1', PORT: String(PORT), PAD_CONFIG: 'e2e/pad-config.json' },
     url: `http://127.0.0.1:${PORT}/_/limits`,
     reuseExistingServer: false,
     timeout: 300_000

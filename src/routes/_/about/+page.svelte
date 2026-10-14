@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { days } from '#lib/format.ts';
   import Button from '#lib/ui/Button.svelte';
   import type { PageProps } from './$types';
 
@@ -14,7 +15,6 @@
     while (bytes >= 1024 && i < units.length - 1) [bytes, i] = [bytes / 1024, i + 1];
     return `${Math.round(bytes * 10) / 10} ${units[i]}`;
   }
-  const days = (ms: number) => `${Math.round(ms / 86_400_000)} days`;
   const minutes = (ms: number) => `${Math.round(ms / 60_000)} minutes`;
 
   const keys = [

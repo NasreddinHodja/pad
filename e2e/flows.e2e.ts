@@ -255,6 +255,8 @@ test('a dialog keeps Tab inside, and Escape gives the pad back its focus', async
   const dialog = page.getByRole('alertdialog', { name: /^delete \// });
   const cancel = dialog.getByRole('button', { name: 'cancel', exact: true });
   const remove = dialog.getByRole('button', { name: 'delete', exact: true });
+  // The server's grace (e2e/pad-config.json), not a number of its own.
+  await expect(dialog).toContainText('for 14 days its password reclaims');
   // Cancel first, so a stray Enter deletes nothing.
   await expect(cancel).toBeFocused();
   await page.keyboard.press('Tab');

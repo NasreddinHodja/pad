@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { message } from './format.ts';
+  import { page } from '$app/state';
+  import { days, message } from './format.ts';
   import Button from './ui/Button.svelte';
   import Modal from './ui/Modal.svelte';
 
   // Deleting a root: it and every pad in it, reclaimable with the password
-  // for 30 days.
+  // for the server's grace (page data).
   let {
     root,
     remove,
@@ -39,7 +40,8 @@
 >
   <p id="delete-what" class="text-dim">
     /{root} and every pad under it go, its read-only links stop working, and every browser is signed out.
-    for 30 days its password reclaims all of it from /{root}; after that, or once someone claims /{root}
+    for {days(page.data.grace)} its password reclaims all of it from /{root}; after that, or once
+    someone claims /{root}
     anew, it's gone for good.
   </p>
   {#if problem}

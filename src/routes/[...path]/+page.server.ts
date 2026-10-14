@@ -22,6 +22,8 @@ export const load: PageServerLoad = ({ params, cookies }) => {
     state,
     kdf: kdf && { salt: Buffer.from(kdf.salt).toString('base64url'), argon2: kdf.argon2 },
     /** A deleted root's: when it's purged, unless its password reclaims it first. */
-    purgeAt: deleted === null ? null : deleted + GRACE
+    purgeAt: deleted === null ? null : deleted + GRACE,
+    /** How long a deleted root waits to be purged (the delete dialog says). */
+    grace: GRACE
   };
 };

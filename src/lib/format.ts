@@ -11,3 +11,6 @@ export const when = (ms: number) =>
 /** A day, in the reader's locale. */
 export const day = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { dateStyle: 'medium' });
+
+/** A span of milliseconds, in whole days: `30 days`. */
+export const days = (ms: number) => `${Math.round(ms / 86_400_000)} days`;
