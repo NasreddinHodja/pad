@@ -5,7 +5,15 @@
 # the builder's own platform, and only the last stage is per-architecture.
 # SOURCE_DATE_EPOCH (the release's commit time) makes it the same bytes for
 # the same commit (vite.config.ts).
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2-slim AS build
+#
+# Each base image is pinned by its digest, the hash of its contents, with
+# the tag for people to read: a tag can be moved to other contents, a
+# digest can't, so a release runs the Bun it was tested on. Moving to a new
+# Bun means both lines and package.json's packageManager, each with its
+# tag's own digest, which covers every architecture:
+#   curl -s https://hub.docker.com/v2/repositories/oven/bun/tags/<tag> |
+#     bun -e 'console.log((await Bun.stdin.json()).digest)'
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.2-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61 AS build
 ARG SOURCE_DATE_EPOCH
 WORKDIR /src
 COPY package.json bun.lock ./
@@ -16,7 +24,7 @@ RUN PAD_DB=/tmp/pad.db bun run build && mkdir -m 700 /data
 # remove.ts imports the app's name rules: bundled into one file.
 RUN bun build scripts/remove.ts --target=bun --outfile=/src/remove.js
 
-FROM oven/bun:1.4.2-distroless
+FROM oven/bun:1.4.2-distroless@sha256:1a0c31c7c5f9d193aedf60fe1cebdeb76ac8f6e29f24be8dd8cbd6df72df26ec
 COPY --from=build /src/build /app
 # For `docker exec`: install.org, Backups and Abuse.
 COPY --from=build /src/scripts/backup.ts /app/backup.ts
