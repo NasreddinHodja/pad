@@ -67,6 +67,8 @@ Claiming a root is free: a root is a row of a few hundred bytes, and disk is onl
 
 Not limited by the app: page loads, the unlocked =GET=s (the editor polls them, export fetches every pad), =GET /_/limits=. A flood of those, or of anything, past what the machine's link carries is the proxy's and the provider's to stop ([[file:../guide/install.org][install guide]]). There is no limit for the whole server: anyone could spend it, and everyone's saves would fail.
 
+A batch read (=POST …/pads/batch=) names each pad once. Before, one full pad named 100 times was a 54 MB response built in memory; on the laptop's build, from one address, 40 connections that sent one each and never read held 2,118 MiB until they closed (=scripts/bench/batch.ts slow 40=). Now they're =400=, and the most one response can be is a full root, 16 MiB, held until it's read: as Vaultwarden's =/sync= builds a whole vault. Not yet measured: unread full-root responses against the VPS's 5.8 GiB.
+
 * What the limits changed
 
 =scenarios.ts=, run on the build of =3d7f628= (before) and on this one, each on a fresh database, 2026-10-11:

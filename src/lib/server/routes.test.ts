@@ -324,6 +324,13 @@ describe('batch reads', () => {
     expect((await many('batch-refused', cookies, ['not an id'])).status).toBe(400);
     expect((await many('batch-refused', cookies, [42])).status).toBe(400);
   });
+
+  test('a pad asked for twice is refused: one stored pad never fills a response', async () => {
+    const cookies = await claimed('batch-twice');
+    const a = b64(32);
+    await save('batch-twice', cookies, 3, a);
+    expect((await many('batch-twice', cookies, [a, b64(32), a])).status).toBe(400);
+  });
 });
 
 describe('meters', () => {

@@ -14,6 +14,8 @@ export const POST: RequestHandler = async (event) => {
   const { ids } = await body(event.request);
   if (!Array.isArray(ids) || ids.length === 0 || ids.length > BATCH_PADS)
     error(400, `ask for 1 to ${BATCH_PADS} pads`);
+  // Each once: a pad asked for 100 times was 100 copies of it in one response.
+  if (new Set(ids).size !== ids.length) error(400, 'ask for each pad once');
   const pads = ids.map((id) => getSealed(root, padIdParam(typeof id === 'string' ? id : ''))?.data);
   const out = new Uint8Array(pads.reduce((n, p) => n + 4 + (p?.length ?? 0), 0));
   const view = new DataView(out.buffer);

@@ -75,7 +75,7 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 ** POST /_/<root>/pads/batch
 
-/Unlocked./ Many pads at once, for export and a link's copy. Body: ={"ids": ["…", …]}=, 1 to 100 ids; otherwise =400=.
+/Unlocked./ Many pads at once, for export and a link's copy. Body: ={"ids": ["…", …]}=, 1 to 100 ids, each once; otherwise =400=.
 
 =200=, =application/octet-stream=: for each id in the order asked, its sealed text's length as 4 bytes little-endian, then the sealed text; a length of 0 for a pad that doesn't exist or has been emptied.
 
