@@ -64,6 +64,8 @@ async function shoot(page: Page, file: string) {
   await finder.click();
   await finder.fill('re');
   await page.evaluate(() => document.fonts.ready);
+  // The finder flies in (ui/motion.ts): shot before it lands, it's half there.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
   await page.screenshot({ path: `${out}/${file}` });
 }
 
