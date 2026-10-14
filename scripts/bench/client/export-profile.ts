@@ -2,94 +2,34 @@
 // 250 ms of an export, V8's sampled JS allocation over it, and each process's
 // PSS. Tracing itself costs memory: export-pss.ts measures without it.
 //
-//   bun scripts/bench/client/export-profile.ts <base> <root> <password> <chars of the root pad>
+//   bun scripts/bench/client/export-profile.ts <base> <root> <password> avg|max|<chars>
 //
 // Against a build with the root already seeded; prints JSON.
 import { readFileSync } from 'fs';
+import { launch } from './harness.ts';
+import { floorText } from './text.ts';
 const [base, root, password, firstArg] = process.argv.slice(2);
-const first = Number(firstArg);
+// The root pad's text: the floor shows it, and the pad is open once it's all there.
+const text = floorText(firstArg);
+const first = text.length;
 const port = 9200 + Math.floor(Math.random() * 90);
 const dir = `/tmp/pad-export-profile-${port}`;
-const chrome = Bun.spawn(
-  [
-    'chromium',
-    '--headless=new',
-    `--remote-debugging-port=${port}`,
-    `--user-data-dir=${dir}`,
-    '--no-first-run',
-    '--disable-extensions',
-    '--disable-features=SpareRendererForSitePerProcess',
-    'about:blank'
-  ],
-  { stderr: 'ignore', stdout: 'ignore' }
-);
-// Whatever ends this script, the browser and its profile go with it: one left
-// running shares its pages and CPU with the next measurement.
-const closeBrowser = () => {
-  try {
-    chrome.kill();
-  } catch {
-    // Already gone.
-  }
-  Bun.spawnSync(['rm', '-rf', dir]);
-};
-process.on('exit', closeBrowser);
-for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => process.exit(130));
-for (const event of ['uncaughtException', 'unhandledRejection'] as const)
-  process.on(event, (e) => {
-    console.error(e);
-    process.exit(1);
-  });
-let ver: any;
-for (let i = 0; i < 100 && !ver; i++) {
-  await Bun.sleep(100);
-  ver = await fetch(`http://127.0.0.1:${port}/json/version`)
-    .then((r) => r.json())
-    .catch(() => null);
-}
-const ws = new WebSocket(ver.webSocketDebuggerUrl);
-await new Promise((r) => (ws.onopen = r));
-// The browser gone, nothing left to measure: stop, rather than wait forever.
-ws.onclose = () => process.exit(1);
-let id = 0;
-const pending = new Map<number, (d: any) => void>();
 const trace: any[] = [];
 let traceDone: () => void = () => {};
-ws.onmessage = (m) => {
-  const d = JSON.parse(m.data as string);
-  if (d.id) {
-    pending.get(d.id)?.(d);
-    pending.delete(d.id);
-  } else if (d.method === 'Tracing.dataCollected') trace.push(...d.params.value);
-  else if (d.method === 'Tracing.tracingComplete') traceDone();
-};
-const send = (method: string, params: any = {}, sessionId?: string): Promise<any> =>
-  new Promise((res, rej) => {
-    const i = ++id;
-    pending.set(i, (d) =>
-      d.error ? rej(new Error(method + ': ' + JSON.stringify(d.error))) : res(d.result)
-    );
-    ws.send(JSON.stringify({ id: i, method, params, sessionId }));
-  });
-const { targetInfos } = await send('Target.getTargets');
-const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
-for (const t of targetInfos)
-  if (t.type === 'page') await send('Target.closeTarget', { targetId: t.targetId });
-const { sessionId: s } = await send('Target.attachToTarget', { targetId, flatten: true });
-const S = (m: string, p: any = {}) => send(m, p, s);
-
-await S('Page.enable');
-await S('Runtime.enable');
-const ev = async (expr: string) =>
-  (await S('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }))
-    .result.value;
-async function until(expr: string, ms = 120000) {
-  const t = Date.now();
-  while (!(await ev(expr))) {
-    if (Date.now() - t > ms) throw new Error('timeout: ' + expr);
-    await Bun.sleep(50);
+// Whether Chromium dropped trace data: its buffer full, dumps lost.
+let dataLoss = false;
+const { send, S, ev, until, close } = await launch({
+  port,
+  dir,
+  timeout: 120000,
+  onEvent: (d) => {
+    if (d.method === 'Tracing.dataCollected') trace.push(...d.params.value);
+    else if (d.method === 'Tracing.tracingComplete') {
+      dataLoss = !!d.params.dataLossOccurred;
+      traceDone();
+    }
   }
-}
+});
 
 if (base === 'floor' || base === 'floor-read') {
   // The floor: a bare page holding the same kind of text in a plain textarea;
@@ -100,13 +40,9 @@ if (base === 'floor' || base === 'floor-read') {
     html: `<!doctype html><textarea style="width:100vw;height:100vh;font:16px monospace"></textarea>`
   });
   await ev(`(() => {
-    const words = 'the of and to in is that it for on as with was his by at from this be or have an are not but had they you were which her one all their there can been'.split(' ');
-    let seed = 1;
-    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
-    let s = '';
-    while (s.length < ${first}) s += words[Math.floor(rnd() * words.length)] + (rnd() < 0.1 ? '\\n' : ' ');
+    const s = ${JSON.stringify(text)};
     const t = document.querySelector('textarea');
-    t.value = s.slice(0, ${first});
+    t.value = s;
     t.setSelectionRange(0, 0);
     ${base === 'floor-read' ? `t.addEventListener('input', () => { window.v = t.value; });` : ''}
   })()`);
@@ -136,11 +72,15 @@ await send('Tracing.start', {
   }
 });
 const dumps: string[] = [];
+let asked = 0;
+let lastGuid: string | null = null;
 const dump = async () => {
   const r = await send('Tracing.requestMemoryDump', {
     deterministic: false,
     levelOfDetail: 'detailed'
   });
+  asked++;
+  lastGuid = r.success ? r.dumpGuid : null;
   if (r.success) dumps.push(r.dumpGuid);
 };
 await dump();
@@ -183,8 +123,10 @@ let sampling = true;
 await Bun.sleep(300);
 const t0 = Date.now();
 await ev(`${button}.click()`);
-// A dump every 250 ms of the export, then one 1.5 s after it.
+// A dump every 250 ms of the export, then one 1.5 s after it. Five minutes
+// without one done is an export that won't be: costs.ts waits as long.
 while (!(await ev(`(window.__statuses ?? []).some((t) => /^exported|^►/.test(t))`))) {
+  if (Date.now() - t0 > 300000) throw new Error('timeout: export');
   await dump();
   await Bun.sleep(250);
 }
@@ -192,10 +134,20 @@ const status = await ev(`document.querySelector('[aria-live]')?.textContent`);
 await Bun.sleep(1500);
 await dump();
 sampling = false;
-const typingMs = Date.now() - t0;
+const ms = Date.now() - t0;
 const { profile } = await S('HeapProfiler.stopSampling');
+// A dump reaches the trace only once later ones are taken: the last ones
+// before the end never do (on a blank page 2 or 3 of 8, 22 or 30 asked, a 3 s
+// wait or not; here 5 of 10 taken 500 ms apart after the run). Ten light
+// ones, not counted, carry the run's own through; dumpsLost says if not.
+for (let i = 0; i < 10; i++) {
+  await Bun.sleep(500);
+  await send('Tracing.requestMemoryDump', { deterministic: false, levelOfDetail: 'light' });
+}
+// Waited for before it's asked: the end can come with Tracing.end's own answer.
+const traced = new Promise<void>((r) => (traceDone = r));
 await send('Tracing.end');
-await new Promise<void>((r) => (traceDone = r));
+await traced;
 
 // The renderer's allocators at each dump.
 const { processInfo } = await send('SystemInfo.getProcessInfo');
@@ -247,7 +199,7 @@ const allocators = Object.fromEntries(
           n,
           {
             before: mib(own[0][n] ?? 0),
-            peak: mib(own[peakAt][n] ?? 0),
+            peak: mib(Math.max(...own.map((d) => d[n] ?? 0))),
             after: mib(own.at(-1)![n] ?? 0)
           }
         ] as const
@@ -276,9 +228,16 @@ console.log(
     {
       base,
       root,
-      typingMs,
+      ms,
       status,
+      dumpsAsked: asked,
+      dumpsTaken: dumps.length,
       dumps: own.length,
+      // Which of the dumps taken never reached the trace, by their order.
+      dumpsLost: dumps.flatMap((g, i) => (byGuid.has(g) ? [] : [i])),
+      dataLoss,
+      // "after" is the last dump only if that one reached the trace.
+      afterIsLastDump: !!lastGuid && byGuid.has(lastGuid),
       peakDump: peakAt,
       rendererTotalMiB: {
         before: mib(total(own[0])),
@@ -295,7 +254,5 @@ console.log(
     1
   )
 );
-chrome.kill();
-await chrome.exited;
-Bun.spawnSync(['rm', '-rf', dir]);
+await close();
 process.exit(0);

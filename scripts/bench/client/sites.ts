@@ -1,128 +1,18 @@
 // bun sites.ts <url>   env: MOBILE=1
 // Other sites for comparison: memory at rest, transfer, and CPU over 20 s idle. Loads only; never types.
-// split between the processes sharing them) summed per Chromium process type.
-import { readFileSync } from 'fs';
+import { launch, mib, sum } from './harness.ts';
 const [base, scenario] = process.argv.slice(2);
 const port = 9300 + Math.floor(Math.random() * 500);
 const dir = `/tmp/pad-bench-profile-${port}`;
-const chrome = Bun.spawn(
-  [
-    'chromium',
-    ...(process.env.HEADED ? [] : ['--headless=new']),
-    `--remote-debugging-port=${port}`,
-    `--user-data-dir=${dir}`,
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--disable-extensions',
-    '--disable-features=SpareRendererForSitePerProcess',
-    'about:blank'
-  ],
-  { stderr: 'ignore', stdout: 'ignore' }
-);
-// Whatever ends this script, the browser and its profile go with it: one left
-// running shares its pages and CPU with the next measurement.
-const closeBrowser = () => {
-  try {
-    chrome.kill();
-  } catch {
-    // Already gone.
-  }
-  Bun.spawnSync(['rm', '-rf', dir]);
-};
-process.on('exit', closeBrowser);
-for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => process.exit(130));
-for (const event of ['uncaughtException', 'unhandledRejection'] as const)
-  process.on(event, (e) => {
-    console.error(e);
-    process.exit(1);
-  });
-let ver: any;
-for (let i = 0; i < 100 && !ver; i++) {
-  await Bun.sleep(100);
-  ver = await fetch(`http://127.0.0.1:${port}/json/version`)
-    .then((r) => r.json())
-    .catch(() => null);
-}
-const ws = new WebSocket(ver.webSocketDebuggerUrl);
-await new Promise((r) => (ws.onopen = r));
-// The browser gone, nothing left to measure: stop, rather than wait forever.
-ws.onclose = () => process.exit(1);
-let id = 0;
-const pending = new Map<number, (d: any) => void>();
-const events: any[] = [];
-ws.onmessage = (m) => {
-  const d = JSON.parse(m.data as string);
-  if (d.id) {
-    pending.get(d.id)?.(d);
-    pending.delete(d.id);
-  } else events.push(d);
-};
-const send = (method: string, params: any = {}, sessionId?: string): Promise<any> =>
-  new Promise((res, rej) => {
-    const i = ++id;
-    pending.set(i, (d) =>
-      d.error ? rej(new Error(method + ': ' + JSON.stringify(d.error))) : res(d.result)
-    );
-    ws.send(JSON.stringify({ id: i, method, params, sessionId }));
-  });
-const { targetInfos } = await send('Target.getTargets');
-const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
-for (const t of targetInfos)
-  if (t.type === 'page') await send('Target.closeTarget', { targetId: t.targetId });
-const { sessionId: s } = await send('Target.attachToTarget', { targetId, flatten: true });
-const S = (m: string, p: any = {}) => send(m, p, s);
-await S('Page.enable');
-await S('Runtime.enable');
-await S('Network.enable');
-await send('Browser.setDownloadBehavior', { behavior: 'deny' });
-if (process.env.MOBILE) {
-  // A mid-range Android phone: Pixel 7's viewport, a 4x slower CPU.
-  await S('Emulation.setDeviceMetricsOverride', {
-    width: 412,
-    height: 915,
-    deviceScaleFactor: 2.625,
-    mobile: true
-  });
-  await S('Emulation.setUserAgentOverride', {
-    userAgent:
-      'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Mobile Safari/537.36'
-  });
-  await S('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-  await S('Emulation.setCPUThrottlingRate', { rate: 4 });
-}
-const ev = async (expr: string) =>
-  (await S('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }))
-    .result.value;
+const { s, send, S, until, byType, events, close } = await launch({
+  port,
+  dir,
+  headed: !!process.env.HEADED,
+  flags: ['--no-default-browser-check'],
+  network: true,
+  phone: !!process.env.MOBILE
+});
 
-const kib = (pid: number) => {
-  try {
-    return +readFileSync(`/proc/${pid}/smaps_rollup`, 'utf8').match(/^Pss:\s+(\d+)/m)![1];
-  } catch {
-    return 0;
-  }
-};
-async function byType() {
-  const { processInfo } = await send('SystemInfo.getProcessInfo');
-  const out: Record<string, number> = {};
-  for (const p of processInfo) out[p.type] = (out[p.type] ?? 0) + kib(p.id);
-  return out;
-}
-const mib = (k: number) => +(k / 1024).toFixed(1);
-const sum = (t: Record<string, number>) => Object.values(t).reduce((a, b) => a + b, 0);
-async function until(expr: string, ms = 90000) {
-  const t = Date.now();
-  while (!(await ev(expr))) {
-    if (Date.now() - t > ms)
-      throw new Error(
-        'timeout: ' +
-          expr +
-          '\nPAGE: ' +
-          (await ev(`location.href + ' | ' + document.body.innerText.slice(0, 300)`))
-      );
-    await Bun.sleep(50);
-  }
-  return Date.now() - t;
-}
 async function steady() {
   await Bun.sleep(1500);
   await S('HeapProfiler.enable');
@@ -176,7 +66,5 @@ out.idleRequests = events
   .slice(before)
   .filter((e) => e.method === 'Network.requestWillBeSent' && e.sessionId === s).length;
 console.log(JSON.stringify(out));
-chrome.kill();
-await chrome.exited;
-Bun.spawnSync(['rm', '-rf', dir]);
+await close();
 process.exit(0);

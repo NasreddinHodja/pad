@@ -1,172 +1,19 @@
 // bun costs.ts <base> <avg|max>
 // The costs found by reading the code, each measured: names re-listed per move, theme applies per load, saves, the poll, paint of the texture and checkerboard, the link page's download, the finder, export.
-// split between the processes sharing them) summed per Chromium process type.
-import { readFileSync } from 'fs';
+import { launch } from './harness.ts';
+import { ROOT_CHARS } from './text.ts';
 const [base, scenario] = process.argv.slice(2);
 const port = 9300 + Math.floor(Math.random() * 500);
 const dir = `/tmp/pad-bench-profile-${port}`;
-const chrome = Bun.spawn(
-  [
-    'chromium',
-    ...(process.env.HEADED ? [] : ['--headless=new']),
-    `--remote-debugging-port=${port}`,
-    `--user-data-dir=${dir}`,
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--disable-extensions',
-    '--disable-features=SpareRendererForSitePerProcess',
-    'about:blank'
-  ],
-  { stderr: 'ignore', stdout: 'ignore' }
-);
-// Whatever ends this script, the browser and its profile go with it: one left
-// running shares its pages and CPU with the next measurement.
-const closeBrowser = () => {
-  try {
-    chrome.kill();
-  } catch {
-    // Already gone.
-  }
-  Bun.spawnSync(['rm', '-rf', dir]);
-};
-process.on('exit', closeBrowser);
-for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => process.exit(130));
-for (const event of ['uncaughtException', 'unhandledRejection'] as const)
-  process.on(event, (e) => {
-    console.error(e);
-    process.exit(1);
-  });
-let ver: any;
-for (let i = 0; i < 100 && !ver; i++) {
-  await Bun.sleep(100);
-  ver = await fetch(`http://127.0.0.1:${port}/json/version`)
-    .then((r) => r.json())
-    .catch(() => null);
-}
-const ws = new WebSocket(ver.webSocketDebuggerUrl);
-await new Promise((r) => (ws.onopen = r));
-// The browser gone, nothing left to measure: stop, rather than wait forever.
-ws.onclose = () => process.exit(1);
-let id = 0;
-const pending = new Map<number, (d: any) => void>();
-const events: any[] = [];
-ws.onmessage = (m) => {
-  const d = JSON.parse(m.data as string);
-  if (d.id) {
-    pending.get(d.id)?.(d);
-    pending.delete(d.id);
-  } else events.push(d);
-};
-const send = (method: string, params: any = {}, sessionId?: string): Promise<any> =>
-  new Promise((res, rej) => {
-    const i = ++id;
-    pending.set(i, (d) =>
-      d.error ? rej(new Error(method + ': ' + JSON.stringify(d.error))) : res(d.result)
-    );
-    ws.send(JSON.stringify({ id: i, method, params, sessionId }));
-  });
-const { targetInfos } = await send('Target.getTargets');
-const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
-for (const t of targetInfos)
-  if (t.type === 'page') await send('Target.closeTarget', { targetId: t.targetId });
-const { sessionId: s } = await send('Target.attachToTarget', { targetId, flatten: true });
-const S = (m: string, p: any = {}) => send(m, p, s);
+const { s, send, S, ev, until, typeKey, sample, stop, events, close } = await launch({
+  port,
+  dir,
+  headed: !!process.env.HEADED,
+  flags: ['--no-default-browser-check'],
+  network: true,
+  phone: !!process.env.MOBILE
+});
 
-// A key as a keyboard sends it (keyDown/keyUp), not Input.insertText: that one
-// takes Chromium's IME commit path, ~43× slower a key at the end of a long
-// textarea (typing-path.ts), which no keyboard pays.
-async function typeKey(ch: string) {
-  const enter = ch === '\n';
-  const code = enter
-    ? 'Enter'
-    : ch === '/'
-      ? 'Slash'
-      : /\d/.test(ch)
-        ? 'Digit' + ch
-        : 'Key' + ch.toUpperCase();
-  const vk = enter ? 13 : ch === '/' ? 191 : ch.toUpperCase().charCodeAt(0);
-  const key = enter ? 'Enter' : ch;
-  await S('Input.dispatchKeyEvent', {
-    type: 'keyDown',
-    key,
-    code,
-    windowsVirtualKeyCode: vk,
-    text: enter ? '\r' : ch
-  });
-  await S('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk });
-}
-
-await S('Page.enable');
-await S('Runtime.enable');
-await S('Network.enable');
-await send('Browser.setDownloadBehavior', { behavior: 'deny' });
-if (process.env.MOBILE) {
-  // A mid-range Android phone: Pixel 7's viewport, a 4x slower CPU.
-  await S('Emulation.setDeviceMetricsOverride', {
-    width: 412,
-    height: 915,
-    deviceScaleFactor: 2.625,
-    mobile: true
-  });
-  await S('Emulation.setUserAgentOverride', {
-    userAgent:
-      'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Mobile Safari/537.36'
-  });
-  await S('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-  await S('Emulation.setCPUThrottlingRate', { rate: 4 });
-}
-const ev = async (expr: string) =>
-  (await S('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }))
-    .result.value;
-
-const kib = (pid: number) => {
-  try {
-    return +readFileSync(`/proc/${pid}/smaps_rollup`, 'utf8').match(/^Pss:\s+(\d+)/m)![1];
-  } catch {
-    return 0;
-  }
-};
-async function byType() {
-  const { processInfo } = await send('SystemInfo.getProcessInfo');
-  const out: Record<string, number> = {};
-  for (const p of processInfo) out[p.type] = (out[p.type] ?? 0) + kib(p.id);
-  return out;
-}
-const mib = (k: number) => +(k / 1024).toFixed(1);
-const sum = (t: Record<string, number>) => Object.values(t).reduce((a, b) => a + b, 0);
-let peak = 0;
-let peakTotal = 0;
-let sampling = false;
-async function sample() {
-  sampling = true;
-  peak = 0;
-  peakTotal = 0;
-  while (sampling) {
-    const t = await byType();
-    peak = Math.max(peak, t.renderer ?? 0);
-    peakTotal = Math.max(peakTotal, sum(t));
-    // Every 100 ms: reading every process's memory costs the machine being measured.
-    await Bun.sleep(100);
-  }
-}
-const stop = () => {
-  sampling = false;
-  return { renderer: mib(peak), total: mib(peakTotal) };
-};
-async function until(expr: string, ms = 90000) {
-  const t = Date.now();
-  while (!(await ev(expr))) {
-    if (Date.now() - t > ms)
-      throw new Error(
-        'timeout: ' +
-          expr +
-          '\nPAGE: ' +
-          (await ev(`location.href + ' | ' + document.body.innerText.slice(0, 300)`))
-      );
-    await Bun.sleep(50);
-  }
-  return Date.now() - t;
-}
 async function go(path: string) {
   await S('Page.navigate', { url: base + path });
   await until(`document.readyState === 'complete'`);
@@ -182,9 +29,12 @@ const loaded = (n: number) =>
   `(() => { const t = document.querySelector('textarea'); return !!t && t.value.length >= ${n}; })()`;
 const button = (label: string) =>
   `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === '${label}')`;
+// A dialog by its title (ui/Modal.svelte: role=dialog, labelled by its h2).
+const dialog = (title: string) =>
+  `[...document.querySelectorAll('[role=dialog]')].find((d) => d.querySelector('h2')?.textContent.trim() === '${title}')`;
 
 const root = scenario === 'max' ? 'bigroot' : 'avgroot';
-const first = root === 'avgroot' ? 249000 : 512 * 1024 - 8192;
+const first = ROOT_CHARS[root === 'avgroot' ? 'avg' : 'max'];
 const out: any = { root };
 await S('Performance.enable', { timeDomain: 'threadTicks' });
 const origin = new URL(base).origin;
@@ -198,7 +48,7 @@ const metric = async (name: string) => {
   const { metrics } = await S('Performance.getMetrics');
   return metrics.find((m: any) => m.name === name)?.value ?? 0;
 };
-/** Requests sent during `run`, with their response sizes, and script/layout time. */
+/** Requests sent during `run`, with the bytes each sent and received, and script/layout time. */
 async function watch(run: () => Promise<unknown>) {
   const from = events.length;
   const [script, layout, styles] = [
@@ -218,13 +68,27 @@ async function watch(run: () => Promise<unknown>) {
       .filter((e) => e.method === 'Network.loadingFinished')
       .map((e) => [e.params.requestId, e.params.encodedDataLength])
   );
-  const requests = evs
-    .filter((e) => e.method === 'Network.requestWillBeSent')
-    .map((e) => ({
+  // What a request sent: its body, asked of Chromium (loadingFinished's
+  // encodedDataLength counts only what came back).
+  const body = async (e: any) => {
+    if (!e.params.request.hasPostData) return 0;
+    try {
+      const { postData, base64Encoded } = await S('Network.getRequestPostData', {
+        requestId: e.params.requestId
+      });
+      return base64Encoded ? Buffer.from(postData, 'base64').length : Buffer.byteLength(postData);
+    } catch {
+      return -1;
+    }
+  };
+  const requests = [];
+  for (const e of evs.filter((e) => e.method === 'Network.requestWillBeSent'))
+    requests.push({
       method: e.params.request.method,
       url: e.params.request.url,
-      bytes: sizes.get(e.params.requestId) ?? 0
-    }));
+      bytes: sizes.get(e.params.requestId) ?? 0,
+      sent: await body(e)
+    });
   return {
     ms,
     peakMiB: peak,
@@ -235,25 +99,28 @@ async function watch(run: () => Promise<unknown>) {
   };
 }
 const path = (u: string) => new URL(u).pathname;
-const summarize = (reqs: { method: string; url: string; bytes: number }[]) => {
-  const by: Record<string, { n: number; bytes: number }> = {};
+const summarize = (reqs: { method: string; url: string; bytes: number; sent: number }[]) => {
+  const by: Record<string, { n: number; bytes: number; sent: number }> = {};
   for (const r of reqs) {
     const p = path(r.url);
     const k =
       r.method +
       ' ' +
-      (/\/pads\/[^/]+$/.test(p)
-        ? '/_/<root>/pads/<id>'
-        : /\/pads$/.test(p)
-          ? '/_/<root>/pads'
-          : /\/theme$/.test(p)
-            ? '/_/<root>/theme'
-            : p.startsWith('/_app/')
-              ? '/_app/…'
-              : p);
-    by[k] ??= { n: 0, bytes: 0 };
+      (/\/pads\/batch$/.test(p)
+        ? '/_/<root>/pads/batch'
+        : /\/pads\/[^/]+$/.test(p)
+          ? '/_/<root>/pads/<id>'
+          : /\/pads$/.test(p)
+            ? '/_/<root>/pads'
+            : /\/theme$/.test(p)
+              ? '/_/<root>/theme'
+              : p.startsWith('/_app/')
+                ? '/_app/…'
+                : p);
+    by[k] ??= { n: 0, bytes: 0, sent: 0 };
     by[k].n++;
     by[k].bytes += r.bytes;
+    by[k].sent += r.sent;
   }
   return by;
 };
@@ -417,10 +284,10 @@ if (root === 'avgroot') {
     const dialog3 = async () => {
       for (let i = 0; i < 3; i++) {
         await ev(`${button('share')}.click()`);
-        await until(`!!document.querySelector('[aria-label="read-only links"]')`, 10000);
+        await until(`!!${dialog('read-only links')}`, 10000);
         await Bun.sleep(400);
         await ev(`document.querySelector('button[aria-label=close]').click()`);
-        await until(`!document.querySelector('[aria-label="read-only links"]')`, 10000);
+        await until(`!${dialog('read-only links')}`, 10000);
         await Bun.sleep(400);
       }
     };
@@ -434,7 +301,7 @@ if (root === 'avgroot') {
   await section('themeLoad', async () => {
     const pickTheme = async (name: string) => {
       await ev(`${button('theme')}.click()`);
-      await until(`!!document.getElementById('theme-title')`, 10000);
+      await until(`!!${dialog('theme')}`, 10000);
       await ev(
         `[...document.querySelectorAll('button')].find((b) => b.textContent.trim().endsWith('${name}')).click()`
       );
@@ -471,7 +338,7 @@ if (root === 'avgroot') {
   // collection, before and after.
   await section('themeDrag', async () => {
     await ev(`${button('theme')}.click()`);
-    await until(`!!document.getElementById('theme-title')`, 10000);
+    await until(`!!${dialog('theme')}`, 10000);
     await ev(`(() => { window.__textures = []; const set = CSSStyleDeclaration.prototype.setProperty;
       CSSStyleDeclaration.prototype.setProperty = function (n, v, p) { if (n === '--texture' && this === document.documentElement.style) window.__textures.push(v.length); return set.call(this, n, v, p); }; })()`);
     await S('HeapProfiler.collectGarbage');
@@ -509,7 +376,7 @@ if (root === 'avgroot') {
       heapKeptMiB: +((heap1 - heap0) / 2 ** 20).toFixed(2),
       // Each set of --texture: a url's length, or 4 for 'none'.
       textureSets: await ev('window.__textures'),
-      closed: !(await ev(`!!document.getElementById('theme-title')`))
+      closed: !(await ev(`!!${dialog('theme')}`))
     };
   });
 
@@ -562,10 +429,10 @@ if (root === 'avgroot') {
       `(() => { window.__copied = null; const c = navigator.clipboard; const w = c.writeText.bind(c); c.writeText = (t) => { window.__copied = t; return w(t).catch(() => {}); }; })()`
     );
     await ev(`${button('share')}.click()`);
-    await until(`!!document.querySelector('[aria-label="read-only links"]')`, 10000);
+    await until(`!!${dialog('read-only links')}`, 10000);
     // Only once the dialog has its links: a click while it lists them does nothing.
     await until(
-      `!!${button('new link')} && !${button('new link')}.disabled && !/opening/.test(document.querySelector('[aria-label="read-only links"]').innerText)`,
+      `!!${button('new link')} && !${button('new link')}.disabled && !/opening/.test(${dialog('read-only links')}.innerText)`,
       30000
     );
     await Bun.sleep(500);
@@ -646,7 +513,5 @@ if (root === 'avgroot') {
   });
 }
 console.log(JSON.stringify(out));
-chrome.kill();
-await chrome.exited;
-Bun.spawnSync(['rm', '-rf', dir]);
+await close();
 process.exit(0);

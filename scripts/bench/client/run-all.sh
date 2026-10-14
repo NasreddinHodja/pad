@@ -1,19 +1,23 @@
 #!/bin/sh
-# Every client measurement, on a quiet machine, in one go.
+# Every client measurement of one build against its floors, on a quiet machine.
 #
-#   scripts/bench/client/run-all.sh <builds dir> <results dir>
+#   scripts/bench/client/run-all.sh <build dir> <seed.db> <results dir> [reps]
 #
-# <builds dir> holds three built copies of the app, old/ cheap/ native/ (see
-# client.org: the caret as committed, the JS caret forced on, the browser's
-# own), and old.db cheap.db native.db, each seeded with avgroot and bigroot by
-# seed.ts. Each build gets its own server and database; the runs alternate
-# between builds, so whatever drifts over the hours drifts for all of them.
-# load.log records the load and the busiest processes every 15 s: the
-# evidence the machine was quiet.
+# <build dir> holds a built pad (bun run build); <seed.db> a database seeded
+# by seed.ts with avgroot and bigroot (password hunter2hunter2), checkpointed:
+# one file, no -wal. Every script that opens a pad gets its own server on a
+# fresh copy of it, so what one types or claims isn't in the next one's pad.
+# The floors and the pad alternate within each repeat, so whatever drifts over
+# the hours drifts for both. load.log records the load and the busiest
+# processes every 15 s: the evidence the machine was quiet.
 set -u
 B=$1
-R=$2
+SEED=$2
+R=$3
+REPS=${4:-3}
 S=$(cd "$(dirname "$0")" && pwd)
+PORT=5641
+P=hunter2hunter2
 mkdir -p "$R"
 
 (while :; do
@@ -23,47 +27,61 @@ mkdir -p "$R"
 done) > "$R/load.log" 2>&1 &
 LOGGER=$!
 
-for d in old:5601 cheap:5602 native:5603; do
-  (cd "$B/${d%%:*}" && PAD_DB="$B/${d%%:*}.db" PORT=${d#*:} ORIGIN=http://localhost:${d#*:} \
-    exec bun build/index.js > "$R/server-${d%%:*}.log" 2>&1) &
-done
-for p in 5601 5602 5603; do
-  until curl -s -o /dev/null "http://localhost:$p/_/limits"; do sleep 0.5; done
-done
-
-builds='5601:old 5602:cheap 5603:native'
+DB="$R/work.db"
+SERVER=
+serve() {
+  rm -f "$DB" "$DB-wal" "$DB-shm"
+  command cp -f "$SEED" "$DB"
+  (cd "$B" && PAD_DB="$DB" PORT=$PORT ORIGIN=http://localhost:$PORT \
+    exec bun build/index.js >> "$R/server.log" 2>&1) &
+  SERVER=$!
+  until curl -s -o /dev/null "http://localhost:$PORT/_/limits"; do sleep 0.5; done
+}
+unserve() {
+  kill "$SERVER" 2>/dev/null
+  wait "$SERVER" 2>/dev/null
+}
 run() { echo "== $(date +%T) $*" >&2; }
 json() { grep '^[{[]' || true; }
+tag() { sed "s/^{/{\"rep\":$1,/"; }
+# pad <script> <timeout> <out> <rep> <args...>: one script against a fresh server.
+pad() {
+  script=$1 limit=$2 out=$3 rep=$4
+  shift 4
+  run "$script" "$@" "$rep"
+  serve
+  timeout "$limit" bun "$S/$script" "http://localhost:$PORT" "$@" 2>/dev/null | json | tag "$rep" >> "$R/$out"
+  unserve
+}
 
-for n in 0 249000 524224; do for i in 1 2 3; do
-  run floor "$n" "$i"; timeout 300 bun "$S/floor.ts" x "$n" 2>/dev/null | json >> "$R/floor.jsonl"
-done; done
-for n in 249000 524224; do
-  run floor-cpu "$n"; timeout 1500 bun "$S/floor-cpu.ts" "$n" 2>/dev/null | json >> "$R/floor-cpu.jsonl"
-done
-for how in insert keys; do for sp in spell nospell; do
-  run typing-path "$how" "$sp"; timeout 900 bun "$S/typing-path.ts" 524224 "$how" "$sp" 2>/dev/null | json >> "$R/typing-path.jsonl"
-done; done
-for r in avg max; do for b in $builds; do
-  run cpu "${b#*:}" "$r"; timeout 1500 bun "$S/cpu.ts" "http://localhost:${b%%:*}" "$r" 2>/dev/null | json | sed "s/^{/{\"build\":\"${b#*:}\",/" >> "$R/cpu.jsonl"
-done; done
-for sc in avg-type max-type; do for b in $builds; do
-  run drive "${b#*:}" "$sc"; timeout 1200 bun "$S/drive.ts" "http://localhost:${b%%:*}" "$sc" 2>/dev/null | json | sed "s/^{/{\"build\":\"${b#*:}\",/" >> "$R/drive.jsonl"
-done; done
-for b in 5601:old 5602:cheap 5603:native floor floor-read; do
-  base=$b; case $b in *:*) base=http://localhost:${b%%:*};; esac
-  run typing-profile "${b#*:}"; timeout 600 bun "$S/typing-profile.ts" "$base" avgroot hunter2hunter2 249000 2>/dev/null > "$R/profile-${b#*:}.json"
-done
-for r in avg max; do
-  run costs "$r"; timeout 1500 bun "$S/costs.ts" http://localhost:5601 "$r" 2>/dev/null | json >> "$R/costs.jsonl"
-done
-for u in http://localhost:5601/ http://localhost:5601/avgroot https://news.ycombinator.com/ https://lite.duckduckgo.com/lite/ https://text.npr.org/ https://sr.ht/ https://privatebin.net/ https://dontpad.com/ https://en.wikipedia.org/wiki/Notepad https://github.com/NasreddinHodja/pad.nassu.online https://www.youtube.com/ https://www.google.com/; do
-  run sites "$u"; timeout 150 bun "$S/sites.ts" "$u" 2>/dev/null | json >> "$R/sites.jsonl"
+for rep in $(seq "$REPS"); do
+  for t in 0 avg max; do
+    run floor "$t" "$rep"; timeout 300 bun "$S/floor.ts" "$t" 2>/dev/null | json | tag "$rep" >> "$R/floor.jsonl"
+  done
+  MOBILE=1 timeout 300 bun "$S/floor.ts" avg 2>/dev/null | json | tag "$rep" >> "$R/floor.jsonl"
+  pad drive.ts 300 drive.jsonl "$rep" claim
+  for sc in avg-type max-type max-export; do pad drive.ts 1200 drive.jsonl "$rep" "$sc"; done
+  export MOBILE=1
+  pad drive.ts 1200 drive.jsonl "$rep" avg-type
+  unset MOBILE
+  for t in avg max; do
+    run floor-cpu "$t" "$rep"; timeout 1500 bun "$S/floor-cpu.ts" "$t" 2>/dev/null | json | tag "$rep" >> "$R/floor-cpu.jsonl"
+    pad cpu.ts 1500 cpu.jsonl "$rep" "$t"
+  done
+  run typing-profile floor "$rep"
+  timeout 600 bun "$S/typing-profile.ts" floor avgroot "$P" avg 2>/dev/null > "$R/profile-floor-$rep.json"
+  run typing-profile pad "$rep"
+  serve
+  timeout 600 bun "$S/typing-profile.ts" "http://localhost:$PORT" avgroot "$P" avg 2>/dev/null > "$R/profile-pad-$rep.json"
+  unserve
+  run export-pss "$rep"
+  serve
+  timeout 900 bun "$S/export-pss.ts" "http://localhost:$PORT" bigroot "$P" max 2>/dev/null | json | tag "$rep" >> "$R/export-pss.jsonl"
+  unserve
+  for t in avg max; do pad costs.ts 1500 costs.jsonl "$rep" "$t"; done
 done
 
 run done
 kill $LOGGER
-for p in $(pgrep -f "bun build/index.js"); do
-  tr '\0' '\n' < /proc/$p/environ | grep -q "^PAD_DB=$B/" && kill $p
-done
-rm -rf /tmp/pad-bench-profile-* /tmp/pad-typing-profile-*
+rm -f "$DB" "$DB-wal" "$DB-shm"
+rm -rf /tmp/pad-bench-profile-* /tmp/pad-typing-profile-* /tmp/pad-export-profile-*
