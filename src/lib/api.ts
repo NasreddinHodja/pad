@@ -25,7 +25,7 @@ import {
 } from './crypto.ts';
 import { deflate, inflate } from './deflate.ts';
 import type { Pad } from './export.ts';
-import { ARGON2, BATCH_PADS, MAX_SHARE, type Argon2 } from './limits.ts';
+import { ARGON2, BATCH_PADS, MAX_SHARE, MAX_SHARE_PLAIN, type Argon2 } from './limits.ts';
 import { parseTheme, type Theme } from './theme.ts';
 
 const utf8 = new TextEncoder();
@@ -334,7 +334,12 @@ export async function share(
 ) {
   const id = toBase64(random(16));
   const key = random(32);
-  const plain = await deflate(utf8.encode(JSON.stringify({ path, pads, theme } satisfies Shared)));
+  const json = utf8.encode(JSON.stringify({ path, pads, theme } satisfies Shared));
+  if (json.length > MAX_SHARE_PLAIN)
+    throw new Error(
+      `/${path} and its pads come to ${Math.ceil(json.length / 1024 / 1024)} MiB, over the ${MAX_SHARE_PLAIN / 1024 / 1024} MiB a link holds`
+    );
+  const plain = await deflate(json);
   const body = await sealShare(password ? await linkKey(key, password, id) : key, id, plain);
   if (body.length > MAX_SHARE)
     throw new Error(
@@ -425,6 +430,6 @@ export async function openShared(
   data: Uint8Array<ArrayBuffer>
 ) {
   const plain = await openShare(key, id, data);
-  const shared: Shared = JSON.parse(utf8Decode.decode(await inflate(plain)));
+  const shared: Shared = JSON.parse(utf8Decode.decode(await inflate(plain, MAX_SHARE_PLAIN)));
   return { ...shared, theme: parseTheme(shared.theme) };
 }
