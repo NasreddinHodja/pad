@@ -52,13 +52,16 @@ export const GET: RequestHandler = (event) => {
 
 // The editor's autosave: the sealed text as the body, and the sealed path in
 // a header when the pad is new or emptied; a pad that has one keeps it.
-// Nothing awaits between the version's check and the write.
+// `x-keep: 1` keeps the text it overwrites as a version whatever its age: a
+// restore does. Nothing awaits between the version's check and the write.
 export const PUT: RequestHandler = async (event) => {
   ours(event);
   const { root, id } = target(event);
   const name = event.request.headers.get('x-pad-name');
   if (name !== null && (!/^[A-Za-z0-9_-]+$/.test(name) || name.length > MAX_SEALED_NAME))
     error(400, 'malformed pad name');
+  const keep = event.request.headers.get('x-keep');
+  if (keep !== null && keep !== '1') error(400, 'x-keep is 1 or absent');
   const data = await readCapped(event.request, MAX_SEALED, `pad is over ${MAX_BYTES / 1024} KiB`);
   const before = padSize(root, id);
   const size = data.length + (name?.length ?? before?.name ?? 0);
@@ -67,11 +70,11 @@ export const PUT: RequestHandler = async (event) => {
   current(event, root, id);
   // Past the version's check: a stale browser gets 412, not this.
   if (name === null && padVersion(root, id) === 0) error(400, 'a new pad needs its name');
-  return json({ updatedAt: putSealed(root, id, name, data) });
+  return json({ updatedAt: putSealed(root, id, name, data, keep === '1') });
 };
 
-// An emptied pad: its text and name go now, its row in 30 days unless it's
-// saved again.
+// An emptied pad: its text and name go now, its last text into its versions,
+// its row and versions in 30 days unless it's saved again.
 export const DELETE: RequestHandler = (event) => {
   ours(event);
   const { root, id } = target(event);

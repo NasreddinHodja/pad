@@ -1,7 +1,8 @@
 // Deletion is a mark, and the mark is undone or made good after GRACE.
 //
 // An emptied pad is marked, and its sealed text and name go at once: nothing
-// could read them (saving it again writes both anew). It drops out of its
+// could read them (saving it again writes both anew); its last text stays
+// among its versions, which go when it's purged. It drops out of its
 // root's list; its links, copies of their own, stay until revoked. A deleted root is marked with every
 // pad in it, at one time, and every browser is signed out of it; its old
 // password reclaims it, unmarking what was marked with it, and a fresh claim
@@ -11,7 +12,7 @@
 // would: its password brings it back within GRACE.
 
 import { config } from './config.ts';
-import { db } from './db.ts';
+import { db, keep } from './db.ts';
 import { removeExpired } from './shares.ts';
 
 export const GRACE = config.grace;
@@ -51,10 +52,12 @@ const purgeRootStmt = db.query('DELETE FROM roots WHERE name = ?');
 const purgeRootsStmt = db.query('DELETE FROM roots WHERE deleted_at <= ?');
 const purgePadsStmt = db.query('DELETE FROM sealed WHERE deleted_at <= ?');
 
-/** An emptied pad. Its first emptying counts, not later ones. */
-export function markPad(root: string, id: string) {
-  markPadStmt.run(Date.now(), root, id);
-}
+/** An emptied pad, its last text kept as a version. Its first emptying counts, not later ones. */
+export const markPad = db.transaction((root: string, id: string) => {
+  const now = Date.now();
+  keep(root, id, now, true);
+  markPadStmt.run(now, root, id);
+});
 
 /** When the root was deleted, if it's waiting to be purged. */
 export function deletedAt(root: string) {

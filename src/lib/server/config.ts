@@ -49,13 +49,20 @@ export const DEFAULTS = {
    * How long a root may go without an unlock before it's deleted, as its
    * owner would (then purged after `grace`). 0: never.
    */
-  retention: 0
+  retention: 0,
+  /** Earlier texts kept of each pad, the oldest dropped past it. 0: none. */
+  versions: 10,
+  /**
+   * A save keeps the text it overwrites once the newest kept is this old: one
+   * every 10 minutes of typing, and the last before a pause.
+   */
+  versionGap: 10 * 60 * 1000
 };
 
 export type Config = typeof DEFAULTS;
 
 /** Counts, not sizes or times: whole numbers. */
-const WHOLE = new Set(['linksPerRoot', 'rootPads', 'requests.burst', 'backoff.free']);
+const WHOLE = new Set(['linksPerRoot', 'rootPads', 'requests.burst', 'backoff.free', 'versions']);
 /** Divided by, or a cap nothing fits under: more than 0. */
 const POSITIVE = new Set([
   'padBytes',

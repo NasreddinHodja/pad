@@ -31,14 +31,14 @@ test('an emptied pad drops out, its links stay, and saving it again brings it ba
   expect(getSealed('empty', id('a'))).not.toBeNull();
 });
 
-test("an emptied pad's text and name leave at once; it still counts as a pad", () => {
+test("an emptied pad's text and name leave its row at once, the text for its versions; it still counts as a pad", () => {
   claim('drop', { salt: bytes(16), argon2: ARGON2, auth: bytes(32), sealedKey: bytes(60) });
   putSealed('drop', id('a'), 'name', bytes(10));
   markPad('drop', id('a'));
   expect(
     db.query("SELECT length(data) + length(name) AS n FROM sealed WHERE root = 'drop'").get()
   ).toEqual({ n: 0 });
-  expect(usage('drop')).toEqual({ bytes: 0, pads: 1 });
+  expect(usage('drop')).toEqual({ bytes: 10, history: 10, pads: 1 });
 });
 
 test('a deleted root signs everyone out, and its password reclaims what was deleted with it', () => {

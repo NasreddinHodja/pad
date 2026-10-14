@@ -13,7 +13,7 @@ The routes under =/_/= that the page calls (=src/lib/api.ts=). Everything sent i
 + Routes marked /unlocked/ need the unlock cookie for =<root>=. Otherwise, or if the root is unclaimed: =401=.
 + Every request, pages included, counts toward 200 a second per address (5000 at once). Over that: =429= with =Retry-After=, before anything else is looked at.
 + Routes marked /metered/ draw on a bucket per root; those marked /open/, on one per address (IPv6 per /64). Each request costs its body's bytes, at least 16 KiB. Out of it: =429= with =Retry-After= in seconds.
-+ Routes marked /quota/ add to the root's bytes and pads and the address's new bytes for the day. Past the root's: =413=; past the address's: =429=; the server past its ceiling: =507=. A write that adds nothing always passes.
++ Routes marked /quota/ add to the root's bytes and pads and the address's new bytes for the day. Past the root's: =413=; past the address's: =429=; the server past its ceiling: =507=. A write that adds nothing always passes. A pad's kept versions count toward the root's bytes, but never refuse a write: past the quota, the root's oldest go.
 + The numbers, and why: [[file:../architecture/capacity.org][Capacity and limits]], and =GET /_/limits=.
 + The client's address is the peer's, or from a proxy in =PAD_TRUSTED_PROXIES= the rightmost =X-Forwarded-For= hop that isn't one ([[file:../guide/install.org::*Behind a reverse proxy][install guide]]). Bodies are capped at 1 MiB (=BODY_SIZE_LIMIT=).
 + Pages and API answers carry HSTS, =X-Content-Type-Options: nosniff=, =Referrer-Policy: no-referrer=, =Cross-Origin-Opener-Policy= and =Cross-Origin-Resource-Policy: same-origin= (=src/hooks.server.ts=).
@@ -86,12 +86,25 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 + =If-Match=: the version the text was made over, as the GET's =ETag= (="<ms>"=), or ="0"= for a pad that doesn't exist or has been emptied. Missing: =428=. Not the pad's version now: =412=, and nothing is written.
 + Body: the sealed text, padded (=src/lib/padme.ts=): at most 540,700 bytes, a 512 KiB text's padded size plus 28; over: =413=.
 + =X-Pad-Name=: the sealed path, base64url, at most 1403 characters. Needed when the pad is new or emptied (missing then: =400=); left out, a pad keeps the name it has.
++ =X-Keep: 1=: the text this overwrites is kept as a version whatever its age (a restore). Anything else: =400=. Without it, the text is kept when the pad's newest version is =versionGap= old (10 minutes), or it has none.
 
 =200= ={"updatedAt": <ms>}=.
 
 ** DELETE /_/<root>/pads/<id>
 
-/Unlocked, metered./ What saving an empty pad does: drops its sealed text and name and marks it, so it leaves the list; its links stay. The empty row is purged 30 days on unless it's saved again. =If-Match= as for =PUT=. =204=.
+/Unlocked, metered./ What saving an empty pad does: drops its sealed text and name and marks it, so it leaves the list; its links stay, and its text is kept as a version. The empty row and its versions are purged 30 days on unless it's saved again. =If-Match= as for =PUT=. =204=.
+
+** GET /_/<root>/pads/<id>/versions
+
+/Unlocked./ The pad's kept versions, at most =versions= (10), newest first, an emptied pad's too.
+
+=200= ={"versions": [{"at": <ms>, "bytes": <sealed size>}]}=: =at= is the version the text had, its save's time.
+
+** GET /_/<root>/pads/<id>/versions/<at>
+
+/Unlocked./ One kept version. =<at>= not a positive whole number of at most 15 digits: =400=; no such version: =404=.
+
+=200=, =application/octet-stream=: the sealed text, sealed to the pad's id as the pad's is.
 
 * Theme
 

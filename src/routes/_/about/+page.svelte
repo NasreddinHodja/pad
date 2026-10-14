@@ -115,6 +115,21 @@
         address adds at most {size(data.growthPerDay)} a day.
       </p>
 
+      <h3 class="underline">history</h3>
+      <p>
+        {#if data.versions}
+          a pad keeps its last {data.versions} earlier texts: one every
+          {minutes(data.versionGap)} of typing, and the last before each pause. emptying a pad keeps its
+          text among them, for {days(data.grace)}.
+          <span class="text-ink">history</span>, in a pad's header, lists them;
+          <span class="text-ink">restore</span> saves one as the newest, keeping what was there
+          among them. they count toward the root's {size(data.rootBytes)}; a full root drops its
+          oldest first, so a save is never refused for them.
+        {:else}
+          this server keeps no earlier texts of a pad.
+        {/if}
+      </p>
+
       <h3 class="underline">read-only links</h3>
       <p>
         <span class="text-ink">share</span>, in a pad's header, lists its links;

@@ -1,4 +1,4 @@
 #+TITLE: Using pad
 #+OPTIONS: ^:{}
 
-How to use pad is on every server's about page, =/_/about= ([[https://pad.nassu.online/_/about][pad.nassu.online's]]), with that server's limits: paths, roots and passwords, saving, read-only links, themes, export and the finder's keys. Its source is =src/routes/_/about/+page.svelte=, the one place it's written.
+How to use pad is on every server's about page, =/_/about= ([[https://pad.nassu.online/_/about][pad.nassu.online's]]), with that server's limits: paths, roots and passwords, saving, history, read-only links, themes, export and the finder's keys. Its source is =src/routes/_/about/+page.svelte=, the one place it's written.

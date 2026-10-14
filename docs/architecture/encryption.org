@@ -22,7 +22,7 @@ root key (random, one per root) ─HKDF─┬─► content key: AES-GCM over te
 
 * What the server keeps
 
-Per root: the salt and Argon2id's cost (public: the gate needs them before the password), SHA-256 of =auth=, the sealed root key and the sealed theme. =auth= carries Argon2id's cost already, so a fast hash is enough. A copy of the database gives an attacker the salts and hashes to guess passwords against at Argon2id's cost, and nothing else. It does show how many pads a root has, and each one's size to its Padmé step: on the author's root, 42 sizes among 180 pads, 12 of them unique.
+Per root: the salt and Argon2id's cost (public: the gate needs them before the password), SHA-256 of =auth=, the sealed root key and the sealed theme. =auth= carries Argon2id's cost already, so a fast hash is enough. A copy of the database gives an attacker the salts and hashes to guess passwords against at Argon2id's cost, and nothing else. It does show how many pads a root has, and each one's size to its Padmé step: on the author's root, 42 sizes among 180 pads, 12 of them unique. Each pad's kept versions are sealed as the pad is; they add the sizes and save times of up to 10 earlier texts, times the server saw as saves anyway.
 
 * Padding
 

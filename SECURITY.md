@@ -111,7 +111,8 @@ each.
   so search engines that follow it don't list root names.
 - **Sizes show, rounded.** A copy of the database shows how many pads a root
   has, and how long each is to within its padding (at most 12% more; pads
-  under 256 bytes all look the same). Pads sealed before padding show their
+  under 256 bytes all look the same), and the same of each pad's kept
+  versions, with when they were saved. Pads sealed before padding show their
   exact size until they're saved again.
 - **A password change keeps the root key.** It signs every other browser
   out, but someone who knew the old password and kept the key can still read
@@ -121,6 +122,8 @@ each.
   off as another's (`src/lib/api.test.ts`, `src/lib/crypto.test.ts`). But it
   can serve an older sealed version of a pad, which opens like the current
   one, or leave pads out of a root's list, and the browser doesn't notice.
+  It keeps up to 10 earlier versions of each pad for the history anyway,
+  sealed as the pad is.
 - **The first save claims a root.** Whoever saves under an unclaimed root
   first sets its password.
 - **A read-only link is a bearer secret.** Anyone with the whole link reads

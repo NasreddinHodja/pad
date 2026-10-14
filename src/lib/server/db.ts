@@ -1,7 +1,14 @@
 import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { ROOT_PADS, SERVER_BYTES, SERVER_SLACK } from './limits.ts';
+import {
+  ROOT_BYTES,
+  ROOT_PADS,
+  SERVER_BYTES,
+  SERVER_SLACK,
+  VERSION_GAP,
+  VERSIONS
+} from './limits.ts';
 import { migrate } from './schema.ts';
 
 // PAD_DB is /config/pad.db in the Docker image; ./data/pad.db in dev.
@@ -70,8 +77,28 @@ const listStmt = db.query<{ id: string; name: string }, [string]>(
   `SELECT id, name FROM sealed WHERE root = ? AND deleted_at IS NULL ORDER BY id LIMIT ${ROOT_PADS}`
 );
 // What counts toward a root's quota, kept by triggers (schema.ts, step 3).
-const usageStmt = db.query<{ bytes: number; pads: number }, [string]>(
-  'SELECT bytes, pads FROM roots WHERE name = ?'
+const usageStmt = db.query<{ bytes: number; history: number; pads: number }, [string]>(
+  'SELECT bytes, history, pads FROM roots WHERE name = ?'
+);
+const newestStmt = db.query<{ at: number | null }, [string, string]>(
+  'SELECT max(at) AS at FROM versions WHERE root = ? AND id = ?'
+);
+const keepStmt = db.query(
+  'INSERT OR IGNORE INTO versions (root, id, at, data) VALUES (?, ?, ?, ?)'
+);
+const trimStmt = db.query(
+  `DELETE FROM versions WHERE root = ?1 AND id = ?2 AND at NOT IN
+     (SELECT at FROM versions WHERE root = ?1 AND id = ?2 ORDER BY at DESC LIMIT ${VERSIONS})`
+);
+const dropOldestStmt = db.query(
+  `DELETE FROM versions WHERE (root, id, at) =
+     (SELECT root, id, at FROM versions WHERE root = ? ORDER BY at LIMIT 1)`
+);
+const versionsStmt = db.query<{ at: number; bytes: number }, [string, string]>(
+  'SELECT at, length(data) AS bytes FROM versions WHERE root = ? AND id = ? ORDER BY at DESC'
+);
+const keptStmt = db.query<{ data: Uint8Array }, [string, string, number]>(
+  'SELECT data FROM versions WHERE root = ? AND id = ? AND at = ?'
 );
 const sizeStmt = db.query<{ total: number; name: number }, [string, string]>(
   'SELECT length(data) + length(name) AS total, length(name) AS name FROM sealed WHERE root = ? AND id = ?'
@@ -89,13 +116,55 @@ export function padVersion(root: string, id: string) {
 /**
  * Writes the pad, whatever its version (the route checks it), and unmarks an
  * emptied pad. A null name keeps the one it has. Its time is its version, so
- * it only ever grows: two writes in one millisecond still get two.
+ * it only ever grows: two writes in one millisecond still get two. The text
+ * it overwrites may be kept (`keep`); `force` keeps it whatever its age.
  */
-export function putSealed(root: string, id: string, name: string | null, data: Uint8Array) {
-  const now = Math.max(Date.now(), (lastStmt.get(root, id)?.updated_at ?? 0) + 1);
-  if (name === null) rewriteStmt.run(root, id, data, now);
-  else putStmt.run(root, id, name, data, now);
-  return now;
+export const putSealed = db.transaction(
+  (root: string, id: string, name: string | null, data: Uint8Array, force = false) => {
+    const now = Math.max(Date.now(), (lastStmt.get(root, id)?.updated_at ?? 0) + 1);
+    keep(root, id, now, force);
+    if (name === null) rewriteStmt.run(root, id, data, now);
+    else putStmt.run(root, id, name, data, now);
+    fit(root);
+    return now;
+  }
+);
+
+/**
+ * Keeps the pad's text as a version, before it's overwritten or emptied at
+ * `now`: if `force`d, or once the newest kept is VERSION_GAP old. Past
+ * VERSIONS, the pad's oldest goes. Never on a full server: the text is what
+ * it's there for.
+ */
+export function keep(root: string, id: string, now: number, force: boolean) {
+  if (VERSIONS === 0) return;
+  // Cheapest first: most saves stop here.
+  const newest = newestStmt.get(root, id)?.at ?? null;
+  if (!force && newest !== null && now - newest < VERSION_GAP) return;
+  if (full()) return;
+  const row = getStmt.get(root, id);
+  if (!row?.data.length) return;
+  keepStmt.run(root, id, row.updated_at, row.data);
+  trimStmt.run(root, id);
+}
+
+/** The root's oldest versions go until it's back within its quota, or it has none. */
+export function fit(root: string) {
+  for (;;) {
+    const used = usageStmt.get(root);
+    if (!used || used.bytes <= ROOT_BYTES || used.history <= 0) return;
+    dropOldestStmt.run(root);
+  }
+}
+
+/** The pad's kept versions, newest first: each one's time and sealed size. */
+export function listVersions(root: string, id: string) {
+  return versionsStmt.all(root, id);
+}
+
+/** One kept version's sealed text. */
+export function getVersion(root: string, id: string, at: number) {
+  return keptStmt.get(root, id, at)?.data ?? null;
 }
 
 export function listSealed(root: string) {
@@ -104,7 +173,7 @@ export function listSealed(root: string) {
 
 /** The bytes and pads the root's quota counts. */
 export function usage(root: string) {
-  return usageStmt.get(root) ?? { bytes: 0, pads: 0 };
+  return usageStmt.get(root) ?? { bytes: 0, history: 0, pads: 0 };
 }
 
 /** The bytes the pad counts for now, and its name's; null if it has no row. */

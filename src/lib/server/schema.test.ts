@@ -65,6 +65,7 @@ test('a database from before migrations keeps its rows', () => {
       // Its pad's text and name, 3 + 1, and its link's copy, 3.
       bytes: 7,
       pads: 1,
+      history: 0,
       // What every root before migration 4 was derived with.
       argon2_memory: 19 * 1024,
       argon2_iterations: 2,
@@ -120,17 +121,17 @@ test('a purged root takes everything of its own with it', () => {
   db.run('PRAGMA foreign_keys = ON');
   const key = new Uint8Array([1]);
   for (const root of ['a', 'b']) {
-    db.query(`INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0, 19456, 2, 1, 1)`).run(
-      root,
-      key
-    );
+    db.query(
+      `INSERT INTO roots VALUES (?1, ?2, ?2, ?2, 1, NULL, NULL, 0, 0, 19456, 2, 1, 1, 0)`
+    ).run(root, key);
     db.query(`INSERT INTO sealed VALUES (?1, 'p', 'n', ?2, 3, NULL)`).run(root, key);
+    db.query(`INSERT INTO versions VALUES (?1, 'p', 2, ?2)`).run(root, key);
     db.query(`INSERT INTO unlocks VALUES (?2, ?1, 4, 5)`).run(root, key);
     db.query(`INSERT INTO devices VALUES (?2, ?1, 6)`).run(root, key);
     db.query(`INSERT INTO shares VALUES (?1, ?1, 'p', ?2, ?2, 7, NULL, 0)`).run(root, key);
   }
   db.run(`DELETE FROM roots WHERE name = 'a'`);
-  for (const table of ['sealed', 'unlocks', 'devices', 'shares'])
+  for (const table of ['sealed', 'versions', 'unlocks', 'devices', 'shares'])
     expect(db.query(`SELECT root FROM ${table}`).all()).toEqual([{ root: 'b' }]);
 });
 
@@ -152,14 +153,18 @@ test("a root's counts follow every write, as a recount gives them", () => {
   const blob = (n: number) => new Uint8Array(n);
   const counts = () =>
     db
-      .query<{ bytes: number; pads: number }, []>("SELECT bytes, pads FROM roots WHERE name = 'r'")
+      .query<{ bytes: number; history: number; pads: number }, []>(
+        "SELECT bytes, history, pads FROM roots WHERE name = 'r'"
+      )
       .get();
   const recount = () =>
     db
-      .query<{ bytes: number; pads: number }, []>(
+      .query<{ bytes: number; history: number; pads: number }, []>(
         `SELECT
            (SELECT coalesce(sum(length(data) + length(name)), 0) FROM sealed WHERE root = 'r') +
-           (SELECT coalesce(sum(length(data)), 0) FROM shares WHERE root = 'r') AS bytes,
+           (SELECT coalesce(sum(length(data)), 0) FROM shares WHERE root = 'r') +
+           (SELECT coalesce(sum(length(data)), 0) FROM versions WHERE root = 'r') AS bytes,
+           (SELECT coalesce(sum(length(data)), 0) FROM versions WHERE root = 'r') AS history,
            (SELECT count(*) FROM sealed WHERE root = 'r') AS pads`
       )
       .get();
@@ -173,6 +178,8 @@ test("a root's counts follow every write, as a recount gives them", () => {
   const steps = [
     () => put.run('a', 'nn', blob(10)),
     () => put.run('b', 'n', blob(100)),
+    () => db.query("INSERT INTO versions VALUES ('r', 'a', 1, ?)").run(blob(20)),
+    () => db.query("INSERT INTO versions VALUES ('r', 'b', 1, ?)").run(blob(30)),
     () => put.run('a', 'nnnn', blob(3)),
     () => db.run("UPDATE sealed SET deleted_at = 1 WHERE id = 'b'"),
     () =>
@@ -183,11 +190,12 @@ test("a root's counts follow every write, as a recount gives them", () => {
         )
         .run(blob(1), blob(50)),
     () => db.run("DELETE FROM sealed WHERE id = 'b'"),
+    () => db.run('DELETE FROM versions'),
     () => db.run("DELETE FROM shares WHERE id = 's'")
   ];
   for (const step of steps) {
     step();
     expect(counts()).toEqual(recount());
   }
-  expect(counts()).toEqual({ bytes: 7, pads: 1 });
+  expect(counts()).toEqual({ bytes: 7, history: 0, pads: 1 });
 });

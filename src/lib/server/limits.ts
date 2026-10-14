@@ -39,6 +39,8 @@ export const SERVER_BYTES = config.serverBytes;
 export const SERVER_SLACK = 64 * MiB;
 export const ROOT_BYTES = config.rootBytes;
 export const ROOT_PADS = config.rootPads;
+export const VERSIONS = config.versions;
+export const VERSION_GAP = config.versionGap;
 
 /**
  * Most keys a meter remembers, about 400 bytes each; past it, the least

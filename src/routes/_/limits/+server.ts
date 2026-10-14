@@ -26,5 +26,7 @@ export const GET: RequestHandler = () =>
     requests: limits.REQUESTS,
     backoff: { free: limits.BACKOFF_FREE, maxWait: limits.BACKOFF_MAX },
     grace: GRACE,
-    retention: RETENTION
+    retention: RETENTION,
+    versions: limits.VERSIONS,
+    versionGap: limits.VERSION_GAP
   });

@@ -11,6 +11,7 @@ import {
   unlocked
 } from '#lib/server/api.ts';
 import { SEALED_KEY_BYTES } from '#lib/server/auth.ts';
+import { fit } from '#lib/server/db.ts';
 import { LINK_LIFETIMES, MAX_SHARE } from '#lib/limits.ts';
 import { MAX_SHARES, meterOpen, meterWrite } from '#lib/server/limits.ts';
 import { addShare, getShare, removeShare, takeShare } from '#lib/server/shares.ts';
@@ -63,6 +64,7 @@ export const PUT: RequestHandler = async (event) => {
   const added = addShare(root, id, pad, sealedKey, data, made);
   if (added === 'full') error(409, `/${root} has ${MAX_SHARES} links, revoke some first`);
   if (added === 'taken') error(409, 'that link id is taken, try again');
+  fit(root);
   return json({ createdAt: added });
 };
 

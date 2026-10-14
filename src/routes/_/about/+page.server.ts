@@ -17,6 +17,8 @@ export const load: PageServerLoad = () => ({
   backoff: config.backoff,
   grace: config.grace,
   retention: config.retention,
+  versions: config.versions,
+  versionGap: config.versionGap,
   idle: IDLE,
   absolute: ABSOLUTE,
   path: { chars: MAX_PATH, segment: MAX_SEGMENT, depth: MAX_DEPTH }

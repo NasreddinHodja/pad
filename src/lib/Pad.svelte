@@ -8,6 +8,7 @@
   import { collect, download, exportPads } from './export.ts';
   import Finder from './Finder.svelte';
   import { message } from './format.ts';
+  import History from './History.svelte';
   import Share from './Share.svelte';
   import { href } from './href.ts';
   import { fadeOut, flyIn } from './ui/motion.ts';
@@ -55,6 +56,7 @@
   let ready = $state(false);
   let sharing = $state(false);
   let deleting = $state(false);
+  let browsing = $state(false);
   let theming = $state(false);
   // Only a root is deleted outright; a pad under it, by emptying it.
   const isRoot = !where.path.includes('/');
@@ -72,6 +74,8 @@
   // A save was refused over a newer version, and both texts are on screen,
   // until the next edit.
   let kept = false;
+  // The next save keeps the text it overwrites, however recent: a restore's.
+  let keepNext = false;
   // False once this editor is gone: what it was waiting for has nowhere to go.
   let alive = true;
 
@@ -98,7 +102,8 @@
     saving = true;
     status = 'saving…';
     try {
-      version = await api.save(where.root, where.keys, where.path, body, version);
+      version = await api.save(where.root, where.keys, where.path, body, version, keepNext);
+      keepNext = false;
       writes++;
       saved = body;
       status = content !== saved ? 'unsaved' : kept ? '► changed elsewhere, both kept' : 'saved';
@@ -258,6 +263,18 @@
     await invalidateAll();
   }
 
+  // Saves first, so what's on screen is kept among the versions too.
+  async function restore(text: string) {
+    await save();
+    if (content !== saved) throw new Error("the pad isn't saved yet, try again");
+    if (text === saved) return;
+    content = text;
+    kept = false;
+    keepNext = true;
+    await save();
+    if (content !== saved) throw new Error("restored, but not saved yet: it's retrying");
+  }
+
   // The actions: a row on a wide screen, a menu on a phone. Password is a page,
   // so a link.
   type Action = { label: string; disabled?: boolean } & (
@@ -265,6 +282,7 @@
   );
   const actions: Action[] = $derived([
     { label: 'share', disabled: !ready, run: () => (sharing = true) },
+    { label: 'history', disabled: !ready, run: () => (browsing = true) },
     { label: 'export', disabled: !ready, run: exportAll },
     ...(isRoot ? [{ label: 'theme', disabled: !ready, run: () => (theming = true) }] : []),
     { label: 'password', href: href(segments, '?password') },
@@ -424,6 +442,19 @@
     {theme}
     onclose={() => {
       sharing = false;
+      textarea.focus();
+    }}
+  />
+{/if}
+
+{#if browsing}
+  <History
+    root={where.root}
+    keys={where.keys}
+    path={where.path}
+    {restore}
+    onclose={() => {
+      browsing = false;
       textarea.focus();
     }}
   />

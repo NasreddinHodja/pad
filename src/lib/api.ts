@@ -235,10 +235,18 @@ export async function loadMany(root: string, keys: Keys, paths: string[]) {
 
 /**
  * An empty pad is deleted. `over`: the version the text was made over, or 0
- * for a pad that doesn't exist; refused (412) if the server's is newer. The
+ * for a pad that doesn't exist; refused (412) if the server's is newer.
+ * `keep`: the text it overwrites is kept as a version, however recent. The
  * pad's new version: 0 once deleted.
  */
-export async function save(root: string, keys: Keys, path: string, text: string, over: number) {
+export async function save(
+  root: string,
+  keys: Keys,
+  path: string,
+  text: string,
+  over: number,
+  keep = false
+) {
   const id = await padId(keys, path);
   const url = `${base(root)}/pads/${id}`;
   if (text === '') {
@@ -252,6 +260,7 @@ export async function save(root: string, keys: Keys, path: string, text: string,
     headers: {
       'content-type': 'application/octet-stream',
       'if-match': `"${over}"`,
+      ...(keep && { 'x-keep': '1' }),
       // Only a pad the server has no row for, an emptied one, or one whose
       // name shows its length needs its name: a fresh seal of it on every
       // save would change the root's list.
@@ -264,6 +273,19 @@ export async function save(root: string, keys: Keys, path: string, text: string,
   const { updatedAt } = (await res.json()) as { updatedAt: number };
   remember(root, path, text, updatedAt);
   return updatedAt;
+}
+
+/** The pad's kept versions, newest first: each one's time (its version) and sealed size. */
+export async function versions(root: string, keys: Keys, path: string) {
+  const res = await call(`${base(root)}/pads/${await padId(keys, path)}/versions`);
+  return ((await res.json()) as { versions: { at: number; bytes: number }[] }).versions;
+}
+
+/** One kept version's text. */
+export async function version(root: string, keys: Keys, path: string, at: number) {
+  const id = await padId(keys, path);
+  const res = await call(`${base(root)}/pads/${id}/versions/${at}`);
+  return openText(keys, id, new Uint8Array(await res.arrayBuffer()));
 }
 
 /** The root's theme; null if it's never been picked. */

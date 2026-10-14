@@ -282,6 +282,53 @@ test('a pad written another way is the same pad, and its address says so', async
   await expect(editor(page)).toHaveValue('milk');
 });
 
+test('an earlier text restored, then one from before the pad was emptied', async ({ page }) => {
+  await claimNew(page);
+  await editor(page).fill('first');
+  await expect(status(page)).toHaveText('saved');
+  // Nothing kept yet: the save over "first" keeps it.
+  await editor(page).fill('second');
+  await expect(status(page)).toHaveText('saved');
+
+  const history = page.getByRole('button', { name: 'history', exact: true });
+  const dialog = page.getByRole('dialog', { name: /^history of / });
+  const versions = dialog.getByRole('listitem');
+  const shown = dialog.getByRole('textbox', { name: /^the version from / });
+  await history.click();
+  await expect(versions).toHaveCount(1);
+  await versions.first().getByRole('button').click();
+  await expect(shown).toHaveValue('first');
+  await expectAccessible(page, 'history dialog, a version picked');
+  await dialog.getByRole('button', { name: 'restore', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(editor(page)).toHaveValue('first');
+  await expect(status(page)).toHaveText('saved');
+
+  // The restore kept "second", however recent.
+  await history.click();
+  await expect(versions).toHaveCount(2);
+  await versions.first().getByRole('button').click();
+  await expect(shown).toHaveValue('second');
+  await dialog.getByRole('button', { name: 'close', exact: true }).click();
+
+  // Emptied: its last text is kept, and brings it back.
+  await editor(page).fill('');
+  await expect(status(page)).toHaveText('saved');
+  await page.reload();
+  await opened(page);
+  await expect(editor(page)).toHaveValue('');
+  await history.click();
+  await expect(versions).toHaveCount(3);
+  await versions.first().getByRole('button').click();
+  await expect(shown).toHaveValue('first');
+  await dialog.getByRole('button', { name: 'restore', exact: true }).click();
+  await expect(editor(page)).toHaveValue('first');
+  await expect(status(page)).toHaveText('saved');
+  await page.reload();
+  await opened(page);
+  await expect(editor(page)).toHaveValue('first');
+});
+
 test.describe('a revoked link', () => {
   test.use({
     permissions: ['clipboard-read', 'clipboard-write'],

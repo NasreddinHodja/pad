@@ -73,7 +73,8 @@ export function allowGrowth(event: RequestEvent, root: string, bytes: number, pa
   // Emptied pads count until they're purged: their rows are still there.
   if (used.pads + pads > ROOT_PADS)
     error(413, `/${root} has ${ROOT_PADS} pads, emptied ones included until they're purged`);
-  if (used.bytes + bytes > ROOT_BYTES)
+  // Kept versions give way instead: db.ts, fit.
+  if (used.bytes - used.history + bytes > ROOT_BYTES)
     error(413, `/${root} is at its ${ROOT_BYTES / 1024 / 1024} MiB`);
   meterGrowth(event, bytes);
 }

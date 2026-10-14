@@ -205,6 +205,33 @@ const MIGRATIONS: (string | ((db: Database) => void))[] = [
   ALTER TABLE shares ADD COLUMN expires_at INTEGER;
   ALTER TABLE shares ADD COLUMN once INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX shares_expiring ON shares (expires_at) WHERE expires_at IS NOT NULL;
+  `,
+
+  // 7. Earlier texts of a pad (db.ts, keep), sealed as the pad's are. They go
+  // with the pad when it's purged, and count toward the root's bytes; history
+  // is their part of it, which a full root drops first.
+  `
+  CREATE TABLE versions (
+    root TEXT NOT NULL,
+    id TEXT NOT NULL,
+    -- The text's version: its save's time.
+    at INTEGER NOT NULL,
+    data BLOB NOT NULL,
+    PRIMARY KEY (root, id, at),
+    FOREIGN KEY (root, id) REFERENCES sealed (root, id) ON DELETE CASCADE
+  ) WITHOUT ROWID;
+  CREATE INDEX versions_by_age ON versions (root, at);
+
+  ALTER TABLE roots ADD COLUMN history INTEGER NOT NULL DEFAULT 0;
+
+  CREATE TRIGGER versions_added AFTER INSERT ON versions BEGIN
+    UPDATE roots SET bytes = bytes + length(NEW.data), history = history + length(NEW.data)
+      WHERE name = NEW.root;
+  END;
+  CREATE TRIGGER versions_removed AFTER DELETE ON versions BEGIN
+    UPDATE roots SET bytes = bytes - length(OLD.data), history = history - length(OLD.data)
+      WHERE name = OLD.root;
+  END;
   `
 ];
 

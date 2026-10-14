@@ -268,11 +268,13 @@ describe('versions', () => {
     expect((await write('PUT')).status).toBe(200);
     const { res } = await call(pads.GET, { params: { root: 'named' }, cookies });
     expect((await res!.json()).pads).toEqual([{ id, name: 'abc' }]);
-    expect(usage('named').bytes).toBe(13);
+    // And the first save's text, kept as a version.
+    expect(usage('named')).toMatchObject({ bytes: 23, history: 10 });
     expect((await write('DELETE')).status).toBe(204);
     expect((await write('PUT')).status).toBe(400);
     expect((await write('PUT', 'abcd')).status).toBe(200);
-    expect(usage('named').bytes).toBe(14);
+    // The text it had when emptied is kept too.
+    expect(usage('named')).toMatchObject({ bytes: 34, history: 20 });
   });
 
   test('two writes in one millisecond get two versions', async () => {
@@ -490,7 +492,7 @@ describe('quotas', () => {
   test('the quota counts pads and links', async () => {
     const cookies = await claimed('count');
     await save('count', cookies, 100);
-    expect(usage('count')).toEqual({ bytes: 101, pads: 1 });
+    expect(usage('count')).toEqual({ bytes: 101, history: 0, pads: 1 });
   });
 });
 
