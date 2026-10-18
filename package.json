@@ -1,7 +1,7 @@
 {
   "name": "pad.nassu.online",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A notepad at every URL, each root locked by its own password and encrypted in the browser",
   "type": "module",
   "packageManager": "bun@1.4.2",
