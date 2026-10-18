@@ -1,14 +1,18 @@
 import { expect, test } from 'bun:test';
 import { setCeiling } from './db.ts';
 import { SERVER_BYTES } from './limits.ts';
-import { count, report, wrongPassword } from './signals.ts';
+import { blockedByCsp, count, report, wrongPassword } from './signals.ts';
 
 test('the line counts refusals, failures and wrong passwords, and starts them over', () => {
   report();
   for (const status of [200, 304, 401, 404, 429, 429, 500, 507]) count(status);
   wrongPassword();
+  blockedByCsp();
+  blockedByCsp();
   const line = report()!;
-  expect(line).toContain('2 refused (429), 2 failed (5xx), 1 wrong passwords');
+  expect(line).toContain(
+    '2 refused (429), 2 failed (5xx), 1 wrong passwords, 2 blocked by the CSP'
+  );
   expect(line).not.toContain('warning');
   expect(report()).toBeNull();
 });

@@ -69,7 +69,9 @@ export default defineConfig({
           'form-action': ['self'],
           'frame-ancestors': ['none'],
           'require-trusted-types-for': ['script'],
-          'trusted-types': ['svelte-trusted-html']
+          'trusted-types': ['svelte-trusted-html'],
+          // What it blocks, counted, never read (src/routes/_/csp).
+          'report-uri': ['/_/csp']
         }
       }
     })

@@ -179,3 +179,9 @@ Every limit in effect. Sizes in bytes, times in milliseconds; =writes=, =open=, 
 
 =200= ={"padBytes": 524288, "rootBytes": 16777216, "rootPads": 5000, "serverBytes": …, "writes": {…}, …}=.
 
+
+* CSP reports
+
+** POST /_/csp
+
+Where browsers send what the Content-Security-Policy blocked on pad's pages (=report-uri=, =vite.config.ts=). Anyone may post; the body isn't read. Each counts once toward the operator's hourly line (=src/lib/server/signals.ts=). =204=.

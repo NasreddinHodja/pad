@@ -66,6 +66,8 @@ The app sets a Content-Security-Policy with a nonce per page
 (`vite.config.ts`): only its own scripts run, plus WebAssembly for Argon2id,
 and it connects only to itself. Trusted Types are enforced: a string given to
 `innerHTML` or the like throws, except through Svelte's own template policy.
+What the policy blocks, browsers report to `/_/csp`, which only counts the
+reports for the operator's hourly line and reads none of them.
 `Permissions-Policy` refuses the camera, microphone, location and the other
 device features pad never uses (`src/hooks.server.ts`). The rules:
 CONTRIBUTING.org, XSS. HSTS, `X-Content-Type-Options`,

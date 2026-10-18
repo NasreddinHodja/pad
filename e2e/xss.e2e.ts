@@ -38,3 +38,20 @@ base('a string given as HTML throws, in the pad itself', async ({ page }) => {
   });
   expect(refused).toBe('TypeError');
 });
+
+base('what the CSP blocks is reported, and pad takes the report', async ({ page }) => {
+  await page.goto('/');
+  const report = page.waitForResponse((r) => new URL(r.url()).pathname === '/_/csp');
+  // A foreign script, as an injection would add: Trusted Types refuses its
+  // address first, and that refusal is reported.
+  const thrown = await page.evaluate(() => {
+    try {
+      document.createElement('script').src = 'https://example.com/x.js';
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  expect(thrown).toBe(true);
+  expect((await report).status()).toBe(204);
+});
