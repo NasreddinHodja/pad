@@ -13,6 +13,7 @@ SvelteKit on Bun (=@sveltejs/adapter-bun=), one SQLite file through =bun:sqlite=
 | =/_/<root>/pads=, =/_/<root>/pads/<id>=                 | list, read, write, delete sealed pads           |
 | =/_/<root>/pads/batch=                                  | read many sealed pads at once                   |
 | =/_/<root>/theme=                                       | read, write the root's sealed theme             |
+| =/_/<root>/browsers=, =/_/<root>/browsers/<id>=         | list, name, sign out the signed-in browsers     |
 | =/_/<root>/s/<link>#<key>~<path>=                       | a read-only link's pages                        |
 | =/_/<root>/shares/<link>=, =/_/<root>/pads/<id>/shares= | make, read, revoke, list read-only links        |
 | =/_/limits=                                             | every limit                                     |

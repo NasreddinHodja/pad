@@ -195,6 +195,14 @@ export const sealTheme = async (keys: Keys, json: string) =>
 export const openTheme = async (keys: Keys, data: Bytes) =>
   utf8Decode.decode(await open(keys.content, data, 'pad theme'));
 
+// A signed-in browser's label ("Firefox on Linux", auth.ts), padded to 64
+// bytes: one length for all, so the server can't tell browsers by it.
+export const LABEL_BYTES = 63;
+export const sealLabel = async (keys: Keys, label: string) =>
+  sealPadded(keys.content, utf8.encode(label).subarray(0, LABEL_BYTES), 'pad browser label', 64);
+export const openLabel = async (keys: Keys, data: Bytes) =>
+  utf8Decode.decode((await openPadded(keys.content, data, 'pad browser label')).plain);
+
 // A read-only link: a copy of a pad and those under it, sealed under a key of
 // its own, which the link carries after its `#`, so the server never gets it.
 // The root keeps the key too, sealed, for its owners to list the links again.

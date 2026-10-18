@@ -3,6 +3,7 @@
 import {
   fromBase64,
   fromPassword,
+  openLabel,
   openName,
   openRootKey,
   linkKey,
@@ -14,6 +15,7 @@ import {
   padId,
   padKeys,
   random,
+  sealLabel,
   sealName,
   sealRootKey,
   sealShareKey,
@@ -23,6 +25,7 @@ import {
   toBase64,
   type Keys
 } from './crypto.ts';
+import { browserLabel } from './browser-label.ts';
 import { deflate, inflate } from './deflate.ts';
 import type { Pad } from './export.ts';
 import {
@@ -295,6 +298,37 @@ export async function version(root: string, keys: Keys, path: string, at: number
   const res = await call(`${base(root)}/pads/${id}/versions/${at}`);
   return openText(keys, id, new Uint8Array(await res.arrayBuffer()));
 }
+
+/** A browser signed in to a root (auth.ts); `label` is null until it sends one. */
+export type Browser = {
+  id: string;
+  createdAt: number;
+  lastSeen: number;
+  label: string | null;
+  mine: boolean;
+};
+
+/** The browsers signed in to `root`, their labels opened; one that won't open is null. */
+export async function browsers(root: string, keys: Keys): Promise<Browser[]> {
+  const rows: Browser[] = await (await call(`${base(root)}/browsers`)).json();
+  return Promise.all(
+    rows.map(async (b) => ({
+      ...b,
+      label: b.label ? await openLabel(keys, fromBase64(b.label)).catch(() => null) : null
+    }))
+  );
+}
+
+/** Tells the server what to call this browser, sealed. */
+export async function labelBrowser(root: string, keys: Keys) {
+  await call(`${base(root)}/browsers`, {
+    method: 'PUT',
+    body: await sealLabel(keys, browserLabel(navigator.userAgent)),
+    headers: { 'content-type': 'application/octet-stream' }
+  });
+}
+
+export const signOut = (root: string, id: string) => del(`${base(root)}/browsers/${id}`);
 
 /** The root's theme; null if it's never been picked. */
 export async function theme(root: string, keys: Keys) {

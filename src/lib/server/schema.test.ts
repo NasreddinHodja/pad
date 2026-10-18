@@ -81,7 +81,15 @@ test('a database from before migrations keeps its rows', () => {
     { root: 'a', id: 'p', name: 'n', data: key, updated_at: 3, deleted_at: null }
   ]);
   expect(db.query('SELECT * FROM unlocks').all()).toEqual([
-    { token_hash: key, root: 'a', created_at: 4, last_seen: 5 }
+    // An id of its own since migration 8, and no label until its browser sends one.
+    {
+      token_hash: key,
+      root: 'a',
+      created_at: 4,
+      last_seen: 5,
+      id: expect.stringMatching(/^[\w-]{22}$/),
+      label: null
+    }
   ]);
   expect(db.query('SELECT * FROM devices').all()).toEqual([
     { token_hash: key, root: 'a', last_seen: 6 }
@@ -126,7 +134,9 @@ test('a purged root takes everything of its own with it', () => {
     ).run(root, key);
     db.query(`INSERT INTO sealed VALUES (?1, 'p', 'n', ?2, 3, NULL)`).run(root, key);
     db.query(`INSERT INTO versions VALUES (?1, 'p', 2, ?2)`).run(root, key);
-    db.query(`INSERT INTO unlocks VALUES (?2, ?1, 4, 5)`).run(root, key);
+    db.query(
+      `INSERT INTO unlocks (token_hash, root, created_at, last_seen) VALUES (?2, ?1, 4, 5)`
+    ).run(root, key);
     db.query(`INSERT INTO devices VALUES (?2, ?1, 6)`).run(root, key);
     db.query(`INSERT INTO shares VALUES (?1, ?1, 'p', ?2, ?2, 7, NULL, 0)`).run(root, key);
   }

@@ -6,6 +6,7 @@
 // never edited: a change is a new step.
 
 import type { Database } from 'bun:sqlite';
+import { randomBytes } from 'node:crypto';
 
 const has = (db: Database, table: string, column: string) =>
   db.query('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get(table, column) !== null;
@@ -232,7 +233,22 @@ const MIGRATIONS: (string | ((db: Database) => void))[] = [
     UPDATE roots SET bytes = bytes - length(OLD.data), history = history - length(OLD.data)
       WHERE name = OLD.root;
   END;
-  `
+  `,
+
+  // 8. A root's signed-in browsers can be listed and signed out (auth.ts):
+  // each unlock gets an id that outlives its token's renewal, and a label the
+  // browser sealed. The unlocks before get their ids now, and no label.
+  (db) => {
+    db.run('ALTER TABLE unlocks ADD COLUMN id TEXT');
+    db.run('ALTER TABLE unlocks ADD COLUMN label BLOB');
+    const rows = db.query<{ token_hash: Uint8Array; root: string }, []>(
+      'SELECT token_hash, root FROM unlocks'
+    );
+    const set = db.query('UPDATE unlocks SET id = ? WHERE token_hash = ? AND root = ?');
+    for (const r of rows.all())
+      set.run(randomBytes(16).toString('base64url'), r.token_hash, r.root);
+    db.run('CREATE UNIQUE INDEX unlocks_by_id ON unlocks (root, id)');
+  }
 ];
 
 /**

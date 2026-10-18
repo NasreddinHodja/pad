@@ -85,6 +85,12 @@ export function padIdParam(raw: string) {
   return raw;
 }
 
+/** A signed-in browser's id (auth.ts): 16 random bytes, base64url. */
+export function browserIdParam(raw: string) {
+  if (!/^[A-Za-z0-9_-]{22}$/.test(raw)) error(400, 'not a valid browser id');
+  return raw;
+}
+
 /** A read-only link's id: 16 random bytes, base64url. */
 export function shareIdParam(raw: string) {
   if (!/^[A-Za-z0-9_-]{22}$/.test(raw)) error(400, 'not a valid link');

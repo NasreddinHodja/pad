@@ -44,9 +44,13 @@
     busy = true;
     problem = '';
     try {
-      if (form === 'claim') onunlock(await api.claim(root, next));
-      else if (form === 'unlock') onunlock(await api.unlock(root, current, kdf!));
-      else {
+      if (form === 'claim' || form === 'unlock') {
+        const keys =
+          form === 'claim' ? await api.claim(root, next) : await api.unlock(root, current, kdf!);
+        // Its name in the root's list of browsers; the list asks again if this fails.
+        api.labelBrowser(root, keys).catch(() => {});
+        onunlock(keys);
+      } else {
         await api.changePassword(root, current, next, kdf!);
         await goto(href(path.split('/')), { invalidateAll: true });
       }

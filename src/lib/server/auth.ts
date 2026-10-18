@@ -13,7 +13,9 @@
 //
 // Unlocking gives the browser one opaque token in an HttpOnly cookie; the
 // database keeps only its SHA-256, per root it unlocks, so a copy of the file
-// opens nothing.
+// opens nothing. Each unlock also has an id, for the root's browsers to be
+// listed and signed out, and a label its browser sealed with the root's key
+// ("Firefox on Linux"): the server can't tell which browsers they are.
 //
 // Wrong passwords back off, but only ever on the one who sent them: a browser
 // that has unlocked the root before on its own failures, by a device token
@@ -33,6 +35,8 @@ export const SALT_BYTES = 16;
 export const AUTH_BYTES = 32;
 /** A 32-byte key, AES-GCM's 12-byte nonce and 16-byte tag. */
 export const SEALED_KEY_BYTES = 60;
+/** A browser's label: padded to 64 bytes (crypto.ts, sealLabel), nonce and tag. */
+export const SEALED_LABEL_BYTES = 92;
 
 const DAY = 24 * 60 * 60 * 1000;
 /** An unlock unused this long, or this old, is over. */
@@ -78,9 +82,25 @@ const touchStmt = db.query('UPDATE unlocks SET last_seen = ? WHERE token_hash = 
 // For retention (trash.ts): written when an unlock is made or touched.
 const usedStmt = db.query('UPDATE roots SET used_at = ? WHERE name = ?');
 const moveStmt = db.query('UPDATE OR REPLACE unlocks SET token_hash = ? WHERE token_hash = ?');
+// Unlocking again keeps the browser's id and label.
 const addStmt = db.query(
-  `INSERT OR REPLACE INTO unlocks (token_hash, root, created_at, last_seen) VALUES (?1, ?2, ?3, ?3)`
+  `INSERT INTO unlocks (token_hash, root, created_at, last_seen, id) VALUES (?1, ?2, ?3, ?3, ?4)
+   ON CONFLICT (token_hash, root) DO UPDATE SET created_at = ?3, last_seen = ?3`
 );
+type Browser = {
+  id: string;
+  created_at: number;
+  last_seen: number;
+  label: Uint8Array | null;
+  mine: number;
+};
+const browsersStmt = db.query<Browser, [Uint8Array, string, number]>(
+  `SELECT id, created_at, last_seen, label, token_hash = ?1 AS mine FROM unlocks
+   WHERE root = ?2 AND last_seen > ?3 - ${IDLE} AND created_at > ?3 - ${ABSOLUTE}
+   ORDER BY last_seen DESC`
+);
+const labelStmt = db.query('UPDATE unlocks SET label = ? WHERE token_hash = ? AND root = ?');
+const signOutStmt = db.query('DELETE FROM unlocks WHERE root = ? AND id = ?');
 const removeStmt = db.query('DELETE FROM unlocks WHERE token_hash = ? AND root = ?');
 const revokeOthersStmt = db.query('DELETE FROM unlocks WHERE root = ? AND token_hash != ?');
 const expireStmt = db.query(
@@ -192,7 +212,7 @@ export function unlock(cookies: Cookies, root: string) {
   const hash = tokenHash(token);
   const old = cookies.get(COOKIE);
   if (old) moveStmt.run(hash, tokenHash(old));
-  addStmt.run(hash, root, now);
+  addStmt.run(hash, root, now, randomBytes(16).toString('base64url'));
   usedStmt.run(now, root);
   cookies.set(COOKIE, token, {
     path: '/',
@@ -227,6 +247,28 @@ export function rememberDevice(cookies: Cookies, root: string) {
     maxAge: DEVICE_IDLE / 1000
   });
 }
+
+/**
+ * The browsers signed in to `root`, the last used first. Their last use is
+ * written at most every hour (TOUCH_EVERY); `mine` is the one asking.
+ */
+export function browsers(cookies: Cookies, root: string) {
+  return browsersStmt.all(tokenHash(cookies.get(COOKIE) ?? ''), root, Date.now()).map((b) => ({
+    id: b.id,
+    createdAt: b.created_at,
+    lastSeen: b.last_seen,
+    label: b.label ? Buffer.from(b.label).toString('base64url') : null,
+    mine: b.mine === 1
+  }));
+}
+
+/** Sets this browser's sealed label for `root`. */
+export function labelBrowser(cookies: Cookies, root: string, label: Uint8Array) {
+  labelStmt.run(label, tokenHash(cookies.get(COOKIE) ?? ''), root);
+}
+
+/** Signs browser `id` out of `root`; false if there's no such browser. */
+export const signOut = (root: string, id: string) => signOutStmt.run(root, id).changes === 1;
 
 /** Forgets `root` on this browser. */
 export function lock(cookies: Cookies, root: string) {

@@ -118,6 +118,24 @@ Ends this browser's unlock of the root. =204=, unlocked or not.
 
 /Unlocked, metered./ Body: the sealed theme, at most 256 bytes; over: =413=. =204=.
 
+* Signed-in browsers
+
+=src/routes/_/[root]/browsers/+server.ts=, =src/routes/_/[root]/browsers/[id]/+server.ts=. A browser is one unlock of the root: =<id>= is 22 base64url characters, 16 random bytes the server picks at the unlock, kept when the same browser unlocks again.
+
+** GET /_/<root>/browsers
+
+/Unlocked./ The root's signed-in browsers, the last used first.
+
+=200= =[{"id": "…", "createdAt": <ms>, "lastSeen": <ms>, "label": "<sealed label>" | null, "mine": true | false}]=: =lastSeen= is written at most once an hour; =label= is base64url, =null= until the browser sends one; =mine= marks the browser asking.
+
+** PUT /_/<root>/browsers
+
+/Unlocked, metered./ This browser's label (="Firefox on Linux"=, =src/lib/browser-label.ts=), padded to 64 bytes and sealed under the root's content key: exactly 92 bytes, so every label is one length; otherwise =400=, or =413= over. =204=.
+
+** DELETE /_/<root>/browsers/<id>
+
+/Unlocked, metered./ Signs browser =<id>= out of the root, the one asking included. =204=; no such browser at this root: =404=.
+
 * Read-only links
 
 =src/routes/_/[root]/shares/[share]/+server.ts=, =src/routes/_/[root]/pads/[id]/shares/+server.ts=. =<link>= is 22 base64url characters, 16 bytes the browser picks.

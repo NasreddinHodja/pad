@@ -3,6 +3,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import * as api from './api.ts';
   import { both } from './both.ts';
+  import Browsers from './Browsers.svelte';
   import { forgetKeys, type Keys } from './crypto.ts';
   import Delete from './Delete.svelte';
   import { collect, download, exportPads } from './export.ts';
@@ -57,6 +58,7 @@
   let sharing = $state(false);
   let deleting = $state(false);
   let browsing = $state(false);
+  let signedIn = $state(false);
   let theming = $state(false);
   // Only a root is deleted outright; a pad under it, by emptying it.
   const isRoot = !where.path.includes('/');
@@ -300,6 +302,7 @@
     { label: 'export', disabled: !ready, run: exportAll },
     ...(isRoot ? [{ label: 'theme', disabled: !ready, run: () => (theming = true) }] : []),
     { label: 'password', href: href(segments, '?password') },
+    { label: 'browsers', disabled: !ready, run: () => (signedIn = true) },
     ...(isRoot ? [{ label: 'delete', disabled: !ready, run: () => (deleting = true) }] : []),
     { label: 'lock', run: lock }
   ]);
@@ -456,6 +459,17 @@
     {theme}
     onclose={() => {
       sharing = false;
+      textarea.focus();
+    }}
+  />
+{/if}
+
+{#if signedIn}
+  <Browsers
+    root={where.root}
+    keys={where.keys}
+    onclose={() => {
+      signedIn = false;
       textarea.focus();
     }}
   />

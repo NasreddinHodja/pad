@@ -54,6 +54,8 @@ Fixed blocks (Signal pads messages to 80 bytes) do well on small pads but show a
 
 The cookie is =__Host-pad=: =HttpOnly=, =Secure=, =SameSite=Lax=, a fresh 256-bit token on every unlock, carrying over the roots the old one had. The database keeps its SHA-256 per root. Unlocks end after 30 days unused or 180 days.
 
+Each unlock also has a random id, kept across the token's renewals, and a label its browser seals with the root's content key, padded to 64 bytes (=browsers= in the editor; =src/lib/browser-label.ts=: the browser's kind and system, from its User-Agent). The root's browsers list each other by id, when they signed in and were last used, and the labels, which only they open; any can sign another out. A copy of the database shows how many browsers each root has, and those times, not which browsers they are.
+
 * Wrong passwords
 
 Five are free; after that each doubles the wait, up to 15 minutes. Whose failures count:

@@ -36,7 +36,11 @@ guards is access, not the text:
   of a value derived from it with Argon2id, so a copy of the database is only
   good for guessing at Argon2id's cost.
 - **The unlocks.** Cookie tokens are 256 random bits, stored only as their
-  SHA-256, so a copy of the database opens nothing.
+  SHA-256, so a copy of the database opens nothing. A root's signed-in
+  browsers can see each other, and sign any out: each unlock keeps when it
+  began and was last used (to the hour), and a label its browser sealed
+  under the root's key, padded to one length, so the server can't tell
+  which browsers they are.
 
 How the keys, the unlock and the read-only links work, and what a copy of the
 database still shows: [Encryption and access](docs/architecture/encryption.org).

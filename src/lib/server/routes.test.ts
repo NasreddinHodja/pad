@@ -12,6 +12,8 @@ import { kdfOf } from './auth.ts';
 import * as share from '../../routes/_/[root]/shares/[share]/+server.ts';
 import * as padShares from '../../routes/_/[root]/pads/[id]/shares/+server.ts';
 import * as theme from '../../routes/_/[root]/theme/+server.ts';
+import * as browsersRoute from '../../routes/_/[root]/browsers/+server.ts';
+import * as browserRoute from '../../routes/_/[root]/browsers/[id]/+server.ts';
 import { db, padVersion, setCeiling, usage } from './db.ts';
 import {
   CONCURRENT,
@@ -629,5 +631,96 @@ describe('links', () => {
       [week, false],
       [null, true]
     ]);
+  });
+});
+
+describe('browsers', () => {
+  const json = { 'content-type': 'application/json' };
+  // Two browsers at one root: the one that claimed it, and one that unlocked it after.
+  async function two(root: string) {
+    const secret = b64(32);
+    const first = jar();
+    const body = JSON.stringify({
+      salt: b64(16),
+      argon2: ARGON2,
+      auth: secret,
+      sealedKey: b64(60)
+    });
+    await call(auth.POST, {
+      method: 'POST',
+      params: { root, action: 'claim' },
+      body,
+      headers: json,
+      cookies: first
+    });
+    const second = jar();
+    const unlock = () =>
+      call(auth.POST, {
+        method: 'POST',
+        params: { root, action: 'unlock' },
+        body: JSON.stringify({ auth: secret }),
+        headers: json,
+        cookies: second
+      });
+    expect((await unlock()).status).toBe(200);
+    return { first, second, unlock };
+  }
+  const list = async (root: string, cookies: Cookies) => {
+    const r = await call(browsersRoute.GET, { params: { root }, cookies });
+    return r.status === 200 ? await r.res!.json() : r.status;
+  };
+  const label = (root: string, cookies: Cookies, size: number) =>
+    call(browsersRoute.PUT, {
+      method: 'PUT',
+      params: { root },
+      body: new Uint8Array(size),
+      cookies
+    });
+
+  test('a root lists its browsers, the asking one marked, labels as they were sent', async () => {
+    const { first, second } = await two('browsing');
+    expect((await label('browsing', second, 92)).status).toBe(204);
+    const seen = await list('browsing', first);
+    expect(seen).toHaveLength(2);
+    expect(seen.filter((b: { mine: boolean }) => b.mine)).toHaveLength(1);
+    // The second sent its label; the first hasn't yet.
+    expect(seen.map((b: { label: string | null }) => b.label)).toContain(null);
+    expect(seen.map((b: { label: string | null }) => b.label)).toContain(
+      Buffer.alloc(92).toString('base64url')
+    );
+  });
+
+  test('a label is one size, no other', async () => {
+    const { first } = await two('labelled');
+    expect((await label('labelled', first, 91)).status).toBe(400);
+    expect((await label('labelled', first, 93)).status).toBe(413);
+  });
+
+  test('a browser keeps its id when it unlocks again, and another can sign it out', async () => {
+    const { first, second, unlock } = await two('signout');
+    const id = (await list('signout', second)).find((b: { mine: boolean }) => b.mine).id;
+    await unlock();
+    expect((await list('signout', second)).find((b: { mine: boolean }) => b.mine).id).toBe(id);
+    const out = await call(browserRoute.DELETE, {
+      method: 'DELETE',
+      params: { root: 'signout', id },
+      cookies: first
+    });
+    expect(out.status).toBe(204);
+    expect(await list('signout', second)).toBe(401);
+    expect(await list('signout', first)).toHaveLength(1);
+  });
+
+  test("another root's browser, or none, isn't signed out; a stranger can't list or sign out", async () => {
+    const a = await two('roota');
+    const b = await two('rootb');
+    const idB = (await list('rootb', b.second)).find((x: { mine: boolean }) => x.mine).id;
+    const del = (root: string, id: string, cookies: Cookies) =>
+      call(browserRoute.DELETE, { method: 'DELETE', params: { root, id }, cookies });
+    expect((await del('roota', idB, a.first)).status).toBe(404);
+    expect((await del('roota', b64(16), a.first)).status).toBe(404);
+    expect((await del('rootb', idB, a.first)).status).toBe(401);
+    expect(await list('rootb', a.first)).toBe(401);
+    expect(await list('rootb', b.second)).toHaveLength(2);
   });
 });

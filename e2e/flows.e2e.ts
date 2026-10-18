@@ -356,3 +356,27 @@ test.describe('a revoked link', () => {
     );
   });
 });
+
+test('a browser signs another out of the root, which finds itself locked', async ({
+  page,
+  newContext
+}) => {
+  const root = await claimNew(page);
+  const other = await (await newContext()).newPage();
+  await other.goto('/' + root);
+  await unlock(other, root);
+  await opened(other);
+
+  await page.getByRole('button', { name: 'browsers', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: `browsers signed in to /${root}` });
+  // Each named by its own browser: this one, and the other, also Chromium here.
+  await expect(dialog.getByRole('listitem')).toHaveCount(2);
+  await expect(dialog.getByText('this browser')).toBeVisible();
+  await expect(dialog.getByText(/^Chromium on /)).toHaveCount(2);
+  await expectAccessible(page, 'browsers dialog');
+  await dialog.getByRole('button', { name: /^sign out Chromium/ }).click();
+  await expect(dialog.getByRole('listitem')).toHaveCount(1);
+
+  await other.reload();
+  await expect(other.getByRole('heading', { level: 1, name: `/${root} is locked` })).toBeVisible();
+});
