@@ -107,7 +107,9 @@ Renderers above blank, MiB; times from the submit (or navigation) until the text
 + Typing 50 characters (9.5 s): 5 =PUT=, 1,249,420 bytes sent (249,884 each: every save sends the whole sealed pad), 2,990 received; one =GET= after, 304.
 + To a sub-pad and back: the list and the pad each way, all 304; 89–92 ms there, 16–19 back.
 + Export of the max root: 51 requests, the list (304) and 50 =POST= to =/pads/batch=: 15,450,812 bytes received, 230,450 sent; 3.6–3.7 s.
-+ Cache off: the pad's second visit 507.4 KiB (17 scripts), the read-only link page 308.8 KiB (16 scripts), neither loading the Argon2 chunk. On 2026-10-12 they were 460.5 and 194.5 KiB (Fixes); the growth isn't looked into.
++ Cache off: the pad's second visit 507.4 KiB (17 scripts), the read-only link page 308.8 KiB (16 scripts), neither loading the Argon2 chunk. On 2026-10-12 they were 460.5 and 194.5 KiB (Fixes). Most of it is the text, not pad:
+  + The link page downloads the link's copy, the root's every pad deflated. The old generator's repeated block deflated the average root to 39.1 KiB; =text.ts='s, to 121.4 (=Bun.deflateSync= of the texts): +82 of the +114.
+  + Pad's own code, both commits built with the same =bun.lock=: =_app/immutable= went from 193,031 bytes in 19 files (5bbb911) to 223,886 in 23 (0.2.1). Of the +30.9 KB, 11.6 is the about page, which loads only there; the editor's page node grew 32.1 → 36.7 KB and its shared chunks by ~9.5 (history, links' options, padding). A pad's page loads ~15 KB more code than it did.
 + The theme on a reload: 6 changes to =<html>='s style, =--texture= set 3 times; 60 colours dragged in the picker: =--texture= set 61 times, 1 of them =none=. As after the fixes of 2026-10-12.
 + Paint while typing, the background texture on and off: Paint 96.6–97.7 against 97.2–99.1 ms, Layout 126.7–128.0 against 124.1–125.2: the same. The dialogs' checker: raster 37.1–40.1 against 18.9–21.1 ms.
 + The finder on the max root: opening it 12–14 ms of script and 2 of layout, two keys 4–5; 14 rows, 912 nodes.
