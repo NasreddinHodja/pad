@@ -2,7 +2,7 @@
 #+DESCRIPTION: A notepad at every URL
 #+OPTIONS: ^:{}
 
-A notepad at every URL, like dontpad: open =/anything=, type, and it saves. The first segment of a path is its root; whoever saves under a root first sets its password, which guards reading and writing every pad under it. Pads are encrypted in the browser with keys from that password: the server never sees it, a pad's text or the path under the root. Self-hosted as one Docker image and one SQLite file, for amd64 and arm64; the author's runs at [[https://pad.nassu.online][pad.nassu.online]].
+A notepad at every URL: open =/anything=, type, and it saves. The first segment of a path is its root; whoever saves under a root first sets its password, which guards reading and writing every pad under it. Pads are encrypted in the browser with keys from that password: the server never sees it, a pad's text or the path under the root. Self-hosted as one Docker image and one SQLite file, for amd64 and arm64; the author's runs at [[https://pad.nassu.online][pad.nassu.online]].
 
 #+html: <p align="center"><img src="docs/screenshots/desktop.png" alt="A pad, its finder open on the pads under it" width="560">&nbsp;&nbsp;<img src="docs/screenshots/phone.png" alt="The same pad on a phone" width="180"></p>
 
